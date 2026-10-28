@@ -51,7 +51,7 @@ export default function CoachPanel({ data, onOpenExercise, onChanged }: { data: 
           <button className="link small" onClick={() => setDeload(false)} disabled={busy}>End deload now</button>
         </div>
       ) : ov.deloadAdvised ? (
-        <div className="coach-alert tone-bad">
+        <div className="coach-alert tone-warn">
           <p><strong>Deload recommended.</strong> {ov.deloadReason} One lighter week clears fatigue that's hiding your strength, which matters more in a deficit.</p>
           <button className="btn primary" onClick={() => setDeload(true)} disabled={busy}>Start a deload week</button>
         </div>

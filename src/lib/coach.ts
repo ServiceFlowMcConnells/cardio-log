@@ -43,7 +43,7 @@ export const STATUS_LABEL: Record<CoachStatus, string> = {
 // Tone for the status chip
 export const STATUS_TONE: Record<CoachStatus, "good" | "neutral" | "warn" | "bad"> = {
   new: "neutral", build_reps: "good", add_weight: "good", add_set: "neutral", consolidate: "neutral", reset: "warn",
-  protect: "bad", recover: "warn", deload: "warn", readiness_hold: "warn",
+  protect: "warn", recover: "warn", deload: "warn", readiness_hold: "warn",
 };
 
 export type Progression = "rep_range" | "fixed";
