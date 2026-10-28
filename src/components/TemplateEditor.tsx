@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { AppData } from "../App";
 import type { Template, TemplateExercise } from "../lib/strength";
-import { MUSCLE_LABEL, bestE1rmBefore, fmtKg, loadFor, roundTo } from "../lib/strength";
+import { MUSCLE_LABEL, fmtKg, suggestWorking } from "../lib/strength";
 import { deleteTemplate, saveTemplate } from "../lib/strengthData";
 import ExercisePicker from "./ExercisePicker";
 
@@ -107,10 +107,11 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
         {rows.length === 0 && <div className="empty"><p>Add the exercises for this workout, then set sets × reps for each.</p></div>}
         {rows.map((r, i) => {
           const info = exMap.get(r.exercise_id);
-          const ref = bestE1rmBefore(r.exercise_id, workouts, nowIso, settings.e1rm_formula);
           const rpe = r.target_rpe.trim() ? Number(r.target_rpe.replace(",", ".")) : null;
-          const lo = Number(r.rep_min);
-          const load = ref && rpe && lo ? loadFor(ref, lo, rpe, settings.e1rm_formula) : null;
+          const lo = Number(r.rep_min), hi = Number(r.rep_max || r.rep_min);
+          const sug = lo >= 1 && hi >= lo
+            ? suggestWorking(r.exercise_id, { rep_min: lo, rep_max: hi, target_rpe: rpe != null && !Number.isNaN(rpe) ? rpe : null }, workouts, nowIso, { formula: settings.e1rm_formula, inc: settings.weight_increment })
+            : null;
           return (
             <div className="block-card strength" key={r.key}>
               <div className="head">
@@ -133,11 +134,11 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
                 <label className="field"><span>Note</span><input className="input" value={r.notes} placeholder="Optional" onChange={(e) => upd(r.key, { notes: e.target.value })} /></label>
               </div>
               <p className="small muted" style={{ marginTop: 8 }}>
-                {load
-                  ? `Suggested working weight now: ${fmtKg(roundTo(load, settings.weight_increment, "down"))} kg (${lo} reps at RPE ${rpe}, from your estimated 1RM of ${fmtKg(Math.round(ref! * 10) / 10)} kg).`
+                {sug?.kg != null
+                  ? `Next time: ${fmtKg(sug.kg)} kg. ${sug.why ?? ""}.`
                   : rpe
-                    ? "Once you've logged this exercise, the app suggests a working weight from your estimated 1RM and this RPE."
-                    : "Without a target RPE, the app suggests adding weight once you hit the top of the rep range on every set."}
+                    ? "Once you've logged this exercise, the app suggests a working weight from what you lifted and this RPE."
+                    : "The app suggests adding weight once you hit the top of the rep range on every set."}
               </p>
             </div>
           );

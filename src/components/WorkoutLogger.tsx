@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { AppData } from "../App";
 import type { SetType, Template, WSet, Workout } from "../lib/strength";
 import {
-  MUSCLE_LABEL, SET_TYPE_LABEL, SET_TYPE_SHORT, bestE1rm, bestE1rmBefore, fmtKg, fmtTonnage, loadFor,
-  pctChange, previousFor, progressionHint, roundTo, volume,
+  MUSCLE_LABEL, SET_TYPE_LABEL, SET_TYPE_SHORT, bestE1rm, bestE1rmBefore, fmtKg, fmtTonnage,
+  pctChange, previousFor, roundTo, suggestWorking, volume,
 } from "../lib/strength";
 import { toLocalInput } from "../lib/dates";
 import type { Adjustment, Checkin } from "../lib/readiness";
@@ -156,7 +156,6 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
   const planAdj: Adjustment | null = draft.checkinScore != null ? adjustmentFor({ score: draft.checkinScore, soreness: draft.checkinSoreness ?? 3 }) : null;
   const adj: Adjustment | null = draft.useAdj && !isEdit ? planAdj : null;
   const factor = adj?.loadFactor ?? 1;
-  const scale = (kg: number) => (factor === 1 ? kg : roundTo(kg * factor, inc, factor < 1 ? "down" : "nearest"));
   useEffect(() => {
     if (isEdit) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -179,36 +178,16 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
   /** What to pre-fill for a set: previous performance, progression, or a target-RPE load from your e1RM. */
   function suggestions(ex: LExercise) {
     const prev = previousFor(ex.exercise_id, workouts, draft.started_at, draft.id);
+    // Reference for the %1RM shown per set (same as the workout summary uses)
     const ref = bestE1rmBefore(ex.exercise_id, workouts, draft.started_at, formula, draft.id);
-    const plan = ex.plan;
-    let workingKg: number | null = null;
-    let why: string | null = null;
-    const pct = factor === 1 ? "" : ` (${factor > 1 ? "+" : "−"}${Math.round(Math.abs(factor - 1) * 1000) / 10}% for readiness)`;
-    const rpeToday = adjustedRpe(plan?.target_rpe ?? null, adj);
-    if (plan?.target_rpe && ref) {
-      const l = loadFor(ref, plan.rep_min, plan.target_rpe, formula);
-      if (l) {
-        workingKg = factor === 1 ? roundTo(l, inc, "down") : scale(l);
-        why = `${fmtKg(workingKg)} kg for ${plan.rep_min} reps${pct}, from your estimated 1RM of ${fmtKg(Math.round(ref * 10) / 10)} kg. Stop at RPE ${rpeToday}`;
-      }
-    }
-    const hint = plan ? progressionHint(prev?.sets ?? null, plan.rep_max, inc) : null;
-    if (workingKg == null && hint) {
-      if (!adj || adj.allowProgression) {
-        workingKg = scale(hint.from + hint.addKg);
-        why = `You hit ${plan!.rep_max} reps on every set last time. Go up to ${fmtKg(workingKg)} kg${pct}`;
-      } else {
-        workingKg = scale(hint.from);
-        why = `You've earned a weight increase, but readiness is ${BAND_LABEL[adj.band].toLowerCase()} today. Use ${fmtKg(workingKg)} kg${pct} and add weight next time`;
-      }
-    } else if (workingKg == null && adj && factor !== 1 && prev) {
-      const top = Math.max(0, ...prev.sets.filter((x) => x.set_type !== "warmup").map((x) => x.weight_kg));
-      if (top > 0) {
-        workingKg = scale(top);
-        why = `${fmtKg(workingKg)} kg: last time's ${fmtKg(top)} kg${pct}`;
-      }
-    }
-    return { prev, ref, workingKg, why, rpeToday };
+    const rpeToday = adjustedRpe(ex.plan?.target_rpe ?? null, adj);
+    const s = suggestWorking(ex.exercise_id, ex.plan, workouts, draft.started_at, {
+      formula, inc, excludeId: draft.id, loadFactor: factor,
+      allowProgression: adj ? adj.allowProgression : true,
+      readinessLabel: adj ? BAND_LABEL[adj.band].toLowerCase() : undefined,
+    });
+    const why = s.why && rpeToday != null ? `${s.why}. Stop at RPE ${rpeToday}` : s.why;
+    return { prev, ref, workingKg: s.kg, increased: s.increased, why, rpeToday };
   }
 
   function placeholderFor(ex: LExercise, idx: number, sug: ReturnType<typeof suggestions>) {
@@ -216,8 +195,8 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     const p = prevMatch(ex, idx, sug);
     const weight = s.set_type !== "warmup" && sug.workingKg != null ? fmtKg(sug.workingKg) : p ? fmtKg(p.weight_kg) : "";
     const working = s.set_type !== "warmup";
-    // A new target load is set for the bottom of the rep range; otherwise repeat last time's reps.
-    const reps = working && ex.plan && sug.workingKg != null ? String(ex.plan.rep_min) : p ? String(p.reps) : working && ex.plan ? String(ex.plan.rep_min) : "";
+    // After a weight increase aim for the bottom of the rep range; otherwise beat last time's reps.
+    const reps = working && ex.plan && sug.increased ? String(ex.plan.rep_min) : p ? String(p.reps) : working && ex.plan ? String(ex.plan.rep_min) : "";
     const rpe = s.set_type !== "warmup" && sug.rpeToday != null ? String(sug.rpeToday) : "";
     return { weight, reps, rpe };
   }

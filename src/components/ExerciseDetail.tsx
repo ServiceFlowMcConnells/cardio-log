@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { AppData } from "../App";
 import type { Workout } from "../lib/strength";
 import {
+  trainingE1rm,
   EQUIPMENT_LABEL, MUSCLE_LABEL, REP_MAX_ROWS, RELIABLE_REPS, bestE1rm, e1rm, fmtKg, fmtTonnage, isWorking, loadFor,
   pctOf1rm, rirFromRpe, roundTo, volume,
 } from "../lib/strength";
@@ -54,9 +55,11 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
     if (v > 0) volPts.push({ t, v });
   }
   const allBest = e1rmPts.length ? Math.max(...e1rmPts.map((p) => p.v)) : null;
-  const recentPts = e1rmPts.filter((p) => p.t > Date.now() - 56 * DAY);
-  const working1rm = recentPts.length ? Math.max(...recentPts.map((p) => p.v)) : allBest;
-  const usingRecent = recentPts.length > 0 && working1rm !== allBest;
+  // Rep maxes and the calculator use your recent training e1RM (last session's average across working sets),
+  // which is more conservative than the single best set.
+  const training = trainingE1rm(exerciseId, workouts, new Date(Date.now() + DAY).toISOString(), f);
+  const working1rm = training ?? allBest;
+  const usingRecent = training != null;
 
   const allSets = sessions.flatMap((s) => s.sets.filter(isWorking).map((x) => ({ ...x, at: s.w.started_at })));
   const heaviest = allSets.reduce<null | (typeof allSets)[number]>((a, s) => (!a || s.weight_kg > a.weight_kg ? s : a), null);
@@ -109,8 +112,10 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
               <span className="of">kg e1RM</span>
             </div>
             <p className="muted small" style={{ marginTop: 8 }}>
-              {usingRecent ? `Best from the last 8 weeks (all-time ${fmtKg(Math.round(allBest! * 10) / 10)} kg). ` : ""}
-              Estimated with the {FORMULA_LABEL[f]} from your best set{f === "rpe" ? ", using the RPE you logged" : ""}. Change the method in Settings.
+              {usingRecent
+                ? `Your last session's average across working sets, used for the tables and suggestions below. Best single set: ${fmtKg(Math.round(allBest! * 10) / 10)} kg. `
+                : "From your best set (nothing in the last 8 weeks). "}
+              Estimated with the {FORMULA_LABEL[f]}{f === "rpe" ? ", using the RPE you logged" : ""}. Change the method in Settings.
             </p>
             {trend && <p className={`trend ${trend.dir}`}>{trend.text}</p>}
           </div>

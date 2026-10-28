@@ -15,7 +15,7 @@
 //      since the previous weigh-in (usually water/glycogen) −3.
 //
 // Bands set the workout plan (RPE-based autoregulation):
-//   90+  Primed      loads +2.5%, plan as written, progression allowed
+//   90+  Primed      plan as written; take any weight increase you've earned (no extra load on top)
 //   70+  Ready       as planned
 //   55+  Moderate    loads −5%, don't go past target RPE, no load progression today
 //   40+  Low         loads −10%, one fewer set per exercise, target RPE −1
@@ -146,7 +146,7 @@ export function bandFor(score: number): Band {
 export function adjustmentFor(c: Pick<Checkin, "score" | "soreness">): Adjustment {
   const band = bandFor(c.score);
   const base: Record<Band, Omit<Adjustment, "band" | "score" | "reasons">> = {
-    primed: { loadFactor: 1.025, rpeOffset: 0, rpeCap: null, setDelta: 0, allowProgression: true, headline: "Push today: loads +2.5%" },
+    primed: { loadFactor: 1, rpeOffset: 0, rpeCap: null, setDelta: 0, allowProgression: true, headline: "Good day: take any weight increase you've earned" },
     ready: { loadFactor: 1, rpeOffset: 0, rpeCap: null, setDelta: 0, allowProgression: true, headline: "Train as planned" },
     moderate: { loadFactor: 0.95, rpeOffset: 0, rpeCap: null, setDelta: 0, allowProgression: false, headline: "Loads −5%, stop at your target RPE" },
     low: { loadFactor: 0.9, rpeOffset: -1, rpeCap: null, setDelta: -1, allowProgression: false, headline: "Loads −10%, one fewer set, RPE −1" },

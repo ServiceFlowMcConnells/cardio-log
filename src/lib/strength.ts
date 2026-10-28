@@ -339,3 +339,119 @@ export const COMMON_EXERCISES: { name: string; muscle: Muscle; equipment: Equipm
   { name: "Plank", muscle: "core", equipment: "bodyweight" },
   { name: "Cable Crunch", muscle: "core", equipment: "cable" },
 ];
+
+// ---------- Working-weight suggestions ----------
+//
+// Anchored to what you actually lifted (double progression), not extrapolated from a single best set:
+//  1. If you trained this exercise last time in a similar rep range, start from that working weight.
+//     - Hit the top of the rep range on every top-weight set, at or under the target RPE: add one increment.
+//     - Fell short of the bottom of the range on 2+ sets: drop ~5%.
+//     - Otherwise: same weight, beat last time's reps.
+//  2. No comparable previous session (new exercise or new rep range): load from your *recent* estimated 1RM
+//     (average across the last session's working sets, not the single best set, since RPE ratings on
+//     high-rep sets are optimistic), for the bottom of the rep range at the target RPE, rounded down.
+//     Never more than one increment above anything you've lifted for this exercise recently.
+//  3. Readiness then scales the result down on poor days (never up).
+
+/** e1RM for one session: average of working sets, preferring sets within 12 effective reps (more reliable). */
+export function sessionE1rm(sets: WSet[], formula: E1rmFormula): number | null {
+  const est = sets
+    .filter((s) => isWorking(s) && s.weight_kg > 0 && s.reps >= 1)
+    .map((s) => ({ v: e1rm(s, formula), eff: s.reps + rirFromRpe(s.rpe) }))
+    .filter((x): x is { v: number; eff: number } => x.v != null);
+  if (!est.length) return null;
+  const reliable = est.filter((x) => x.eff <= RELIABLE_REPS);
+  const use = reliable.length ? reliable : est;
+  return use.reduce((a, x) => a + x.v, 0) / use.length;
+}
+
+/** Recent training e1RM: the most recent session's average estimate (within 8 weeks). */
+export function trainingE1rm(exerciseId: string, workouts: Workout[], before: string, formula: E1rmFormula, excludeId?: string): number | null {
+  const limit = new Date(before).getTime() - 56 * 86400000;
+  for (const w of workouts) {
+    if (w.id === excludeId || w.started_at >= before) continue;
+    if (new Date(w.started_at).getTime() < limit) break;
+    const v = sessionE1rm(w.sets.filter((s) => s.exercise_id === exerciseId), formula);
+    if (v != null) return v;
+  }
+  return null;
+}
+
+export interface PlanLike { rep_min: number; rep_max: number; target_rpe: number | null }
+export interface Suggestion {
+  kg: number | null;
+  why: string | null;
+  increased: boolean; // load went up vs last time (aim for bottom of rep range)
+}
+
+export function suggestWorking(
+  exerciseId: string,
+  plan: PlanLike | null,
+  workouts: Workout[],
+  before: string,
+  opts: { formula: E1rmFormula; inc: number; excludeId?: string; loadFactor?: number; allowProgression?: boolean; readinessLabel?: string },
+): Suggestion {
+  const { formula, inc, excludeId } = opts;
+  const factor = opts.loadFactor ?? 1;
+  const allowProg = opts.allowProgression ?? true;
+  const prev = previousFor(exerciseId, workouts, before, excludeId);
+  const prevWork = prev ? prev.sets.filter((s) => isWorking(s) && s.weight_kg > 0) : [];
+  const lastTop = prevWork.length ? Math.max(...prevWork.map((s) => s.weight_kg)) : 0;
+  const atTop = prevWork.filter((s) => s.weight_kg === lastTop);
+  let kg: number | null = null;
+  let why: string | null = null;
+  let increased = false;
+
+  const repsList = atTop.map((s) => s.reps).join(", ");
+  const comparable = plan && atTop.length > 0 && atTop.every((s) => s.reps >= plan.rep_min - 2 && s.reps <= plan.rep_max + 2);
+
+  if (plan && comparable) {
+    const rpeOk = (s: WSet) => s.rpe == null || plan.target_rpe == null || s.rpe <= plan.target_rpe + 0.5;
+    const allTop = atTop.every((s) => s.reps >= plan.rep_max);
+    const earned = allTop && atTop.every(rpeOk);
+    const missed = atTop.filter((s) => s.reps < plan.rep_min).length;
+    const over = plan.target_rpe != null ? atTop.filter((s) => s.rpe != null && s.rpe > plan.target_rpe! + 1) : [];
+    const maxOver = over.length ? Math.max(...over.map((s) => s.rpe as number)) : null;
+    if (earned && allowProg) {
+      kg = lastTop + inc;
+      increased = true;
+      why = `You hit ${plan.rep_max} reps on every set at ${fmtKg(lastTop)} kg last time. Add ${fmtKg(inc)} kg and aim for ${plan.rep_min}+`;
+    } else if (earned) {
+      kg = lastTop;
+      why = `You've earned a weight increase, but readiness is ${opts.readinessLabel ?? "down"} today. Stay at ${fmtKg(lastTop)} kg and add weight next time`;
+    } else if (allTop) {
+      kg = lastTop;
+      why = `You got ${plan.rep_max} on every set, but up to RPE ${Math.max(...atTop.map((s) => s.rpe ?? 0))}, above your target of ${plan.target_rpe}. Stay at ${fmtKg(lastTop)} kg until it feels like RPE ${plan.target_rpe}`;
+    } else if (missed >= 2) {
+      kg = roundTo(lastTop * 0.95, inc, "down");
+      why = `You fell short of ${plan.rep_min} reps on ${missed} sets last time (${repsList}). Drop to ${fmtKg(kg)} kg and build back up`;
+    } else {
+      kg = lastTop;
+      why = `Stay at ${fmtKg(lastTop)} kg and beat last time's reps (${repsList}). Add weight once every set reaches ${plan.rep_max}`;
+    }
+    if (maxOver != null && !allTop) why += `. Last time went to RPE ${maxOver}, above your target of ${plan.target_rpe}, so leave a rep or two in the tank`;
+  } else if (plan?.target_rpe) {
+    const ref = trainingE1rm(exerciseId, workouts, before, formula, excludeId);
+    const l = ref ? loadFor(ref, plan.rep_min, plan.target_rpe, formula) : null;
+    if (ref && l) {
+      kg = roundTo(l, inc, "down");
+      // Don't jump more than one increment above the heaviest recent working weight
+      const recentMax = Math.max(0, ...workouts.filter((w) => w.id !== excludeId && w.started_at < before).slice(0, 6)
+        .flatMap((w) => w.sets.filter((s) => s.exercise_id === exerciseId && isWorking(s)).map((s) => s.weight_kg)));
+      if (recentMax > 0 && kg > recentMax + inc) kg = recentMax + inc;
+      increased = lastTop > 0 && kg > lastTop;
+      why = `${fmtKg(kg)} kg for ${plan.rep_min} reps at RPE ${plan.target_rpe}, from your recent estimated 1RM of ${fmtKg(Math.round(ref))} kg`;
+    }
+  } else if (lastTop > 0) {
+    kg = lastTop;
+  }
+
+  if (kg != null && factor < 1) {
+    const before2 = kg;
+    kg = Math.min(roundTo(kg * factor, inc, "nearest"), kg - inc);
+    increased = false;
+    const pct = Math.round((1 - factor) * 100);
+    why = `${why ? why + ". " : ""}Readiness: −${pct}% today, ${fmtKg(before2)} → ${fmtKg(kg)} kg`;
+  }
+  return { kg, why, increased };
+}
