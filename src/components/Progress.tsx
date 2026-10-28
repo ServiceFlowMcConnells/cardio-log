@@ -60,7 +60,8 @@ function TrendChart({ points, color, unit }: { points: Point[]; color: string; u
   const x = (t: number) => padL + ((t - t0) / (t1 - t0)) * (W - padL - padR);
   const y = (v: number) => padT + (H - padT - padB) * (1 - (v - v0) / (v1 - v0));
   const d = points.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
-  const yTicks = [v0 + pad, (v0 + v1) / 2, v1 - pad];
+  const span = v1 - v0;
+  const yTicks = points.length > 1 && Math.max(...vs) > Math.min(...vs) ? [v0 + span * 0.15, (v0 + v1) / 2, v1 - span * 0.15] : [(v0 + v1) / 2];
   const xTicks = [t0, (t0 + t1) / 2, t1];
   return (
     <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Trend in ${unit}`}>
@@ -111,10 +112,8 @@ function OutputSection({ machine, sessions }: { machine: Machine; sessions: Sess
 
   return (
     <div className="panel">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-        <h3><i className={`dot ${machine}`} /> {MACHINE_LABEL[machine]}</h3>
-        {trend && <span className={`trend ${trend.dir}`}>{trend.text}</span>}
-      </div>
+      <h3><i className={`dot ${machine}`} /> {MACHINE_LABEL[machine]}</h3>
+      {trend && <p className={`trend ${trend.dir}`}>{trend.text}</p>}
       {points.length === 0 ? (
         <p className="chart-note">Log {needs} on a {MACHINE_LABEL[machine].toLowerCase()} block to start this chart.</p>
       ) : (
@@ -199,9 +198,10 @@ export default function Progress({ sessions, settings, onLog }: { sessions: Sess
   const map = groupByWeek(sessions, z);
   const weeks = recentWeeks(map, 12);
   const target = settings.weekly_target_min;
-  const completed = weeks.slice(0, -1);
+  const firstLogged = sessions.length ? new Date(sessions[sessions.length - 1].performed_at).getTime() : Date.now();
+  // Only count finished weeks since you started logging
+  const completed = weeks.slice(0, -1).filter((w) => w.start.getTime() + 7 * 86400000 > firstLogged);
   const hits = completed.filter((w) => w.minutes >= target).length;
-  const activeWeeks = completed.filter((w) => w.minutes > 0).length;
 
   if (sessions.length === 0) {
     return (
@@ -224,13 +224,13 @@ export default function Progress({ sessions, settings, onLog }: { sessions: Sess
   const allWeeks = [...map.values()];
   const bestWeek = allWeeks.reduce((a, w) => (w.minutes > a.minutes ? w : a), allWeeks[0]);
   let bestWatts: { w: number; date: Date } | null = null;
-  let steepest: { label: string; date: Date; score: number } | null = null;
+  let steepest: { incline: number; speed: number; date: Date } | null = null;
   for (const s of sessions) {
     for (const b of s.blocks) {
       if (b.machine === "bike" && b.avg_watts != null && (!bestWatts || b.avg_watts > bestWatts.w)) bestWatts = { w: b.avg_watts, date: new Date(s.performed_at) };
-      if (b.machine === "treadmill" && b.speed_kmh) {
-        const score = b.speed_kmh * (1 + (b.incline_pct ?? 0) / 10) * Math.min(b.duration_min, 60);
-        if (!steepest || score > steepest.score) steepest = { score, label: settingsSummary(b) + `, ${Math.round(b.duration_min)} min`, date: new Date(s.performed_at) };
+      if (b.machine === "treadmill" && b.incline_pct != null && b.speed_kmh != null) {
+        const better = !steepest || b.incline_pct > steepest.incline || (b.incline_pct === steepest.incline && b.speed_kmh > steepest.speed);
+        if (better) steepest = { incline: b.incline_pct, speed: b.speed_kmh, date: new Date(s.performed_at) };
       }
     }
   }
@@ -246,9 +246,9 @@ export default function Progress({ sessions, settings, onLog }: { sessions: Sess
         </div>
         <WeeklyBars weeks={weeks} target={target} />
         <p className="chart-note">
-          {activeWeeks > 0
-            ? `Target hit in ${hits} of the last ${completed.length} finished weeks. Dashed line is your ${target} min target; green bars hit it.`
-            : `Dashed line is your ${target} min target. Finished weeks turn green when you hit it.`}
+          {completed.length > 0
+            ? `Target hit in ${hits} of ${completed.length} finished week${completed.length === 1 ? "" : "s"} since you started. Dashed line is your ${target} min target; green bars hit it.`
+            : `Dashed line is your ${target} min target. Weeks turn green when you hit it.`}
         </p>
       </section>
 
@@ -283,8 +283,8 @@ export default function Progress({ sessions, settings, onLog }: { sessions: Sess
           )}
           {steepest && (
             <div className="stat">
-              <div className="v" style={{ fontSize: "1.2rem", lineHeight: 1.15 }}>{steepest.label}</div>
-              <div className="l">Toughest treadmill block, {formatShort(steepest.date)}</div>
+              <div className="v">{steepest.incline}%</div>
+              <div className="l">Steepest incline (at {steepest.speed} km/h), {formatShort(steepest.date)}</div>
             </div>
           )}
           {bestWatts && (

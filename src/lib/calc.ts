@@ -95,13 +95,14 @@ export function round(n: number, dp = 1): number {
 
 export function settingsSummary(b: Block): string {
   const parts: string[] = [];
+  const r = (n: number) => round(n, 1);
   if (b.machine === "treadmill") {
-    if (b.speed_kmh != null) parts.push(`${b.speed_kmh} km/h`);
-    if (b.incline_pct != null) parts.push(`${b.incline_pct}% incline`);
+    if (b.speed_kmh != null) parts.push(`${r(b.speed_kmh)} km/h`);
+    if (b.incline_pct != null) parts.push(`${r(b.incline_pct)}% incline`);
   } else {
-    if (b.resistance != null) parts.push(`level ${b.resistance}`);
-    if (b.rpm != null) parts.push(`${b.rpm} rpm`);
-    if (b.avg_watts != null) parts.push(`${b.avg_watts} W`);
+    if (b.resistance != null) parts.push(`level ${r(b.resistance)}`);
+    if (b.rpm != null) parts.push(`${Math.round(b.rpm)} rpm`);
+    if (b.avg_watts != null) parts.push(`${Math.round(b.avg_watts)} W`);
   }
   return parts.join(", ");
 }

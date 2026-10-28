@@ -21,8 +21,8 @@ export default function SessionCard({ session, settings, onOpen }: { session: Se
         const summary = settingsSummary(b);
         return (
           <div className="block-line" key={b.id ?? i}>
-            <span className={`dot ${b.machine}`} aria-hidden="true" />
             <span>
+              <span className={`dot ${b.machine}`} aria-hidden="true" style={{ marginRight: 8 }} />
               {MACHINE_LABEL[b.machine]} {Math.round(b.duration_min)} min{summary ? `, ${summary}` : ""}
             </span>
             {b.avg_hr != null && <span className={`chip ${zs ?? ""}`}>{b.avg_hr} bpm{zs ? ` ${ZONE_TEXT[zs]}` : ""}</span>}
