@@ -1,19 +1,26 @@
-import type { Session, Settings } from "../lib/types";
+import type { AppData } from "../App";
+import type { Session } from "../lib/types";
+import type { Exercise, Workout } from "../lib/strength";
+import { fmtTonnage, isWorking, pctChange, volume } from "../lib/strength";
 import { addDays, formatMinutes, formatShort, startOfWeek, weekKey } from "../lib/dates";
 import { emptyWeek, groupByWeek, zoneFor } from "../lib/calc";
 import SessionCard from "./SessionCard";
+import WorkoutCard from "./WorkoutCard";
+import { Delta } from "./WorkoutLogger";
 
 const DAY_LETTERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 interface Props {
-  sessions: Session[];
-  settings: Settings;
-  onLog: () => void;
-  onOpen: (s: Session) => void;
+  data: AppData;
+  onLogCardio: () => void;
+  onOpenSession: (s: Session) => void;
+  onOpenWorkout: (w: Workout) => void;
+  onTrain: () => void;
   goSettings: () => void;
 }
 
-export default function WeekView({ sessions, settings, onLog, onOpen, goSettings }: Props) {
+export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, goSettings }: Props) {
+  const { sessions, settings, workouts, exercises } = data;
   const z = zoneFor(settings);
   const start = startOfWeek(new Date());
   const weeks = groupByWeek(sessions, z);
@@ -39,10 +46,17 @@ export default function WeekView({ sessions, settings, onLog, onOpen, goSettings
   return (
     <>
       <div className="page-head">
-        <h1>This week</h1>
-        <span className="muted small">
-          {formatShort(start)} – {formatShort(addDays(start, 6))}
-        </span>
+        <div>
+          <h1>This week</h1>
+          <span className="muted small">
+            {formatShort(start)} – {formatShort(addDays(start, 6))}
+          </span>
+        </div>
+        <button className="icon-btn gear" onClick={goSettings} aria-label="Settings">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" />
+          </svg>
+        </button>
       </div>
 
       <section className="belt-wrap" aria-label="Weekly cardio minutes">
@@ -126,24 +140,67 @@ export default function WeekView({ sessions, settings, onLog, onOpen, goSettings
         </div>
       </div>
 
+      <StrengthWeek workouts={workouts} exercises={exercises} start={start} onOpen={onOpenWorkout} onTrain={onTrain} />
+
       <section className="section">
-        <h2>Sessions</h2>
+        <h2>Cardio sessions</h2>
         {w.sessions.length === 0 ? (
           <div className="empty">
             <p>Log a session after you finish on the treadmill or bike.</p>
-            <button className="btn primary" onClick={onLog}>Log session</button>
+            <button className="btn primary" onClick={onLog}>Log cardio</button>
           </div>
         ) : (
           <>
             {w.sessions.map((s) => (
               <SessionCard key={s.id} session={s} settings={settings} onOpen={onOpen} />
             ))}
-            <button className="btn primary block" style={{ marginTop: 12 }} onClick={onLog}>Log session</button>
+            <button className="btn primary block" style={{ marginTop: 12 }} onClick={onLog}>Log cardio</button>
           </>
         )}
         {w.calories > 0 && <p className="muted small" style={{ marginTop: 10 }}>Machine-reported calories this week: {Math.round(w.calories)}. Treat these as rough.</p>}
         {w.minutes > 0 && <p className="muted small" style={{ marginTop: 4 }}>Total time this week: {formatMinutes(w.minutes)}.</p>}
       </section>
     </>
+  );
+}
+
+function StrengthWeek({ workouts, exercises, start, onOpen, onTrain }: { workouts: Workout[]; exercises: Exercise[]; start: Date; onOpen: (w: Workout) => void; onTrain: () => void }) {
+  const end = addDays(start, 7).getTime();
+  const lastStart = addDays(start, -7).getTime();
+  const inRange = (w: Workout, a: number, b: number) => { const t = new Date(w.started_at).getTime(); return t >= a && t < b; };
+  const thisWeek = workouts.filter((w) => inRange(w, start.getTime(), end));
+  const lastWeek = workouts.filter((w) => inRange(w, lastStart, start.getTime()));
+  const vol = thisWeek.reduce((a, w) => a + volume(w.sets), 0);
+  const lastVol = lastWeek.reduce((a, w) => a + volume(w.sets), 0);
+  const sets = thisWeek.reduce((a, w) => a + w.sets.filter(isWorking).length, 0);
+  // Like-for-like: last week's volume up to the same point in the week
+  const elapsed = Date.now() - start.getTime();
+  const lastSoFar = workouts.filter((w) => inRange(w, lastStart, lastStart + elapsed)).reduce((a, w) => a + volume(w.sets), 0);
+
+  return (
+    <section className="section">
+      <h2>Strength</h2>
+      {thisWeek.length === 0 ? (
+        <div className="empty">
+          <p>No lifting logged this week{lastWeek.length ? ` (${lastWeek.length} workout${lastWeek.length === 1 ? "" : "s"} last week)` : ""}.</p>
+          <button className="btn primary" onClick={onTrain}>{exercises.length ? "Start a workout" : "Set up your exercises"}</button>
+        </div>
+      ) : (
+        <>
+          <div className="stats">
+            <div className="stat"><div className="v">{thisWeek.length}</div><div className="l">workout{thisWeek.length === 1 ? "" : "s"}</div></div>
+            <div className="stat"><div className="v">{sets}</div><div className="l">working sets</div></div>
+            <div className="stat">
+              <div className="v" style={{ fontSize: "1.35rem", whiteSpace: "nowrap" }}>{fmtTonnage(vol)}</div>
+              <div className="l">volume {lastSoFar > 0 && <Delta v={pctChange(vol, lastSoFar)} digits={0} />}</div>
+            </div>
+          </div>
+          {lastVol > 0 && <p className="muted small" style={{ marginTop: 6 }}>Volume change is against last week up to the same day ({fmtTonnage(lastVol)} for the full week).</p>}
+          <div style={{ marginTop: 8 }}>
+            {thisWeek.map((w) => <WorkoutCard key={w.id} workout={w} exercises={exercises} onOpen={onOpen} />)}
+          </div>
+        </>
+      )}
+    </section>
   );
 }

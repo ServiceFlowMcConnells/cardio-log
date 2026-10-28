@@ -31,6 +31,9 @@ export interface Settings {
   max_hr: number | null;
   zone_low_pct: number;
   zone_high_pct: number;
+  weight_increment: number;
+  default_rest_sec: number;
+  e1rm_formula: "rpe" | "epley" | "brzycki";
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +41,9 @@ export const DEFAULT_SETTINGS: Settings = {
   max_hr: null,
   zone_low_pct: 60,
   zone_high_pct: 75,
+  weight_increment: 2.5,
+  default_rest_sec: 120,
+  e1rm_formula: "rpe",
 };
 
 export const MACHINE_LABEL: Record<Machine, string> = {

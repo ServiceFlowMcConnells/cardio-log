@@ -1,99 +1,11 @@
+import { useState } from "react";
+import type { AppData } from "../App";
 import type { Block, Machine, Session, Settings } from "../lib/types";
+import StrengthProgress from "./StrengthProgress";
 import { MACHINE_LABEL } from "../lib/types";
 import { formatShort, weekLabel } from "../lib/dates";
-import { benchmarkKey, groupByWeek, outputPerBeat, recentWeeks, round, sessionMinutes, settingsSummary, zoneFor } from "../lib/calc";
-
-interface Point { t: number; v: number }
-
-function WeeklyBars({ weeks, target }: { weeks: { start: Date; minutes: number }[]; target: number }) {
-  const W = 340, H = 170, padL = 30, padB = 22, padT = 10;
-  const max = Math.max(target * 1.15, ...weeks.map((w) => w.minutes), 30);
-  const bw = (W - padL) / weeks.length;
-  const y = (m: number) => padT + (H - padT - padB) * (1 - m / max);
-  const gridStep = max > 300 ? 100 : 50;
-  const grid = [];
-  for (let g = 0; g <= max; g += gridStep) grid.push(g);
-  return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Weekly minutes for the last ${weeks.length} weeks against a ${target} minute target`}>
-      {grid.map((g) => (
-        <g key={g}>
-          <line className="axis" x1={padL} x2={W} y1={y(g)} y2={y(g)} opacity={g === 0 ? 1 : 0.6} />
-          <text x={padL - 6} y={y(g) + 4} textAnchor="end">{g}</text>
-        </g>
-      ))}
-      {weeks.map((w, i) => {
-        const h = y(0) - y(w.minutes);
-        const hit = w.minutes >= target;
-        return (
-          <g key={i}>
-            <rect
-              x={padL + i * bw + bw * 0.18}
-              y={y(w.minutes)}
-              width={bw * 0.64}
-              height={Math.max(0, h)}
-              rx={3}
-              fill={hit ? "var(--in)" : "var(--ink)"}
-              opacity={i === weeks.length - 1 ? 1 : 0.8}
-            >
-              <title>{`${weekLabel(w.start)}: ${Math.round(w.minutes)} min`}</title>
-            </rect>
-            {(i % 2 === (weeks.length - 1) % 2) && (
-              <text x={padL + i * bw + bw / 2} y={H - 6} textAnchor="middle">{formatShort(w.start)}</text>
-            )}
-          </g>
-        );
-      })}
-      <line className="target" x1={padL} x2={W} y1={y(target)} y2={y(target)} />
-    </svg>
-  );
-}
-
-function TrendChart({ points, color, unit }: { points: Point[]; color: string; unit: string }) {
-  const W = 340, H = 160, padL = 34, padB = 22, padT = 10, padR = 8;
-  const ts = points.map((p) => p.t);
-  const vs = points.map((p) => p.v);
-  let t0 = Math.min(...ts), t1 = Math.max(...ts);
-  if (t1 - t0 < 86400000) { t0 -= 86400000 * 3; t1 += 86400000 * 3; }
-  let v0 = Math.min(...vs), v1 = Math.max(...vs);
-  const pad = Math.max((v1 - v0) * 0.2, v1 * 0.05, 0.1);
-  v0 -= pad; v1 += pad;
-  const x = (t: number) => padL + ((t - t0) / (t1 - t0)) * (W - padL - padR);
-  const y = (v: number) => padT + (H - padT - padB) * (1 - (v - v0) / (v1 - v0));
-  const d = points.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
-  const span = v1 - v0;
-  const yTicks = points.length > 1 && Math.max(...vs) > Math.min(...vs) ? [v0 + span * 0.15, (v0 + v1) / 2, v1 - span * 0.15] : [(v0 + v1) / 2];
-  const xTicks = [t0, (t0 + t1) / 2, t1];
-  return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Trend in ${unit}`}>
-      {yTicks.map((v, i) => (
-        <g key={i}>
-          <line className="axis" x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} opacity={0.6} />
-          <text x={padL - 6} y={y(v) + 4} textAnchor="end">{round(v, v < 10 ? 2 : 1)}</text>
-        </g>
-      ))}
-      {xTicks.map((t, i) => (
-        <text key={i} x={x(t)} y={H - 6} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"}>{formatShort(new Date(t))}</text>
-      ))}
-      {points.length > 1 && <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" opacity={0.55} />}
-      {points.map((p, i) => (
-        <circle key={i} cx={x(p.t)} cy={y(p.v)} r={4} fill={color}>
-          <title>{`${formatShort(new Date(p.t))}: ${round(p.v, 2)} ${unit}`}</title>
-        </circle>
-      ))}
-    </svg>
-  );
-}
-
-function trendText(points: Point[]): { text: string; dir: "up" | "down" | "flat" } | null {
-  if (points.length < 4) return null;
-  const n = Math.min(3, Math.floor(points.length / 2));
-  const avg = (a: Point[]) => a.reduce((s, p) => s + p.v, 0) / a.length;
-  const first = avg(points.slice(0, n));
-  const last = avg(points.slice(-n));
-  const pct = ((last - first) / first) * 100;
-  if (Math.abs(pct) < 1.5) return { text: "Holding steady", dir: "flat" };
-  return { text: `${pct > 0 ? "+" : ""}${round(pct, 0)}% vs your first sessions`, dir: pct > 0 ? "up" : "down" };
-}
+import { benchmarkKey, groupByWeek, outputPerBeat, recentWeeks, sessionMinutes, settingsSummary, zoneFor } from "../lib/calc";
+import { WeeklyBars, TrendChart, trendText, type Point } from "./Charts";
 
 function OutputSection({ machine, sessions }: { machine: Machine; sessions: Session[] }) {
   const points: Point[] = [];
@@ -193,7 +105,7 @@ function Benchmarks({ sessions }: { sessions: Session[] }) {
   );
 }
 
-export default function Progress({ sessions, settings, onLog }: { sessions: Session[]; settings: Settings; onLog: () => void }) {
+function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; settings: Settings; onLog: () => void }) {
   const z = zoneFor(settings);
   const map = groupByWeek(sessions, z);
   const weeks = recentWeeks(map, 12);
@@ -206,10 +118,9 @@ export default function Progress({ sessions, settings, onLog }: { sessions: Sess
   if (sessions.length === 0) {
     return (
       <>
-        <div className="page-head"><h1>Progress</h1></div>
         <div className="empty">
-          <p>Your trends appear here once you've logged a few sessions.</p>
-          <button className="btn primary" onClick={onLog}>Log session</button>
+          <p>Your cardio trends appear here once you've logged a few sessions.</p>
+          <button className="btn primary" onClick={onLog}>Train</button>
         </div>
       </>
     );
@@ -237,14 +148,13 @@ export default function Progress({ sessions, settings, onLog }: { sessions: Sess
 
   return (
     <>
-      <div className="page-head"><h1>Progress</h1></div>
 
       <section className="panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
           <h2>Weekly minutes</h2>
           <span className="muted small">Last 12 weeks</span>
         </div>
-        <WeeklyBars weeks={weeks} target={target} />
+        <WeeklyBars weeks={weeks.map((w) => ({ start: w.start, value: w.minutes }))} target={target} unit="min" />
         <p className="chart-note">
           {completed.length > 0
             ? `Target hit in ${hits} of ${completed.length} finished week${completed.length === 1 ? "" : "s"} since you started. Dashed line is your ${target} min target; green bars hit it.`
@@ -295,6 +205,31 @@ export default function Progress({ sessions, settings, onLog }: { sessions: Sess
           )}
         </div>
       </section>
+    </>
+  );
+}
+
+type Mode = "cardio" | "strength";
+const MODE_KEY = "cardio-log:progress-mode";
+
+export default function Progress({ data, onLog, onOpenExercise }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void }) {
+  const [mode, setMode] = useState<Mode>(() => {
+    try { return (localStorage.getItem(MODE_KEY) as Mode) || "cardio"; } catch { return "cardio"; }
+  });
+  const pick = (m: Mode) => {
+    setMode(m);
+    try { localStorage.setItem(MODE_KEY, m); } catch { /* ignore */ }
+  };
+  return (
+    <>
+      <div className="page-head"><h1>Progress</h1></div>
+      <div className="seg" role="group" aria-label="Progress type" style={{ marginBottom: 14 }}>
+        <button className={mode === "cardio" ? "on" : ""} aria-pressed={mode === "cardio"} onClick={() => pick("cardio")}>Cardio</button>
+        <button className={mode === "strength" ? "on" : ""} aria-pressed={mode === "strength"} onClick={() => pick("strength")}>Strength</button>
+      </div>
+      {mode === "cardio"
+        ? <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />
+        : <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
     </>
   );
 }
