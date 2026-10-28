@@ -77,7 +77,7 @@ export default function App() {
   }, []);
 
   const userId = auth?.user.id;
-  useRestAlerts(data.exercises);
+  useRestAlerts();
 
   const refresh = useCallback(async () => {
     try {
