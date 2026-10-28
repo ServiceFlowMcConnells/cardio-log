@@ -137,7 +137,8 @@ public class RestTimerPlugin extends Plugin {
         AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
         PendingIntent pi = alarmIntent(ctx, body, sound);
         boolean exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms();
-        if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endAt, pi);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) am.setExact(AlarmManager.RTC_WAKEUP, endAt, pi);
+        else if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endAt, pi);
         else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endAt, pi);
 
         JSObject r = status();
