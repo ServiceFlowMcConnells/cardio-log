@@ -47,7 +47,7 @@ export default function Auth() {
     <main className="app">
       <div className="auth">
         <img className="mark" src="/icon.svg" alt="" />
-        <h1>Cardio Log</h1>
+        <h1>Training Log</h1>
         <p className="muted">
           {hasAccount === null ? "Checking…" : creating ? "Create your account. This app has one owner, so sign-ups close once you're in." : "Sign in to log your sessions."}
         </p>

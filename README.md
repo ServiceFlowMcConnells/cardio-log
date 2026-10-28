@@ -1,6 +1,8 @@
-# Cardio Log
+# Training Log
 
-A Strong-style logger for treadmill and bike cardio. Phone-first; add it to your home screen.
+A Strong-style strength and cardio logger with a rules-based coach and readiness scan. Phone-first; add it to your home screen.
+
+Live at https://training-log-coach.vercel.app
 
 - **Week**: minutes against your weekly target, zone time, minutes per day.
 - **Log**: a session is one or more treadmill/bike blocks. New blocks pre-fill last time's settings. Built-in timer. Drafts survive a reload.

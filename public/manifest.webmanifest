@@ -1,6 +1,6 @@
 {
-  "name": "Cardio Log",
-  "short_name": "Cardio",
+  "name": "Training Log",
+  "short_name": "Training",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#17232A",
