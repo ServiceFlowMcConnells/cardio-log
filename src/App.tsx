@@ -3,6 +3,12 @@ import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { loadSessions, loadSettings } from "./lib/data";
 import { loadCheckins, loadExercises, loadTemplates, loadWorkouts } from "./lib/strengthData";
+import { loadMobilitySessions, loadMobilityTests, loadNiggles } from "./lib/mobilityData";
+import type { MobilitySession, MobilityTest as MTest, Niggle } from "./lib/mobility";
+import MobilityHome from "./components/MobilityHome";
+import MobilityTest from "./components/MobilityTest";
+import MobilityPlayer from "./components/MobilityPlayer";
+import Niggles from "./components/Niggles";
 import type { Checkin } from "./lib/readiness";
 import { todaysCheckin } from "./lib/readiness";
 import ReadinessScan from "./components/ReadinessScan";
@@ -31,7 +37,11 @@ export type View =
   | { k: "template"; template: Template | null }
   | { k: "exercise"; id: string }
   | { k: "settings" }
-  | { k: "readiness"; checkin: Checkin | null; next: "home" | "resume" | { template: Template | null } };
+  | { k: "readiness"; checkin: Checkin | null; next: "home" | "resume" | { template: Template | null } }
+  | { k: "mobility" }
+  | { k: "mobility-test" }
+  | { k: "niggles"; back: "mobility" | "home" }
+  | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" };
 
 function initialView(): View {
   if (hasWorkoutDraft()) return { k: "workout", workout: null, template: null };
@@ -46,11 +56,14 @@ export interface AppData {
   templates: Template[];
   workouts: Workout[];
   checkins: Checkin[];
+  mobilityTests: MTest[];
+  niggles: Niggle[];
+  mobilitySessions: MobilitySession[];
 }
 
 export default function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
-  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [] });
+  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [] });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("week");
@@ -66,10 +79,11 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const [sessions, settings, exercises, templates, workouts, checkins] = await Promise.all([
+      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions] = await Promise.all([
         loadSessions(), loadSettings(), loadExercises(), loadTemplates(), loadWorkouts(), loadCheckins(),
+        loadMobilityTests(), loadNiggles(), loadMobilitySessions(),
       ]);
-      setData({ sessions, settings, exercises, templates, workouts, checkins });
+      setData({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions });
       setLoadError(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Couldn't load your data.");
@@ -101,6 +115,8 @@ export default function App() {
   const startWorkout = (template: Template | null) =>
     go(today ? { k: "workout", workout: null, template } : { k: "readiness", checkin: null, next: { template } });
 
+  const warmup = (t: Template, next: "start" | "resume" = "start") => go({ k: "mobility-play", kind: "prewarm", template: t, next });
+
   let body;
   if (!loaded) {
     body = <div className="center-load">Loading…</div>;
@@ -125,6 +141,7 @@ export default function App() {
         onCreatedExercise={refresh}
         checkin={view.workout ? null : today}
         onScan={() => go({ k: "readiness", checkin: null, next: "resume" })}
+        onWarmup={(t) => warmup(t, "resume")}
         onSaved={async (id, isNew) => {
           await refresh();
           if (isNew) go({ k: "summary", workoutId: id });
@@ -154,6 +171,41 @@ export default function App() {
         onSkip={next === "home" ? undefined : () => (next === "resume" ? go({ k: "workout", workout: null, template: null }) : go({ k: "workout", workout: null, template: next.template }))}
         onCancel={() => (next === "resume" ? go({ k: "workout", workout: null, template: null }) : home())}
         onDeleted={async () => { home(); await refresh(); }}
+      />
+    );
+  } else if (view.k === "mobility") {
+    body = (
+      <MobilityHome
+        data={data}
+        onBack={() => home()}
+        onTest={() => go({ k: "mobility-test" })}
+        onNiggles={() => go({ k: "niggles", back: "mobility" })}
+        onPlay={(kind, t) => go({ k: "mobility-play", kind, template: t, next: "mobility" })}
+      />
+    );
+  } else if (view.k === "mobility-test") {
+    body = <MobilityTest previous={data.mobilityTests[0] ?? null} onClose={() => go({ k: "mobility" })} onSaved={async () => { await refresh(); go({ k: "mobility" }); }} />;
+  } else if (view.k === "niggles") {
+    const back = view.back;
+    body = <Niggles niggles={data.niggles} onBack={() => (back === "home" ? home() : go({ k: "mobility" }))} onChanged={refresh} />;
+  } else if (view.k === "mobility-play") {
+    const { next, template } = view;
+    const leave = () => {
+      if (next === "start") startWorkout(template);
+      else if (next === "resume") go({ k: "workout", workout: null, template: null });
+      else if (next === "mobility") go({ k: "mobility" });
+      else home();
+    };
+    body = (
+      <MobilityPlayer
+        key={`${view.kind}-${template?.id ?? ""}`}
+        data={data}
+        kind={view.kind}
+        templateId={template?.id ?? null}
+        doneLabel={next === "start" ? `Save and start ${template?.name ?? "workout"}` : next === "resume" ? "Save and back to workout" : "Save"}
+        onClose={() => (next === "start" ? home() : leave())}
+        onDone={async () => { await refresh(); leave(); }}
+        onNiggles={async () => { await refresh(); go({ k: "niggles", back: next === "home" ? "home" : "mobility" }); }}
       />
     );
   } else if (view.k === "summary") {
@@ -199,6 +251,9 @@ export default function App() {
         onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })}
         onTrain={() => home("train")}
         onStart={startWorkout}
+        onWarmup={(t) => warmup(t)}
+        onMobility={() => go({ k: "mobility" })}
+        onDailyMobility={() => go({ k: "mobility-play", kind: "daily", template: null, next: "home" })}
         goSettings={() => go({ k: "settings" })}
         onScan={(c) => go({ k: "readiness", checkin: c, next: "home" })}
       />
@@ -222,15 +277,18 @@ export default function App() {
         onEditTemplate={(t) => go({ k: "template", template: t })}
         onChanged={refresh}
         onOpenExercise={(id) => go({ k: "exercise", id })}
+        onWarmup={(t) => warmup(t)}
+        onMobility={() => go({ k: "mobility" })}
+        onDailyMobility={() => go({ k: "mobility-play", kind: "daily", template: null, next: "home" })}
       />
     );
   } else if (tab === "exercises") {
     body = <ExerciseLibrary data={data} onOpen={(id) => go({ k: "exercise", id })} onChanged={refresh} />;
   } else {
-    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} />;
+    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} />;
   }
 
-  const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
+  const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
 
   return (
     <>

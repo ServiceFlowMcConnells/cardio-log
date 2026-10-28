@@ -133,9 +133,10 @@ interface Props {
   onCreatedExercise: () => void;
   checkin: Checkin | null;
   onScan: () => void;
+  onWarmup: (t: Template) => void;
 }
 
-export default function WorkoutLogger({ workout, template, data, onClose, onSaved, onDeleted, onCreatedExercise, checkin, onScan }: Props) {
+export default function WorkoutLogger({ workout, template, data, onClose, onSaved, onDeleted, onCreatedExercise, checkin, onScan, onWarmup }: Props) {
   const { exercises, workouts, settings, templates } = data;
   const isEdit = Boolean(workout);
   const [draft, setDraft] = useState<Draft>(() => {
@@ -460,6 +461,19 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
           <span aria-hidden="true">›</span>
         </button>
       ))}
+      {(() => {
+        if (isEdit || !draft.template_id) return null;
+        const tpl = templates.find((t) => t.id === draft.template_id);
+        const started = draft.exercises.some((e) => e.sets.some((x) => x.done));
+        const warmed = data.mobilitySessions.some((m) => m.kind === "prewarm" && m.template_id === draft.template_id && Date.now() - new Date(m.done_at).getTime() < 3 * 3600000);
+        if (!tpl || started || warmed) return null;
+        return (
+          <button className="mob-strip slim" onClick={() => onWarmup(tpl)}>
+            <span style={{ flex: 1, textAlign: "left" }}><strong>5-min mobility warm-up</strong> <span className="small">for the joints {tpl.name} loads, before your warm-up sets</span></span>
+            <span aria-hidden="true">›</span>
+          </button>
+        );
+      })()}
       {error && <p className="error panel" role="alert" style={{ marginTop: 10 }}>{error}</p>}
 
       {draft.exercises.length === 0 && (

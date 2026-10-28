@@ -10,6 +10,8 @@ import WorkoutCard from "./WorkoutCard";
 import { Delta } from "./WorkoutLogger";
 import type { Checkin } from "../lib/readiness";
 import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, weeklyLossPct } from "../lib/readiness";
+import { AREA_LABEL, daysThisWeek, doneToday, fmtMin, needsRetest } from "../lib/mobility";
+import { buildRoutine } from "./MobilityPlayer";
 
 const DAY_LETTERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -20,11 +22,14 @@ interface Props {
   onOpenWorkout: (w: Workout) => void;
   onTrain: () => void;
   onStart: (t: Template) => void;
+  onWarmup: (t: Template) => void;
+  onMobility: () => void;
+  onDailyMobility: () => void;
   goSettings: () => void;
   onScan: (c: Checkin | null) => void;
 }
 
-export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, onStart, goSettings, onScan }: Props) {
+export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, onStart, onWarmup, onMobility, onDailyMobility, goSettings, onScan }: Props) {
   const { sessions, settings, workouts, exercises } = data;
   const z = zoneFor(settings);
   const start = startOfWeek(new Date());
@@ -66,7 +71,9 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
 
       <ReadinessCard checkins={data.checkins} onScan={onScan} />
 
-      <StrengthWeek data={data} start={start} onOpen={onOpenWorkout} onTrain={onTrain} onStart={onStart} />
+      <StrengthWeek data={data} start={start} onOpen={onOpenWorkout} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} />
+
+      <MobilityCard data={data} onOpen={onMobility} onPlay={onDailyMobility} />
 
       <h2 className="section" style={{ marginBottom: 10 }}>Cardio</h2>
       <section className="belt-wrap" aria-label="Weekly cardio minutes">
@@ -173,7 +180,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
   );
 }
 
-function NextUp({ data, onStart }: { data: AppData; onStart: (t: Template) => void }) {
+function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Template) => void; onWarmup: (t: Template) => void }) {
   const { templates, workouts, exercises, settings, checkins } = data;
   if (!templates.length) return null;
   // The template you've gone longest without (never done counts as longest)
@@ -206,13 +213,16 @@ function NextUp({ data, onStart }: { data: AppData; onStart: (t: Template) => vo
       </ul>
       <div className="tpl-foot">
         <span className="muted small">{today ? "Adjusted for today's readiness" : "A readiness scan runs first"}</span>
-        <button className="btn primary" onClick={() => onStart(t)}>Start</button>
+        <span className="tpl-btns">
+          <button className="btn ghost" onClick={() => onWarmup(t)} title="5-minute mobility warm-up, then start">Warm-up</button>
+          <button className="btn primary" onClick={() => onStart(t)}>Start</button>
+        </span>
       </div>
     </div>
   );
 }
 
-function StrengthWeek({ data, start, onOpen, onTrain, onStart }: { data: AppData; start: Date; onOpen: (w: Workout) => void; onTrain: () => void; onStart: (t: Template) => void }) {
+function StrengthWeek({ data, start, onOpen, onTrain, onStart, onWarmup }: { data: AppData; start: Date; onOpen: (w: Workout) => void; onTrain: () => void; onStart: (t: Template) => void; onWarmup: (t: Template) => void }) {
   const { workouts, exercises } = data;
   const end = addDays(start, 7).getTime();
   const lastStart = addDays(start, -7).getTime();
@@ -229,7 +239,7 @@ function StrengthWeek({ data, start, onOpen, onTrain, onStart }: { data: AppData
   return (
     <section className="section" style={{ marginTop: 6 }}>
       <h2 style={{ marginBottom: 10 }}>Strength</h2>
-      <NextUp data={data} onStart={onStart} />
+      <NextUp data={data} onStart={onStart} onWarmup={onWarmup} />
       {thisWeek.length === 0 ? (
         <div className="empty" style={{ marginTop: 10 }}>
           <p>No lifting logged this week{lastWeek.length ? ` (${lastWeek.length} workout${lastWeek.length === 1 ? "" : "s"} last week)` : ""}.</p>
@@ -250,6 +260,39 @@ function StrengthWeek({ data, start, onOpen, onTrain, onStart }: { data: AppData
             {thisWeek.map((w) => <WorkoutCard key={w.id} workout={w} exercises={exercises} onOpen={onOpen} />)}
           </div>
         </>
+      )}
+    </section>
+  );
+}
+
+function MobilityCard({ data, onOpen, onPlay }: { data: AppData; onOpen: () => void; onPlay: () => void }) {
+  const test = data.mobilityTests[0] ?? null;
+  const done = doneToday(data.mobilitySessions);
+  const days = daysThisWeek(data.mobilitySessions);
+  const routine = done ? null : buildRoutine(data, "daily", null);
+  const focus = routine?.focus.slice(0, 3).map((s) => AREA_LABEL[s.area]).join(", ");
+  return (
+    <section className="section">
+      <div className="page-head" style={{ marginBottom: 10 }}>
+        <h2>Mobility</h2>
+        <button className="link small" onClick={onOpen}>{test ? `Score ${test.score}` : "Set up"} ›</button>
+      </div>
+      {done ? (
+        <button className="mob-strip done" onClick={onOpen}>
+          <span className="mob-tick" aria-hidden="true">✓</span>
+          <span style={{ flex: 1, textAlign: "left" }}><strong>Done today</strong> <span className="small">{fmtMin(done.duration_sec)}, {days} day{days === 1 ? "" : "s"} this week</span></span>
+          <span aria-hidden="true">›</span>
+        </button>
+      ) : (
+        <div className="mob-strip">
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <strong>10-min routine</strong> <span className="small">{focus || "Full body"}</span>
+            <span className="small muted" style={{ display: "block" }}>
+              {!test ? "General until you take the screen" : needsRetest(test) ? "Retest due: it's been 4 weeks" : `${days} day${days === 1 ? "" : "s"} in the last 7`}
+            </span>
+          </span>
+          <button className="btn dark" onClick={onPlay} disabled={!routine?.items.length}>Start</button>
+        </div>
       )}
     </section>
   );

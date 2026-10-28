@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { AppData } from "../App";
 import type { Block, Machine, Session, Settings } from "../lib/types";
 import StrengthProgress from "./StrengthProgress";
+import MobilityProgress from "./MobilityProgress";
 import BodyProgress from "./BodyProgress";
 import type { Checkin } from "../lib/readiness";
 import { MACHINE_LABEL } from "../lib/types";
@@ -214,7 +215,7 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
 type Mode = "cardio" | "strength" | "body";
 const MODE_KEY = "cardio-log:progress-mode";
 
-export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void }) {
+export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onMobility }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onMobility: () => void }) {
   const [mode, setMode] = useState<Mode>(() => {
     try { return (localStorage.getItem(MODE_KEY) as Mode) || "strength"; } catch { return "strength"; }
   });
@@ -233,6 +234,7 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin }:
       {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}
       {mode === "strength" && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
       {mode === "body" && <BodyProgress data={data} onScan={onOpenCheckin} />}
+      {mode === "body" && <MobilityProgress data={data} onOpen={onMobility} />}
     </>
   );
 }
