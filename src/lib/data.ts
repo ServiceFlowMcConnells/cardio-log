@@ -51,6 +51,7 @@ export async function loadSettings(): Promise<Settings> {
     weight_increment: Number(data.weight_increment ?? DEFAULT_SETTINGS.weight_increment),
     default_rest_sec: data.default_rest_sec ?? DEFAULT_SETTINGS.default_rest_sec,
     e1rm_formula: data.e1rm_formula ?? DEFAULT_SETTINGS.e1rm_formula,
+    deload_until: data.deload_until ?? null,
   };
 }
 

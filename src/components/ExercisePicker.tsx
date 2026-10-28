@@ -93,6 +93,7 @@ export function NewExerciseForm({ initialName = "", existing, onCancel, onSaved 
   const [muscle, setMuscle] = useState<Muscle>(existing?.muscle ?? "chest");
   const [equipment, setEquipment] = useState<Equipment>(existing?.equipment ?? "barbell");
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [incr, setIncr] = useState(existing?.increment_kg != null ? String(existing.increment_kg) : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,7 +103,9 @@ export function NewExerciseForm({ initialName = "", existing, onCancel, onSaved 
     setBusy(true);
     setError(null);
     try {
-      const e = await saveExercise({ id: existing?.id, name, muscle, equipment, notes, archived: existing?.archived ?? false });
+      const incN = incr.trim() ? Number(incr.replace(",", ".")) : null;
+      if (incN != null && !(incN > 0 && incN <= 20)) { setError("Weight jump should be between 0.25 and 20 kg, or blank."); setBusy(false); return; }
+      const e = await saveExercise({ id: existing?.id, name, muscle, equipment, notes, archived: existing?.archived ?? false, increment_kg: incN });
       onSaved(e);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save the exercise.");
@@ -130,6 +133,10 @@ export function NewExerciseForm({ initialName = "", existing, onCancel, onSaved 
           </select>
         </label>
       </div>
+      <label className="field">
+        <span>Weight jump for this exercise (kg)</span>
+        <input className="input" inputMode="decimal" value={incr} onChange={(e) => setIncr(e.target.value)} placeholder="Blank = your default" />
+      </label>
       <label className="field">
         <span>Notes (optional)</span>
         <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Seat height, grip, cues" />

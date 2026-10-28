@@ -220,6 +220,7 @@ export default function App() {
         onResume={() => go({ k: "workout", workout: null, template: null })}
         onEditTemplate={(t) => go({ k: "template", template: t })}
         onChanged={refresh}
+        onOpenExercise={(id) => go({ k: "exercise", id })}
       />
     );
   } else if (tab === "exercises") {

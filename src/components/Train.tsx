@@ -2,6 +2,7 @@ import type { AppData } from "../App";
 import type { Template } from "../lib/strength";
 import { formatDay } from "../lib/dates";
 import { readWorkoutDraft } from "./WorkoutLogger";
+import CoachPanel from "./CoachPanel";
 
 interface Props {
   data: AppData;
@@ -10,9 +11,10 @@ interface Props {
   onResume: () => void;
   onEditTemplate: (t: Template | null) => void;
   onChanged: () => void;
+  onOpenExercise: (id: string) => void;
 }
 
-export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate }: Props) {
+export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise }: Props) {
   const { templates, exercises, workouts } = data;
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const draft = readWorkoutDraft();
@@ -37,6 +39,8 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
         <button className="btn primary" onClick={() => (draft ? onResume() : onStart(null))}>Empty workout</button>
         <button className="btn" onClick={onLogCardio}><i className="dot treadmill" /> Log cardio</button>
       </div>
+
+      <CoachPanel data={data} onOpenExercise={onOpenExercise} onChanged={onChanged} />
 
       <section className="section">
         <div className="page-head" style={{ marginBottom: 10 }}>

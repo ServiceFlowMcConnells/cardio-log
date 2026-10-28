@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import type { AppData } from "../App";
 import type { Template, TemplateExercise } from "../lib/strength";
-import { MUSCLE_LABEL, fmtKg, suggestWorking } from "../lib/strength";
+import { MUSCLE_LABEL } from "../lib/strength";
+import { STATUS_LABEL, coachExercise } from "../lib/coach";
 import { deleteTemplate, saveTemplate } from "../lib/strengthData";
 import ExercisePicker from "./ExercisePicker";
 
@@ -109,8 +110,10 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
           const info = exMap.get(r.exercise_id);
           const rpe = r.target_rpe.trim() ? Number(r.target_rpe.replace(",", ".")) : null;
           const lo = Number(r.rep_min), hi = Number(r.rep_max || r.rep_min);
-          const sug = lo >= 1 && hi >= lo
-            ? suggestWorking(r.exercise_id, { rep_min: lo, rep_max: hi, target_rpe: rpe != null && !Number.isNaN(rpe) ? rpe : null }, workouts, nowIso, { formula: settings.e1rm_formula, inc: settings.weight_increment })
+          const sets = Number(r.sets);
+          const presc = lo >= 1 && hi >= lo && sets >= 1
+            ? coachExercise(info, r.exercise_id, { sets, rep_min: lo, rep_max: hi, target_rpe: rpe != null && !Number.isNaN(rpe) ? rpe : null }, workouts, data.templates, nowIso,
+                { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: null, deload: false })
             : null;
           return (
             <div className="block-card strength" key={r.key}>
@@ -134,8 +137,8 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
                 <label className="field"><span>Note</span><input className="input" value={r.notes} placeholder="Optional" onChange={(e) => upd(r.key, { notes: e.target.value })} /></label>
               </div>
               <p className="small muted" style={{ marginTop: 8 }}>
-                {sug?.kg != null
-                  ? `Next time: ${fmtKg(sug.kg)} kg. ${sug.why ?? ""}.`
+                {presc?.weight != null
+                  ? `Coach, next time: ${presc.headline} (${STATUS_LABEL[presc.status].toLowerCase()}).`
                   : rpe
                     ? "Once you've logged this exercise, the app suggests a working weight from what you lifted and this RPE."
                     : "The app suggests adding weight once you hit the top of the rep range on every set."}

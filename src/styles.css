@@ -386,3 +386,17 @@ select.input { appearance: auto; }
 .ready-strip > span[aria-hidden] { font-size: 1.5rem; color: var(--muted); }
 .ready-strip strong { color: var(--band, var(--ink)); }
 .seg button { padding: 0 4px; }
+
+/* ---------- Coach ---------- */
+.tone-good { --tone: var(--in); }
+.tone-neutral { --tone: var(--lift); }
+.tone-warn { --tone: #c47a12; }
+.tone-bad { --tone: var(--over); }
+.coach-box { margin: 8px 4px 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--tone) 10%, transparent); border-left: 4px solid var(--tone); }
+.coach-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 4px; }
+.coach-head { font-family: var(--display); font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.coach-chip { display: inline-block; font-size: 0.74rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--tone, var(--lift)); color: #fff; vertical-align: 1px; }
+.coach-alert { background: var(--panel); border-radius: 14px; padding: 12px 14px; border-left: 5px solid var(--tone); margin-top: 6px; }
+.coach-alert .btn { margin-top: 10px; }
+.coach-alert .link { margin-top: 6px; display: inline-block; }
+.coach-verdict { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }

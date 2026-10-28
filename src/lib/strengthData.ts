@@ -5,21 +5,24 @@ import type { Checkin } from "./readiness";
 const num = (v: unknown): number | null => (v === null || v === undefined || v === "" ? null : Number(v));
 type Row = Record<string, unknown>;
 
+const EX_COLS = "id, name, muscle, equipment, notes, archived, increment_kg";
+const exRow = (r: Row): Exercise => ({ ...(r as unknown as Exercise), increment_kg: num(r.increment_kg) });
+
 export async function loadExercises(): Promise<Exercise[]> {
-  const { data, error } = await supabase.from("exercises").select("id, name, muscle, equipment, notes, archived").order("name");
+  const { data, error } = await supabase.from("exercises").select(EX_COLS).order("name");
   if (error) throw error;
-  return (data ?? []) as Exercise[];
+  return (data ?? []).map(exRow);
 }
 
 export async function saveExercise(e: Partial<Exercise> & { name: string }): Promise<Exercise> {
-  const row = { name: e.name.trim(), muscle: e.muscle ?? "other", equipment: e.equipment ?? "barbell", notes: e.notes?.trim() || null, archived: e.archived ?? false };
+  const row = { name: e.name.trim(), muscle: e.muscle ?? "other", equipment: e.equipment ?? "barbell", notes: e.notes?.trim() || null, archived: e.archived ?? false, increment_kg: e.increment_kg ?? null };
   const q = e.id ? supabase.from("exercises").update(row).eq("id", e.id) : supabase.from("exercises").insert(row);
-  const { data, error } = await q.select("id, name, muscle, equipment, notes, archived").single();
+  const { data, error } = await q.select(EX_COLS).single();
   if (error) {
     if (error.code === "23505") throw new Error(`You already have an exercise called "${row.name}".`);
     throw error;
   }
-  return data as Exercise;
+  return exRow(data as Row);
 }
 
 export async function addExercises(list: { name: string; muscle: string; equipment: string }[]): Promise<void> {

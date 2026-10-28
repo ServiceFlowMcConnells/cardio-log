@@ -34,6 +34,7 @@ export interface Exercise {
   equipment: Equipment;
   notes: string | null;
   archived: boolean;
+  increment_kg: number | null; // overrides the default weight jump
 }
 
 export interface TemplateExercise {

@@ -3,7 +3,8 @@ import type { Workout } from "../lib/strength";
 import { SET_TYPE_LABEL, compareWorkout, e1rm, fmtKg, fmtTonnage, pctChange } from "../lib/strength";
 import { formatDay, formatTime } from "../lib/dates";
 import { Delta } from "./WorkoutLogger";
-import { BAND_LABEL, bandFor } from "../lib/readiness";
+import { BAND_LABEL, adjustmentFor, bandFor } from "../lib/readiness";
+import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, verdict } from "../lib/coach";
 
 interface Props {
   workoutId: string;
@@ -26,6 +27,21 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const checkin = w.checkin_id ? data.checkins.find((x) => x.id === w.checkin_id) ?? null : null;
   const c = compareWorkout(w, workouts, settings.e1rm_formula);
+  const tpl = data.templates.find((t) => t.id === w.template_id);
+  const coachOpts = { formula: settings.e1rm_formula, inc: settings.weight_increment };
+  const planOf = (id: string) => {
+    const te = tpl?.exercises.find((x) => x.exercise_id === id);
+    return te ? { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe } : null;
+  };
+  // What the coach asked for going into this workout, and what it wants next time
+  const coachFor = (id: string) => {
+    const before = coachExercise(exMap.get(id), id, planOf(id), workouts, data.templates, w.started_at,
+      { ...coachOpts, adj: checkin ? adjustmentFor(checkin) : null, deload: false, excludeId: w.id });
+    const next = coachExercise(exMap.get(id), id, planOf(id), workouts, data.templates, new Date(Date.now() + 1000).toISOString(),
+      { ...coachOpts, adj: null, deload: deloadActive(settings.deload_until) });
+    const isLatest = workouts.filter((x) => x.sets.some((s) => s.exercise_id === id))[0]?.id === w.id;
+    return { before, next: isLatest ? next : null };
+  };
   const d = new Date(w.started_at);
   const prs = c.exercises.flatMap((e) => e.prs.map((p) => ({ ex: exMap.get(e.exerciseId)?.name ?? "Exercise", p })));
   const intPts = c.intensity != null && c.prevIntensity != null ? (c.intensity - c.prevIntensity) * 100 : null;
@@ -117,6 +133,21 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
                   )}
                 </div>
                 {e.prs.length > 0 && <p className="small" style={{ marginTop: 6 }}><span className="chip bench">PR</span> {e.prs.join(", ")}</p>}
+                {(() => {
+                  const { before, next } = coachFor(e.exerciseId);
+                  const v = before && before.status !== "new" ? verdict(before, e.sets) : null;
+                  if (!v?.text && !next) return null;
+                  return (
+                    <div className="coach-verdict">
+                      {v?.text && before && (
+                        <p className="small"><span className={`coach-chip tone-${v.hit ? "good" : "warn"}`}>{v.hit ? "On target" : "Short"}</span> Coach asked for {before.headline}. {v.text}</p>
+                      )}
+                      {next && (
+                        <p className="small" style={{ marginTop: 4 }}><span className={`coach-chip tone-${STATUS_TONE[next.status]}`}>{STATUS_LABEL[next.status]}</span> Next time: <strong>{next.headline}</strong></p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

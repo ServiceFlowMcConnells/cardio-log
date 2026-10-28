@@ -10,6 +10,8 @@ import { saveExercise } from "../lib/strengthData";
 import { formatDay, formatShort } from "../lib/dates";
 import { TrendChart, trendText, type Point } from "./Charts";
 import { NewExerciseForm } from "./ExercisePicker";
+import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/coach";
+import { adjustmentFor, todaysCheckin } from "../lib/readiness";
 
 const FORMULA_LABEL = { rpe: "RTS RPE chart", epley: "Epley formula", brzycki: "Brzycki formula" } as const;
 const DAY = 86400000;
@@ -33,7 +35,7 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
   const [estRpe, setEstRpe] = useState("");
   const [error, setError] = useState<string | null>(null);
   const f = settings.e1rm_formula;
-  const inc = settings.weight_increment;
+  const inc = exercises.find((e) => e.id === exerciseId)?.increment_kg ?? settings.weight_increment;
 
   if (!ex) {
     return <div className="empty"><p>Exercise not found.</p><button className="btn primary" onClick={onBack}>Back</button></div>;
@@ -99,6 +101,28 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
           {ex.notes && <p className="small" style={{ marginTop: 6 }}>{ex.notes}</p>}
         </>
       )}
+
+      {(() => {
+        const today = todaysCheckin(data.checkins);
+        const p = sessions.length ? coachExercise(ex, ex.id, null, workouts, data.templates, new Date(Date.now() + 1000).toISOString(),
+          { formula: f, inc, adj: today ? adjustmentFor(today) : null, deload: deloadActive(settings.deload_until) }) : null;
+        if (!p) return null;
+        const h = p.history;
+        return (
+          <div className={`coach-box tone-${STATUS_TONE[p.status]}`} style={{ marginTop: 14 }}>
+            <div className="coach-top">
+              <span className="coach-chip">{STATUS_LABEL[p.status]}</span>
+              <strong className="coach-head">Next: {p.headline}</strong>
+            </div>
+            <p className="small">{p.why}</p>
+            <p className="small muted" style={{ marginTop: 6 }}>
+              Rep range {p.plan.rep_min}–{p.plan.rep_max}{p.plan.target_rpe ? ` @ RPE ${p.plan.target_rpe}` : ""}.
+              {h.vsPeakPct != null && h.sessions.length > 1 ? ` Latest session ${h.vsPeakPct >= -0.5 ? "is at" : `is ${Math.abs(Math.round(h.vsPeakPct))}% below`} its 6-week best.` : ""}
+              {h.stalled > 0 ? ` ${h.stalled} session${h.stalled === 1 ? "" : "s"} without a gain.` : ""}
+            </p>
+          </div>
+        );
+      })()}
 
       {sessions.length === 0 ? (
         <div className="empty" style={{ marginTop: 16 }}>

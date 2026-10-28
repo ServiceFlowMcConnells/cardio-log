@@ -34,6 +34,7 @@ export interface Settings {
   weight_increment: number;
   default_rest_sec: number;
   e1rm_formula: "rpe" | "epley" | "brzycki";
+  deload_until: string | null; // YYYY-MM-DD, last day of a deload week
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -44,6 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weight_increment: 2.5,
   default_rest_sec: 120,
   e1rm_formula: "rpe",
+  deload_until: null,
 };
 
 export const MACHINE_LABEL: Record<Machine, string> = {

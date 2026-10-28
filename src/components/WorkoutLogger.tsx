@@ -3,11 +3,13 @@ import type { AppData } from "../App";
 import type { SetType, Template, WSet, Workout } from "../lib/strength";
 import {
   MUSCLE_LABEL, SET_TYPE_LABEL, SET_TYPE_SHORT, bestE1rm, bestE1rmBefore, fmtKg, fmtTonnage,
-  pctChange, previousFor, roundTo, suggestWorking, volume,
+  pctChange, previousFor, volume,
 } from "../lib/strength";
 import { toLocalInput } from "../lib/dates";
 import type { Adjustment, Checkin } from "../lib/readiness";
-import { BAND_LABEL, adjustedRpe, adjustedSets, adjustmentFor } from "../lib/readiness";
+import { BAND_LABEL, adjustmentFor } from "../lib/readiness";
+import type { Prescription } from "../lib/coach";
+import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/coach";
 import { deleteWorkout, saveWorkout } from "../lib/strengthData";
 import ExercisePicker from "./ExercisePicker";
 
@@ -53,8 +55,7 @@ function parse(s: string): number | null {
 
 const emptySet = (type: SetType = "working"): LSet => ({ key: uid(), set_type: type, weight: "", reps: "", rpe: "", done: false });
 
-function fromTemplate(t: Template | null, checkin: Checkin | null): Draft {
-  const adj = checkin ? adjustmentFor(checkin) : null;
+function fromTemplate(t: Template | null, checkin: Checkin | null, setsFor: (te: Template["exercises"][number]) => number): Draft {
   return {
     checkin_id: checkin?.id ?? null,
     checkinScore: checkin?.score ?? null,
@@ -69,7 +70,7 @@ function fromTemplate(t: Template | null, checkin: Checkin | null): Draft {
       key: uid(),
       exercise_id: te.exercise_id,
       plan: { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, rest_sec: te.rest_sec, notes: te.notes },
-      sets: Array.from({ length: adjustedSets(te.sets, adj) }, () => emptySet()),
+      sets: Array.from({ length: setsFor(te) }, () => emptySet()),
     })),
     restEnd: null,
     restTotal: 0,
@@ -134,7 +135,13 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     if (workout) return fromWorkout(workout, templates);
     const saved = readWorkoutDraft();
     if (saved && !saved.id) return saved;
-    return fromTemplate(template, checkin);
+    // Sets per exercise come from the coach (readiness, protect and deload can trim them)
+    const adj0 = checkin ? adjustmentFor(checkin) : null;
+    const start = new Date().toISOString();
+    return fromTemplate(template, checkin, (te) =>
+      coachExercise(exercises.find((e) => e.id === te.exercise_id), te.exercise_id,
+        { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe },
+        workouts, templates, start, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: adj0, deload: deloadActive(settings.deload_until) })?.sets ?? te.sets);
   });
   const [now, setNow] = useState(Date.now());
   const [picking, setPicking] = useState<null | { replaceKey?: string }>(null);
@@ -155,7 +162,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
 
   const planAdj: Adjustment | null = draft.checkinScore != null ? adjustmentFor({ score: draft.checkinScore, soreness: draft.checkinSoreness ?? 3 }) : null;
   const adj: Adjustment | null = draft.useAdj && !isEdit ? planAdj : null;
-  const factor = adj?.loadFactor ?? 1;
+  const deload = deloadActive(settings.deload_until);
   useEffect(() => {
     if (isEdit) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -175,29 +182,32 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
   const updEx = (key: string, fn: (e: LExercise) => LExercise) => update((d) => ({ ...d, exercises: d.exercises.map((e) => (e.key === key ? fn(e) : e)) }));
   const updSet = (ek: string, sk: string, fn: (s: LSet) => LSet) => updEx(ek, (e) => ({ ...e, sets: e.sets.map((s) => (s.key === sk ? fn(s) : s)) }));
 
-  /** What to pre-fill for a set: previous performance, progression, or a target-RPE load from your e1RM. */
+  /** The coach's prescription for an exercise, with or without today's readiness. */
+  function prescribe(ex: LExercise, withAdj: Adjustment | null = adj): Prescription | null {
+    const plan = ex.plan ? { sets: ex.plan.sets, rep_min: ex.plan.rep_min, rep_max: ex.plan.rep_max, target_rpe: ex.plan.target_rpe } : null;
+    return coachExercise(exMap.get(ex.exercise_id), ex.exercise_id, plan, workouts, templates, draft.started_at,
+      { formula, inc, adj: withAdj, deload, excludeId: draft.id });
+  }
+
+  /** What to pre-fill: the coach's weight, per-set rep goals and RPE. */
   function suggestions(ex: LExercise) {
     const prev = previousFor(ex.exercise_id, workouts, draft.started_at, draft.id);
     // Reference for the %1RM shown per set (same as the workout summary uses)
     const ref = bestE1rmBefore(ex.exercise_id, workouts, draft.started_at, formula, draft.id);
-    const rpeToday = adjustedRpe(ex.plan?.target_rpe ?? null, adj);
-    const s = suggestWorking(ex.exercise_id, ex.plan, workouts, draft.started_at, {
-      formula, inc, excludeId: draft.id, loadFactor: factor,
-      allowProgression: adj ? adj.allowProgression : true,
-      readinessLabel: adj ? BAND_LABEL[adj.band].toLowerCase() : undefined,
-    });
-    const why = s.why && rpeToday != null ? `${s.why}. Stop at RPE ${rpeToday}` : s.why;
-    return { prev, ref, workingKg: s.kg, increased: s.increased, why, rpeToday };
+    const presc = isEdit ? null : prescribe(ex);
+    return { prev, ref, presc, workingKg: presc?.weight ?? null, rpeToday: presc?.rpe ?? null };
   }
 
   function placeholderFor(ex: LExercise, idx: number, sug: ReturnType<typeof suggestions>) {
     const s = ex.sets[idx];
     const p = prevMatch(ex, idx, sug);
-    const weight = s.set_type !== "warmup" && sug.workingKg != null ? fmtKg(sug.workingKg) : p ? fmtKg(p.weight_kg) : "";
     const working = s.set_type !== "warmup";
-    // After a weight increase aim for the bottom of the rep range; otherwise beat last time's reps.
-    const reps = working && ex.plan && sug.increased ? String(ex.plan.rep_min) : p ? String(p.reps) : working && ex.plan ? String(ex.plan.rep_min) : "";
-    const rpe = s.set_type !== "warmup" && sug.rpeToday != null ? String(sug.rpeToday) : "";
+    const wi = ex.sets.slice(0, idx).filter((x) => x.set_type !== "warmup").length; // working-set index
+    const goals = sug.presc?.reps ?? [];
+    const weight = working && sug.workingKg != null ? fmtKg(sug.workingKg) : p ? fmtKg(p.weight_kg) : "";
+    const goal = working ? goals[wi] ?? goals[goals.length - 1] : undefined;
+    const reps = goal != null ? String(goal) : p ? String(p.reps) : working && ex.plan ? String(ex.plan.rep_min) : "";
+    const rpe = working && sug.rpeToday != null ? String(sug.rpeToday) : "";
     return { weight, reps, rpe };
   }
 
@@ -393,7 +403,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
             // Restore or trim planned sets on exercises you haven't started yet
             const exercises = d.exercises.map((e) => {
               if (!e.plan || e.sets.some((x) => x.done || x.weight || x.reps)) return e;
-              const want = on ? adjustedSets(e.plan.sets, planAdj) : e.plan.sets;
+              const want = prescribe(e, on ? planAdj : null)?.sets ?? e.plan.sets;
               const working = e.sets.filter((x) => x.set_type !== "warmup");
               const warm = e.sets.filter((x) => x.set_type === "warmup");
               const next = working.length >= want ? working.slice(0, want) : [...working, ...Array.from({ length: want - working.length }, () => emptySet())];
@@ -447,7 +457,15 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
               </div>
             </div>
             {(ex.plan?.notes || info?.notes) && <p className="small lift-note">{ex.plan?.notes || info?.notes}</p>}
-            {sug.why && !isEdit && <p className="small suggest">{sug.why}.</p>}
+            {sug.presc && (
+              <div className={`coach-box tone-${STATUS_TONE[sug.presc.status]}`}>
+                <div className="coach-top">
+                  <span className="coach-chip">{STATUS_LABEL[sug.presc.status]}</span>
+                  <strong className="coach-head">{sug.presc.headline}</strong>
+                </div>
+                <p className="small">{sug.presc.why}</p>
+              </div>
+            )}
 
             <div className="set-grid set-head" aria-hidden="true">
               <span>Set</span><span>Previous</span><span>kg</span><span>Reps</span><span>RPE</span><span />
