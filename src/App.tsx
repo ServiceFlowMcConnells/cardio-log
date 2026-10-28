@@ -198,6 +198,7 @@ export default function App() {
         onOpenSession={(s) => go({ k: "cardio", session: s })}
         onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })}
         onTrain={() => home("train")}
+        onStart={startWorkout}
         goSettings={() => go({ k: "settings" })}
         onScan={(c) => go({ k: "readiness", checkin: c, next: "home" })}
       />

@@ -42,10 +42,10 @@ export default function History({ data, onOpenSession, onOpenWorkout, onTrain }:
     <>
       <div className="page-head">
         <h1>History</h1>
-        <span className="muted small">{sessions.length} cardio, {workouts.length} lifting</span>
+        <span className="muted small">{workouts.length} workouts, {sessions.length} cardio</span>
       </div>
       <div className="seg" role="group" aria-label="Show">
-        {(["all", "cardio", "lift"] as Filter[]).map((f) => (
+        {(["all", "lift", "cardio"] as Filter[]).map((f) => (
           <button key={f} className={filter === f ? "on" : ""} aria-pressed={filter === f} onClick={() => setFilter(f)}>
             {f === "all" ? "All" : f === "cardio" ? "Cardio" : "Strength"}
           </button>

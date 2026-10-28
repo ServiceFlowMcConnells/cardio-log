@@ -1,6 +1,7 @@
 import type { AppData } from "../App";
 import type { Session } from "../lib/types";
-import type { Exercise, Workout } from "../lib/strength";
+import type { Template, Workout } from "../lib/strength";
+import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/coach";
 import { fmtTonnage, isWorking, pctChange, volume } from "../lib/strength";
 import { addDays, formatMinutes, formatShort, startOfWeek, weekKey } from "../lib/dates";
 import { emptyWeek, groupByWeek, zoneFor } from "../lib/calc";
@@ -8,7 +9,7 @@ import SessionCard from "./SessionCard";
 import WorkoutCard from "./WorkoutCard";
 import { Delta } from "./WorkoutLogger";
 import type { Checkin } from "../lib/readiness";
-import { BAND_LABEL, adjustmentFor, todaysCheckin, weeklyLossPct } from "../lib/readiness";
+import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, weeklyLossPct } from "../lib/readiness";
 
 const DAY_LETTERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -18,11 +19,12 @@ interface Props {
   onOpenSession: (s: Session) => void;
   onOpenWorkout: (w: Workout) => void;
   onTrain: () => void;
+  onStart: (t: Template) => void;
   goSettings: () => void;
   onScan: (c: Checkin | null) => void;
 }
 
-export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, goSettings, onScan }: Props) {
+export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, onStart, goSettings, onScan }: Props) {
   const { sessions, settings, workouts, exercises } = data;
   const z = zoneFor(settings);
   const start = startOfWeek(new Date());
@@ -64,6 +66,9 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
 
       <ReadinessCard checkins={data.checkins} onScan={onScan} />
 
+      <StrengthWeek data={data} start={start} onOpen={onOpenWorkout} onTrain={onTrain} onStart={onStart} />
+
+      <h2 className="section" style={{ marginBottom: 10 }}>Cardio</h2>
       <section className="belt-wrap" aria-label="Weekly cardio minutes">
         <div className="belt-figure">
           <span className="big">{Math.round(w.minutes)}</span>
@@ -93,7 +98,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
         </div>
         <p className="nudge">
           {done ? (
-            <>Target hit. Anything more this week is a bonus for the deficit.</>
+            <>Target hit. Anything more this week is a bonus.</>
           ) : w.minutes === 0 ? (
             <>No cardio logged yet this week. {daysLeft > 1 ? `Spread over ${daysLeft} days, that's about ${Math.ceil(target / daysLeft)} min a day.` : `${target} min to go today.`}</>
           ) : (
@@ -145,10 +150,9 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
         </div>
       </div>
 
-      <StrengthWeek workouts={workouts} exercises={exercises} start={start} onOpen={onOpenWorkout} onTrain={onTrain} />
 
       <section className="section">
-        <h2>Cardio sessions</h2>
+        <h3 style={{ marginBottom: 8 }}>Cardio sessions</h3>
         {w.sessions.length === 0 ? (
           <div className="empty">
             <p>Log a session after you finish on the treadmill or bike.</p>
@@ -169,7 +173,47 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
   );
 }
 
-function StrengthWeek({ workouts, exercises, start, onOpen, onTrain }: { workouts: Workout[]; exercises: Exercise[]; start: Date; onOpen: (w: Workout) => void; onTrain: () => void }) {
+function NextUp({ data, onStart }: { data: AppData; onStart: (t: Template) => void }) {
+  const { templates, workouts, exercises, settings, checkins } = data;
+  if (!templates.length) return null;
+  // The template you've gone longest without (never done counts as longest)
+  const lastDone = (t: Template) => workouts.find((w) => w.template_id === t.id)?.started_at ?? "";
+  const t = [...templates].sort((a, b) => lastDone(a).localeCompare(lastDone(b)) || a.position - b.position)[0];
+  const exMap = new Map(exercises.map((e) => [e.id, e]));
+  const today = todaysCheckin(checkins);
+  const opts = { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: today ? adjustmentFor(today) : null, deload: deloadActive(settings.deload_until), phase: latestPhase(checkins) };
+  const nowIso = new Date().toISOString();
+  const last = lastDone(t);
+  return (
+    <div className="tpl next-up">
+      <div className="tpl-head">
+        <h3>Next up: {t.name}</h3>
+        <span className="muted small">{last ? `last ${formatShort(new Date(last))}` : "not done yet"}</span>
+      </div>
+      <ul className="tpl-list">
+        {t.exercises.map((te, i) => {
+          const p = coachExercise(exMap.get(te.exercise_id), te.exercise_id,
+            { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, progression: te.progression, on_stall: te.on_stall, increment_kg: te.increment_kg },
+            workouts, templates, nowIso, opts);
+          return (
+            <li key={i}>
+              <strong>{exMap.get(te.exercise_id)?.name ?? "Exercise"}</strong>{" "}
+              <span className="muted">{p?.weight != null ? p.headline : `${te.sets} × ${te.rep_min === te.rep_max ? te.rep_min : `${te.rep_min}–${te.rep_max}`}`}</span>
+              {p && p.status !== "build_reps" && p.status !== "new" && <span className={`coach-chip tone-${STATUS_TONE[p.status]}`} style={{ marginLeft: 6 }}>{STATUS_LABEL[p.status]}</span>}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="tpl-foot">
+        <span className="muted small">{today ? "Adjusted for today's readiness" : "A readiness scan runs first"}</span>
+        <button className="btn primary" onClick={() => onStart(t)}>Start</button>
+      </div>
+    </div>
+  );
+}
+
+function StrengthWeek({ data, start, onOpen, onTrain, onStart }: { data: AppData; start: Date; onOpen: (w: Workout) => void; onTrain: () => void; onStart: (t: Template) => void }) {
+  const { workouts, exercises } = data;
   const end = addDays(start, 7).getTime();
   const lastStart = addDays(start, -7).getTime();
   const inRange = (w: Workout, a: number, b: number) => { const t = new Date(w.started_at).getTime(); return t >= a && t < b; };
@@ -183,16 +227,17 @@ function StrengthWeek({ workouts, exercises, start, onOpen, onTrain }: { workout
   const lastSoFar = workouts.filter((w) => inRange(w, lastStart, lastStart + elapsed)).reduce((a, w) => a + volume(w.sets), 0);
 
   return (
-    <section className="section">
-      <h2>Strength</h2>
+    <section className="section" style={{ marginTop: 6 }}>
+      <h2 style={{ marginBottom: 10 }}>Strength</h2>
+      <NextUp data={data} onStart={onStart} />
       {thisWeek.length === 0 ? (
-        <div className="empty">
+        <div className="empty" style={{ marginTop: 10 }}>
           <p>No lifting logged this week{lastWeek.length ? ` (${lastWeek.length} workout${lastWeek.length === 1 ? "" : "s"} last week)` : ""}.</p>
-          <button className="btn primary" onClick={onTrain}>{exercises.length ? "Start a workout" : "Set up your exercises"}</button>
+          {!data.templates.length && <button className="btn primary" onClick={onTrain}>{exercises.length ? "Create a workout template" : "Set up your exercises"}</button>}
         </div>
       ) : (
         <>
-          <div className="stats">
+          <div className="stats" style={{ marginTop: 10 }}>
             <div className="stat"><div className="v">{thisWeek.length}</div><div className="l">workout{thisWeek.length === 1 ? "" : "s"}</div></div>
             <div className="stat"><div className="v">{sets}</div><div className="l">working sets</div></div>
             <div className="stat">
@@ -231,6 +276,7 @@ function ReadinessCard({ checkins, onScan }: { checkins: Checkin[]; onScan: (c: 
       <span className="ready-score sm">{today.score}</span>
       <span style={{ flex: 1, textAlign: "left" }}>
         <strong>{BAND_LABEL[a.band]}</strong> <span className="small">{a.headline}</span>
+        {latestPhase(checkins) && <span className="chip" style={{ marginLeft: 6 }}>{PHASE_LABEL[latestPhase(checkins)!]}</span>}
         {(today.sleep_hours != null || lastW) && (
           <span className="small" style={{ display: "block", opacity: 0.85 }}>
             {today.sleep_hours != null ? `${today.sleep_hours} h sleep` : ""}

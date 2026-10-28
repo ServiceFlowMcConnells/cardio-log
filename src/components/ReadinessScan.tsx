@@ -1,7 +1,7 @@
 import { useState } from "react";
-import type { Checkin } from "../lib/readiness";
+import type { Checkin, Phase } from "../lib/readiness";
 import {
-  BAND_LABEL, ENERGY_LABELS, SLEEP_LABELS, SORENESS_LABELS, adjustmentFor, bandFor, scoreReadiness, weeklyLossPct,
+  BAND_LABEL, ENERGY_LABELS, PHASE_LABEL, PHASE_RATE, SLEEP_LABELS, SORENESS_LABELS, adjustmentFor, bandFor, latestPhase, scoreReadiness, weeklyLossPct,
 } from "../lib/readiness";
 import { deleteCheckin, saveCheckin } from "../lib/strengthData";
 import { formatDay, formatTime } from "../lib/dates";
@@ -52,6 +52,11 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
   const [hours, setHours] = useState(existing?.sleep_hours != null ? String(existing.sleep_hours) : last?.sleep_hours != null ? String(last.sleep_hours) : "");
   const [weight, setWeight] = useState(existing?.bodyweight_kg != null ? String(existing.bodyweight_kg) : "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  // Nutrition phase and calories carry forward from your last scan
+  const prevPhase = latestPhase(checkins.filter((c) => c.id !== existing?.id));
+  const prevCalories = checkins.find((c) => c.id !== existing?.id && c.calories != null)?.calories ?? null;
+  const [phase, setPhase] = useState<Phase | null>(existing ? existing.calorie_status : prevPhase);
+  const [calories, setCalories] = useState(existing?.calories != null ? String(existing.calories) : prevCalories != null ? String(prevCalories) : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -61,10 +66,12 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
   const w = parse(weight);
   const hoursOk = h == null || (!Number.isNaN(h) && h >= 0 && h <= 16);
   const weightOk = w == null || (!Number.isNaN(w) && w >= 30 && w <= 300);
+  const kcal = parse(calories);
+  const kcalOk = kcal == null || (!Number.isNaN(kcal) && Number.isInteger(kcal) && kcal >= 800 && kcal <= 8000);
   const complete = sleepQ != null && energy != null && soreness != null;
   const history = checkins.filter((c) => c.id !== existing?.id);
   const result = complete && hoursOk && weightOk
-    ? scoreReadiness({ sleep_quality: sleepQ!, energy: energy!, soreness: soreness!, sleep_hours: h, bodyweight_kg: w, at }, history)
+    ? scoreReadiness({ sleep_quality: sleepQ!, energy: energy!, soreness: soreness!, sleep_hours: h, bodyweight_kg: w, at, calorie_status: phase }, history)
     : null;
   const adj = result ? adjustmentFor({ score: result.score, soreness: soreness! }) : null;
   const rate = w != null && weightOk ? weeklyLossPct([...history, { checked_at: at, bodyweight_kg: w }]) : null;
@@ -78,12 +85,14 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
     if (!complete) return setError("Rate sleep, energy and soreness first.");
     if (!hoursOk) return setError("Hours of sleep should be between 0 and 16.");
     if (!weightOk) return setError("Bodyweight should be between 30 and 300 kg.");
+    if (!kcalOk) return setError("Daily calories should be a whole number between 800 and 8000, or blank.");
     setBusy(true);
     setError(null);
     try {
       const c = await saveCheckin({
         id: existing?.id, checked_at: at, sleep_quality: sleepQ!, energy: energy!, soreness: soreness!,
         sleep_hours: h, bodyweight_kg: w, score: result!.score, notes: notes || null,
+        calorie_status: phase, calories: kcal,
       });
       onSaved(c);
     } catch (e) {
@@ -131,7 +140,7 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
         </div>
         <div className="panel">
           <label className="field">
-            <span>Bodyweight (kg)</span>
+            <span>Current weight (kg)</span>
             <input className="input" inputMode="decimal" value={weight} placeholder={lastWeight != null ? String(lastWeight) : "Morning weight"} onChange={(e) => setWeight(e.target.value)} />
           </label>
           <p className="muted small" style={{ marginTop: 6 }}>
@@ -141,6 +150,28 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
             {rate != null && <>{". "}{rate >= 0 ? `Losing ${rate.toFixed(1)}%` : `Gaining ${Math.abs(rate).toFixed(1)}%`} a week</>}
           </p>
         </div>
+      </div>
+
+      <div className="panel" style={{ marginTop: 12 }}>
+        <div className="rating-head">
+          <h3 id="phase-h">Calories</h3>
+          <span className="muted small">{phase ? (prevPhase === phase && !existing ? "Same as your last scan" : `Aim to ${PHASE_RATE[phase].text}`) : "Which phase are you in?"}</span>
+        </div>
+        <div className="seg" role="radiogroup" aria-labelledby="phase-h">
+          {(["deficit", "maintenance", "surplus"] as Phase[]).map((p) => (
+            <button key={p} role="radio" aria-checked={phase === p} className={phase === p ? "on" : ""} onClick={() => setPhase(p)}>{PHASE_LABEL[p]}</button>
+          ))}
+        </div>
+        <label className="field" style={{ marginTop: 10 }}>
+          <span>Daily calorie target (optional)</span>
+          <input className="input" inputMode="numeric" value={calories} placeholder="e.g. 2200" onChange={(e) => setCalories(e.target.value)} />
+        </label>
+        <p className="muted small" style={{ marginTop: 6 }}>
+          {phase === "deficit" && "The coach holds weight and trims volume when lifts stall, so you keep muscle while losing fat."}
+          {phase === "maintenance" && "Normal progression, with each template's stall rule."}
+          {phase === "surplus" && "The coach progresses more readily and adds volume when lifts stall, since you can recover from more."}
+          {!phase && "Used by the coach to decide how hard to push progression."}
+        </p>
       </div>
 
       {result && adj ? (

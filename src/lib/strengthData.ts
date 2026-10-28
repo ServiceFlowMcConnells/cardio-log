@@ -171,7 +171,7 @@ export async function deleteWorkout(id: string): Promise<void> {
 export async function loadCheckins(): Promise<Checkin[]> {
   const { data, error } = await supabase
     .from("readiness_checkins")
-    .select("id, checked_at, sleep_quality, energy, soreness, sleep_hours, bodyweight_kg, score, notes")
+    .select("id, checked_at, sleep_quality, energy, soreness, sleep_hours, bodyweight_kg, score, notes, calorie_status, calories")
     .order("checked_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((c: Row) => ({
@@ -184,6 +184,8 @@ export async function loadCheckins(): Promise<Checkin[]> {
     bodyweight_kg: num(c.bodyweight_kg),
     score: Number(c.score),
     notes: (c.notes as string) ?? null,
+    calorie_status: (c.calorie_status as Checkin["calorie_status"]) ?? null,
+    calories: num(c.calories),
   }));
 }
 
@@ -191,6 +193,7 @@ export async function saveCheckin(c: Omit<Checkin, "id"> & { id?: string }): Pro
   const row = {
     checked_at: c.checked_at, sleep_quality: c.sleep_quality, energy: c.energy, soreness: c.soreness,
     sleep_hours: c.sleep_hours, bodyweight_kg: c.bodyweight_kg, score: c.score, notes: c.notes?.trim() || null,
+    calorie_status: c.calorie_status, calories: c.calories,
   };
   const q = c.id ? supabase.from("readiness_checkins").update(row).eq("id", c.id) : supabase.from("readiness_checkins").insert(row);
   const { data, error } = await q.select("id").single();

@@ -7,7 +7,7 @@ import {
 } from "../lib/strength";
 import { toLocalInput } from "../lib/dates";
 import type { Adjustment, Checkin } from "../lib/readiness";
-import { BAND_LABEL, adjustmentFor } from "../lib/readiness";
+import { BAND_LABEL, adjustmentFor, latestPhase } from "../lib/readiness";
 import type { Prescription } from "../lib/coach";
 import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/coach";
 import { deleteWorkout, saveWorkout } from "../lib/strengthData";
@@ -148,7 +148,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     return fromTemplate(template, checkin, (te) =>
       coachExercise(exercises.find((e) => e.id === te.exercise_id), te.exercise_id,
         planOf(te),
-        workouts, templates, start, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: adj0, deload: deloadActive(settings.deload_until) })?.sets ?? te.sets);
+        workouts, templates, start, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: adj0, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins) })?.sets ?? te.sets);
   });
   const [now, setNow] = useState(Date.now());
   const [picking, setPicking] = useState<null | { replaceKey?: string }>(null);
@@ -193,7 +193,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
   function prescribe(ex: LExercise, withAdj: Adjustment | null = adj): Prescription | null {
     const plan = ex.plan ? { sets: ex.plan.sets, rep_min: ex.plan.rep_min, rep_max: ex.plan.rep_max, target_rpe: ex.plan.target_rpe, progression: ex.plan.progression, on_stall: ex.plan.on_stall, increment_kg: ex.plan.increment_kg } : null;
     return coachExercise(exMap.get(ex.exercise_id), ex.exercise_id, plan, workouts, templates, draft.started_at,
-      { formula, inc, adj: withAdj, deload, excludeId: draft.id });
+      { formula, inc, adj: withAdj, deload, excludeId: draft.id, phase: latestPhase(data.checkins) });
   }
 
   /** What to pre-fill: the coach's weight, per-set rep goals and RPE. */

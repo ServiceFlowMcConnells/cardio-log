@@ -1,6 +1,6 @@
 import type { AppData } from "../App";
 import type { Checkin } from "../lib/readiness";
-import { BAND_LABEL, bandFor, weeklyLossPct } from "../lib/readiness";
+import { BAND_LABEL, PHASE_LABEL, PHASE_RATE, bandFor, latestPhase, weeklyLossPct } from "../lib/readiness";
 import { formatShort } from "../lib/dates";
 import { TrendChart, type Point } from "./Charts";
 
@@ -69,7 +69,14 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
           <TrendChart points={weight} avg={wAvg} color="var(--ink)" unit="kg" />
           <p className="chart-note">
             Dots are daily weigh-ins; the line is the 7-day average, which smooths out water swings.
-            {rate != null && ` You're ${rate >= 0 ? "losing" : "gaining"} about ${Math.abs(rate).toFixed(1)}% a week${rate > 1 ? ", faster than the usual 0.5–1% target for keeping strength" : rate >= 0.5 ? ", within the usual 0.5–1% target" : ""}.`}
+            {rate != null && (() => {
+              const phase = latestPhase(checkins);
+              const change = -rate; // + = gaining
+              const band = phase ? PHASE_RATE[phase] : null;
+              const verdict = !band ? "" : change < band.lo ? `, ${phase === "surplus" ? "slower" : "faster"} than the ${PHASE_LABEL[phase!].toLowerCase()} target (${band.text})`
+                : change > band.hi ? `, ${phase === "deficit" ? "slower" : "faster"} than the ${PHASE_LABEL[phase!].toLowerCase()} target (${band.text})` : `, on target for ${PHASE_LABEL[phase!].toLowerCase()} (${band.text})`;
+              return ` You're ${rate >= 0 ? "losing" : "gaining"} about ${Math.abs(rate).toFixed(1)}% a week${verdict}.`;
+            })()}
             {firstW != null && lastAvg != null && weight.length > 3 && ` ${(lastAvg - firstW > 0 ? "+" : "")}${(lastAvg - firstW).toFixed(1)} kg since your first weigh-in on ${formatShort(new Date(weight[0].t))}.`}
           </p>
         </section>
@@ -85,6 +92,7 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
                 <span className="muted small" style={{ display: "block" }}>
                   Sleep {c.sleep_quality}, energy {c.energy}, soreness {c.soreness}
                   {c.sleep_hours != null ? `, ${c.sleep_hours} h` : ""}{c.bodyweight_kg != null ? `, ${c.bodyweight_kg} kg` : ""}
+                  {c.calorie_status ? `, ${PHASE_LABEL[c.calorie_status].toLowerCase()}${c.calories ? ` ${c.calories} kcal` : ""}` : ""}
                 </span>
               </span>
               <span className={`ready-score sm band-${bandFor(c.score)}`}>{c.score}</span>

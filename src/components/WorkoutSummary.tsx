@@ -3,7 +3,7 @@ import type { Workout } from "../lib/strength";
 import { SET_TYPE_LABEL, compareWorkout, e1rm, fmtKg, fmtTonnage, pctChange } from "../lib/strength";
 import { formatDay, formatTime } from "../lib/dates";
 import { Delta } from "./WorkoutLogger";
-import { BAND_LABEL, adjustmentFor, bandFor } from "../lib/readiness";
+import { BAND_LABEL, adjustmentFor, bandFor, latestPhase } from "../lib/readiness";
 import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, verdict } from "../lib/coach";
 
 interface Props {
@@ -36,9 +36,9 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
   // What the coach asked for going into this workout, and what it wants next time
   const coachFor = (id: string) => {
     const before = coachExercise(exMap.get(id), id, planOf(id), workouts, data.templates, w.started_at,
-      { ...coachOpts, adj: checkin ? adjustmentFor(checkin) : null, deload: false, excludeId: w.id });
+      { ...coachOpts, adj: checkin ? adjustmentFor(checkin) : null, deload: false, excludeId: w.id, phase: latestPhase(data.checkins.filter((c) => c.checked_at <= w.started_at)) });
     const next = coachExercise(exMap.get(id), id, planOf(id), workouts, data.templates, new Date(Date.now() + 1000).toISOString(),
-      { ...coachOpts, adj: null, deload: deloadActive(settings.deload_until) });
+      { ...coachOpts, adj: null, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins) });
     const isLatest = workouts.filter((x) => x.sets.some((s) => s.exercise_id === id))[0]?.id === w.id;
     return { before, next: isLatest ? next : null };
   };

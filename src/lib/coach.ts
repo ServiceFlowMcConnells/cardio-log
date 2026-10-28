@@ -21,7 +21,7 @@
 
 import type { E1rmFormula, Exercise, Template, WSet, Workout } from "./strength";
 import { isWorking, loadFor, pctOf1rm, rirFromRpe, roundTo, sessionE1rm, trainingE1rm, fmtKg } from "./strength";
-import type { Adjustment } from "./readiness";
+import type { Adjustment, Phase } from "./readiness";
 import { adjustedRpe, adjustedSets } from "./readiness";
 
 const DAY = 86400000;
@@ -110,6 +110,7 @@ export interface CoachOpts {
   adj: Adjustment | null;
   deload: boolean;
   excludeId?: string;
+  phase?: Phase | null; // nutrition phase from the latest readiness scan
 }
 
 const LOWER = new Set(["quads", "hamstrings", "glutes"]);
@@ -214,6 +215,9 @@ export function coachExercise(
   opts: CoachOpts,
 ): Prescription | null {
   const { formula, adj, deload, excludeId } = opts;
+  const phase = opts.phase ?? null;
+  // How far over target RPE still counts as "owned": a surplus recovers better, so it's more permissive
+  const rpeBand = phase === "surplus" ? 1 : 0.5;
   const hist = liftHistory(exerciseId, workouts, before, formula, excludeId);
   const found = planFor(exerciseId, templates, hist, templatePlan);
   if (!found) return null;
@@ -258,22 +262,31 @@ export function coachExercise(
     // Target RPE is read as the average across working sets: later sets naturally run higher at a fixed weight.
     const rated = atTopSets.filter((s) => s.rpe != null).map((s) => s.rpe as number);
     const avgRpe = rated.length ? sum(rated) / rated.length : null;
-    const rpeOk = target == null || avgRpe == null || avgRpe <= target + 0.5;
+    const rpeOk = target == null || avgRpe == null || avgRpe <= target + rpeBand;
     const allTop = last.topReps.every((r) => r >= plan.rep_max);
     const lastReps = fit(last.topReps, sets, Math.min(...last.topReps));
     const holdForReadiness = adj != null && !adj.allowProgression;
 
     const below = Math.abs(Math.round(hist.vsPeakPct ?? 0));
     const preserveMode = plan.on_stall === "preserve";
-    // "High" = above the band where progression is allowed (target + 0.5)
-    const highRpe = avgRpe != null && (target != null ? avgRpe > target + 0.5 : avgRpe >= 9);
+    // "High" = above the band where progression is allowed
+    const highRpe = avgRpe != null && (target != null ? avgRpe > target + rpeBand : avgRpe >= 9);
     // Going backwards: slipping vs the 6-week peak, or two session-to-session drops in a row
     const e = hist.sessions.slice(0, 3).map((s) => s.e1rm);
     const twoDrops = e.length === 3 && e.every((v) => v != null) && (e[0] as number) < (e[1] as number) * 0.98 && (e[1] as number) < (e[2] as number) * 0.98;
     const backwards = hist.slipping || twoDrops;
     const stuckHard = hist.stalled >= 2 && highRpe;
 
-    if (preserveMode && (backwards || stuckHard || missed >= 2)) {
+    if (preserveMode && phase === "surplus" && !backwards && (stuckHard || missed >= 2)) {
+      // In a surplus you can recover from more work, so a stall is answered with volume, not a hold
+      status = "add_set";
+      const oneDown = last.top - inc;
+      const canDrop = missed >= 2 && oneDown > 0 && oneDown / last.top >= 0.85;
+      weight = canDrop ? oneDown : last.top;
+      sets = Math.min(Math.max(plan.sets + 1, sets), 6);
+      reps = canDrop ? Array(sets).fill(plan.rep_min) : fit(last.topReps, sets, Math.min(...last.topReps)).map((r) => Math.min(r, plan.rep_max));
+      why = `${missed >= 2 ? `Reps fell below ${plan.rep_min} on ${missed} sets` : `No progress for ${hist.stalled} sessions at RPE ${Math.round(avgRpe! * 10) / 10}`}. You're in a surplus, so add a set${canDrop ? ` and take one jump off to ${fmtKg(weight)} kg` : ` at ${fmtKg(weight)} kg`}: the extra volume drives the next gain. Stop at RPE ${rpe ?? 8}.`;
+    } else if (preserveMode && (backwards || stuckHard || missed >= 2)) {
       status = "protect";
       const trim = backwards || highRpe;
       if (trim) sets = Math.max(Math.min(sets, 2), sets - 1);
@@ -291,7 +304,7 @@ export function coachExercise(
       why = `${r0.charAt(0).toUpperCase()}${r0.slice(1)}. Goal now: preserve muscle. `
         + (canDrop
           ? `Take one jump off to ${fmtKg(weight)} kg so every set lands back in the ${plan.rep_min}–${plan.rep_max} range, and keep it heavy.`
-          : `Keep ${fmtKg(last.top)} kg on the bar: heavy loading is the signal that holds muscle in a deficit. Match last time's reps rather than grinding for more.`)
+          : `Keep ${fmtKg(last.top)} kg on the bar: heavy loading is the signal that holds muscle${phase === "deficit" ? " in a deficit" : ""}. Match last time's reps rather than grinding for more.`)
         + `${trim ? " One fewer set keeps fatigue down." : ""} Stop at RPE ${rpe ?? 8}. Progression resumes once reps climb or RPE drops; if it keeps sliding, take a deload week.`;
     } else if (hist.slipping) {
       status = "protect";
@@ -326,9 +339,19 @@ export function coachExercise(
         why = `${stalledCase ? `No gain for ${hist.stalled} sessions` : `Reps fell short`} at ${fmtKg(last.top)} kg, but one weight jump here is over 15%. Add a set at the same weight instead; once reps climb, you'll be ready for the next weight.`;
       }
     } else if (allTop && rpeOk) {
-      const easy = target != null && atTopSets.every((s) => s.rpe != null && s.rpe <= target - 1.5);
-      const lowerBarbell = exercise && LOWER.has(exercise.muscle) && exercise.equipment === "barbell";
-      const jump = easy && lowerBarbell ? inc * 2 : inc;
+      const easy = target != null && avgRpe != null && avgRpe <= target - 1.5;
+      const beyond = Math.min(...last.topReps) - plan.rep_max; // reps past the top of the range on the weakest set
+      const barbell = exercise?.equipment === "barbell";
+      const lowerBarbell = barbell && exercise && LOWER.has(exercise.muscle);
+      let jump = easy && (lowerBarbell || (phase === "surplus" && barbell)) ? inc * 2 : inc;
+      // Beat the range or found it easy: size the jump from what you actually did (capped at 3 jumps / 7.5%)
+      let beat = "";
+      if ((beyond >= 1 || easy) && last.e1rm && target) {
+        const fromE1rm = loadFor(last.e1rm, plan.rep_min, target, formula);
+        const cap = Math.max(inc, Math.min(inc * 3, roundTo(last.top * 0.075, inc, "down")));
+        if (fromE1rm) jump = Math.max(jump, Math.min(cap, roundTo(fromE1rm - last.top, inc, "down")));
+        beat = beyond >= 1 ? ` You went past the top of the range${jump > inc ? ", so the jump is bigger" : ""}.` : jump > inc ? " It was comfortably under target RPE, so the jump is bigger." : "";
+      }
       if (holdForReadiness) {
         status = "readiness_hold";
         weight = last.top;
@@ -341,13 +364,15 @@ export function coachExercise(
         const predicted = ref && target ? predictReps(ref, weight, target, formula) : plan.rep_min;
         const goal = Math.max(plan.rep_min, Math.min(plan.rep_max - 1, predicted));
         reps = Array(sets).fill(goal);
-        why = `${plan.rep_max} reps on every set at ${fmtKg(last.top)} kg${avgRpe != null ? ` (average RPE ${Math.round(avgRpe * 10) / 10})` : ""}. Up ${fmtKg(jump)} kg to ${fmtKg(weight)} kg and aim for ${goal} on every set${plan.progression === "fixed" ? "" : `, then build back to ${plan.rep_max}`}.`;
+        why = `${beyond > 0 ? `${Math.min(...last.topReps)}+` : plan.rep_max} reps on every set at ${fmtKg(last.top)} kg${avgRpe != null ? ` (average RPE ${Math.round(avgRpe * 10) / 10})` : ""}. Up ${fmtKg(jump)} kg to ${fmtKg(weight)} kg and aim for ${goal} on every set${plan.progression === "fixed" ? "" : `, then build back to ${plan.rep_max}`}.${beat}`;
       }
-    } else if (target != null && avgRpe != null && avgRpe > target + 1) {
+    } else if (target != null && avgRpe != null && (avgRpe > target + 1 || (allTop && !rpeOk))) {
       status = "consolidate";
       weight = last.top;
       reps = lastReps;
-      why = `Last time averaged RPE ${Math.round(avgRpe * 10) / 10} (up to ${maxRpe}), above your target of ${target}. Repeat ${fmtKg(last.top)} kg × ${last.topReps.join(", ")} and stop at RPE ${target}. Owning the weight comes before adding reps.`;
+      why = allTop
+        ? `Every set hit ${plan.rep_max}, but averaging RPE ${Math.round(avgRpe * 10) / 10} against a target of ${target}. Repeat ${fmtKg(last.top)} kg × ${last.topReps.join(", ")} until it averages RPE ${target + rpeBand} or easier, then the weight goes up.`
+        : `Last time averaged RPE ${Math.round(avgRpe * 10) / 10} (up to ${maxRpe}), above your target of ${target}. Repeat ${fmtKg(last.top)} kg × ${last.topReps.join(", ")} and stop at RPE ${target}. Owning the weight comes before adding reps.`;
     } else if (holdForReadiness) {
       status = "readiness_hold";
       weight = last.top;
@@ -356,9 +381,14 @@ export function coachExercise(
     } else {
       status = "build_reps";
       weight = last.top;
+      // Momentum: easy last time, or you beat the session before by 2+ reps at this weight → aim for 2 more
+      const prevSame = hist.sessions[1] && hist.sessions[1].top === last.top ? sum(hist.sessions[1].topReps) : null;
+      const surge = prevSame != null && sum(last.topReps) - prevSame >= 2;
+      const easyRpe = target != null && avgRpe != null && avgRpe <= target - 1;
       reps = addOneRep(lastReps, plan.rep_max);
+      if (surge || easyRpe) reps = addOneRep(reps, plan.rep_max);
       const added = sum(reps) - sum(lastReps);
-      why = `Same weight, ${added > 0 ? "one more rep" : "same reps"} than last time (${last.topReps.join(", ")}). Once every set reaches ${plan.rep_max}, the weight goes up.`;
+      why = `Same weight, ${added >= 2 ? `${added} more reps than` : added === 1 ? "one more rep than" : "the same reps as"} last time (${last.topReps.join(", ")})${added >= 2 ? (surge ? `, since you added ${sum(last.topReps) - prevSame!} reps last session` : ", since it felt easy last time") : ""}. Once every set reaches ${plan.rep_max}, the weight goes up.`;
     }
   }
 
@@ -423,7 +453,7 @@ export function verdict(p: Prescription, done: WSet[]): { hit: boolean; text: st
   const hitAll = p.reps.every((goal, i) => (atTop[i]?.reps ?? 0) >= goal);
   const totalGoal = sum(p.reps);
   const total = sum(atTop.slice(0, p.reps.length).map((s) => s.reps));
-  if (top > p.weight) return { hit: true, text: `Heavier than prescribed (${fmtKg(top)} kg vs ${fmtKg(p.weight)} kg).` };
-  if (hitAll) return { hit: true, text: total > totalGoal ? `Target beaten: ${total} reps vs ${totalGoal}.` : "Target hit." };
-  return { hit: false, text: `${total} of ${totalGoal} target reps. Same target next time.` };
+  if (top > p.weight) return { hit: true, text: `Heavier than prescribed (${fmtKg(top)} kg vs ${fmtKg(p.weight)} kg), so the next session builds from ${fmtKg(top)} kg.` };
+  if (hitAll) return { hit: true, text: total > totalGoal ? `Target beaten: ${total} reps vs ${totalGoal}. The next session is raised to match.` : "Target hit." };
+  return { hit: false, text: `${total} of ${totalGoal} target reps.` };
 }

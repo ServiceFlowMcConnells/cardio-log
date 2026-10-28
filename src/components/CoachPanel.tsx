@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AppData } from "../App";
 import { STATUS_LABEL, STATUS_TONE, coachOverview, deloadActive } from "../lib/coach";
-import { adjustmentFor, todaysCheckin } from "../lib/readiness";
+import { adjustmentFor, latestPhase, todaysCheckin } from "../lib/readiness";
 import { saveSettings } from "../lib/data";
 import { fmtKg } from "../lib/strength";
 
@@ -20,7 +20,7 @@ export default function CoachPanel({ data, onOpenExercise, onChanged }: { data: 
   const week = checkins.filter((c) => Date.now() - new Date(c.checked_at).getTime() < 7 * DAY);
   const readiness7 = week.length ? week.reduce((a, c) => a + c.score, 0) / week.length : null;
   const ov = coachOverview(exercises, workouts, templates, {
-    formula: settings.e1rm_formula, inc: settings.weight_increment, adj: today ? adjustmentFor(today) : null, deload, readiness7,
+    formula: settings.e1rm_formula, inc: settings.weight_increment, adj: today ? adjustmentFor(today) : null, deload, readiness7, phase: latestPhase(checkins),
   });
   const names = new Map(exercises.map((e) => [e.id, e.name]));
 

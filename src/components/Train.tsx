@@ -35,12 +35,7 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
         </button>
       )}
 
-      <div className="grid c2">
-        <button className="btn primary" onClick={() => (draft ? onResume() : onStart(null))}>Empty workout</button>
-        <button className="btn" onClick={onLogCardio}><i className="dot treadmill" /> Log cardio</button>
-      </div>
-
-      <CoachPanel data={data} onOpenExercise={onOpenExercise} onChanged={onChanged} />
+      <button className="btn ghost block" onClick={() => (draft ? onResume() : onStart(null))}>Start an empty workout</button>
 
       <section className="section">
         <div className="page-head" style={{ marginBottom: 10 }}>
@@ -79,6 +74,13 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
             );
           })
         )}
+      </section>
+
+      <CoachPanel data={data} onOpenExercise={onOpenExercise} onChanged={onChanged} />
+
+      <section className="section">
+        <h2 style={{ marginBottom: 10 }}>Cardio</h2>
+        <button className="btn block" onClick={onLogCardio}><i className="dot treadmill" /> Log a cardio session</button>
       </section>
     </>
   );

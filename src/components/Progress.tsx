@@ -216,7 +216,7 @@ const MODE_KEY = "cardio-log:progress-mode";
 
 export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void }) {
   const [mode, setMode] = useState<Mode>(() => {
-    try { return (localStorage.getItem(MODE_KEY) as Mode) || "cardio"; } catch { return "cardio"; }
+    try { return (localStorage.getItem(MODE_KEY) as Mode) || "strength"; } catch { return "strength"; }
   });
   const pick = (m: Mode) => {
     setMode(m);
@@ -226,8 +226,8 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin }:
     <>
       <div className="page-head"><h1>Progress</h1></div>
       <div className="seg" role="group" aria-label="Progress type" style={{ marginBottom: 14 }}>
-        <button className={mode === "cardio" ? "on" : ""} aria-pressed={mode === "cardio"} onClick={() => pick("cardio")}>Cardio</button>
         <button className={mode === "strength" ? "on" : ""} aria-pressed={mode === "strength"} onClick={() => pick("strength")}>Strength</button>
+        <button className={mode === "cardio" ? "on" : ""} aria-pressed={mode === "cardio"} onClick={() => pick("cardio")}>Cardio</button>
         <button className={mode === "body" ? "on" : ""} aria-pressed={mode === "body"} onClick={() => pick("body")}>Recovery</button>
       </div>
       {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}

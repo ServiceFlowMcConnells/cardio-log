@@ -4,6 +4,7 @@ import type { Template, TemplateExercise } from "../lib/strength";
 import { MUSCLE_LABEL } from "../lib/strength";
 import type { OnStall, Plan, Progression } from "../lib/coach";
 import { STATUS_LABEL, coachExercise, incrementFor, ruleText } from "../lib/coach";
+import { latestPhase } from "../lib/readiness";
 import { deleteTemplate, saveTemplate } from "../lib/strengthData";
 import ExercisePicker from "./ExercisePicker";
 
@@ -128,7 +129,7 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
           } : null;
           const jump = plan?.increment_kg ?? incrementFor(info, settings.weight_increment);
           const presc = plan
-            ? coachExercise(info, r.exercise_id, plan, workouts, data.templates, nowIso, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: null, deload: false })
+            ? coachExercise(info, r.exercise_id, plan, workouts, data.templates, nowIso, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: null, deload: false, phase: latestPhase(data.checkins) })
             : null;
           return (
             <div className="block-card strength" key={r.key}>

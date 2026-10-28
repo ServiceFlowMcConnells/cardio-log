@@ -32,6 +32,22 @@ export interface Checkin {
   bodyweight_kg: number | null;
   score: number;
   notes: string | null;
+  calorie_status: Phase | null;
+  calories: number | null;
+}
+
+/** Nutrition phase. Carried forward from the last scan until you change it. */
+export type Phase = "deficit" | "maintenance" | "surplus";
+export const PHASE_LABEL: Record<Phase, string> = { deficit: "Deficit", maintenance: "Maintenance", surplus: "Surplus" };
+/** Healthy weekly bodyweight change by phase (% of bodyweight, + = gaining). */
+export const PHASE_RATE: Record<Phase, { lo: number; hi: number; text: string }> = {
+  deficit: { lo: -1, hi: -0.5, text: "lose 0.5–1% a week" },
+  maintenance: { lo: -0.25, hi: 0.25, text: "stay within ±0.25% a week" },
+  surplus: { lo: 0.25, hi: 0.5, text: "gain 0.25–0.5% a week" },
+};
+
+export function latestPhase(checkins: Checkin[]): Phase | null {
+  return checkins.find((c) => c.calorie_status != null)?.calorie_status ?? null;
 }
 
 export type Band = "primed" | "ready" | "moderate" | "low" | "very_low";
@@ -79,6 +95,7 @@ export interface ScoreInput {
   sleep_hours: number | null;
   bodyweight_kg: number | null;
   at: string; // ISO time of this scan
+  calorie_status?: Phase | null;
 }
 
 export interface ScoreResult {
@@ -120,9 +137,18 @@ export function scoreReadiness(input: ScoreInput, history: Checkin[]): ScoreResu
 
   if (input.bodyweight_kg != null) {
     const rate = weeklyLossPct([...earlier, { checked_at: input.at, bodyweight_kg: input.bodyweight_kg }]);
-    if (rate != null && rate > 1) {
+    const phase = input.calorie_status ?? null;
+    if (rate != null && rate > 1 && phase !== "surplus") {
       parts.push({ label: `Losing ${rate.toFixed(1)}% bodyweight a week`, value: -5 });
       notes.push("Weight is dropping faster than 1% a week, which tends to cost strength and recovery. Worth raising with your coach.");
+    }
+    if (rate != null && phase === "surplus") {
+      const gain = -rate;
+      if (gain > 0.5) notes.push(`Gaining ${gain.toFixed(1)}% a week, above the 0.25–0.5% that builds muscle without much extra fat.`);
+      else if (gain < 0) notes.push("Weight is going down in a surplus. Intake may be lower than you think.");
+    }
+    if (rate != null && phase === "maintenance" && Math.abs(rate) > 0.5) {
+      notes.push(`Weight is ${rate > 0 ? "dropping" : "rising"} ${Math.abs(rate).toFixed(1)}% a week, which is more than maintenance usually allows.`);
     }
     const prev = earlier.find((c) => c.bodyweight_kg != null && t - new Date(c.checked_at).getTime() <= 4 * DAY);
     if (prev?.bodyweight_kg && (prev.bodyweight_kg - input.bodyweight_kg) / prev.bodyweight_kg > 0.015) {
