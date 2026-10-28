@@ -89,7 +89,7 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
           <div className="panel">
             {prs.map((x, i) => (
               <div key={i} className="pr-row">
-                <span className="chip pr">PR</span> <strong>{x.ex}</strong> <span className="muted">{x.p}</span>
+                <span className="chip bench">PR</span> <strong>{x.ex}</strong> <span className="muted">{x.p}</span>
               </div>
             ))}
           </div>
@@ -132,7 +132,7 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
                     </span>
                   )}
                 </div>
-                {e.prs.length > 0 && <p className="small" style={{ marginTop: 6 }}><span className="chip pr">PR</span> {e.prs.join(", ")}</p>}
+                {e.prs.length > 0 && <p className="small" style={{ marginTop: 6 }}><span className="chip bench">PR</span> {e.prs.join(", ")}</p>}
                 {(() => {
                   const { before, next } = coachFor(e.exerciseId);
                   const v = before && before.status !== "new" ? verdict(before, e.sets) : null;
