@@ -7,6 +7,8 @@ import { emptyWeek, groupByWeek, zoneFor } from "../lib/calc";
 import SessionCard from "./SessionCard";
 import WorkoutCard from "./WorkoutCard";
 import { Delta } from "./WorkoutLogger";
+import type { Checkin } from "../lib/readiness";
+import { BAND_LABEL, adjustmentFor, todaysCheckin, weeklyLossPct } from "../lib/readiness";
 
 const DAY_LETTERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -17,9 +19,10 @@ interface Props {
   onOpenWorkout: (w: Workout) => void;
   onTrain: () => void;
   goSettings: () => void;
+  onScan: (c: Checkin | null) => void;
 }
 
-export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, goSettings }: Props) {
+export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, goSettings, onScan }: Props) {
   const { sessions, settings, workouts, exercises } = data;
   const z = zoneFor(settings);
   const start = startOfWeek(new Date());
@@ -58,6 +61,8 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
           </svg>
         </button>
       </div>
+
+      <ReadinessCard checkins={data.checkins} onScan={onScan} />
 
       <section className="belt-wrap" aria-label="Weekly cardio minutes">
         <div className="belt-figure">
@@ -202,5 +207,40 @@ function StrengthWeek({ workouts, exercises, start, onOpen, onTrain }: { workout
         </>
       )}
     </section>
+  );
+}
+
+function ReadinessCard({ checkins, onScan }: { checkins: Checkin[]; onScan: (c: Checkin | null) => void }) {
+  const today = todaysCheckin(checkins);
+  const rate = weeklyLossPct(checkins);
+  const lastW = checkins.find((c) => c.bodyweight_kg != null);
+  if (!today) {
+    return (
+      <button className="ready-strip none" style={{ marginBottom: 10 }} onClick={() => onScan(null)}>
+        <span style={{ flex: 1, textAlign: "left" }}>
+          <strong>Readiness scan</strong>{" "}
+          <span className="small">Rate sleep, energy and soreness, and log your weight. It tunes today's lifting loads.</span>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
+    );
+  }
+  const a = adjustmentFor(today);
+  return (
+    <button className={`ready-strip band-${a.band}`} style={{ marginBottom: 10 }} onClick={() => onScan(today)}>
+      <span className="ready-score sm">{today.score}</span>
+      <span style={{ flex: 1, textAlign: "left" }}>
+        <strong>{BAND_LABEL[a.band]}</strong> <span className="small">{a.headline}</span>
+        {(today.sleep_hours != null || lastW) && (
+          <span className="small" style={{ display: "block", opacity: 0.85 }}>
+            {today.sleep_hours != null ? `${today.sleep_hours} h sleep` : ""}
+            {today.sleep_hours != null && lastW ? ", " : ""}
+            {lastW ? `${lastW.bodyweight_kg} kg` : ""}
+            {rate != null ? ` (${rate >= 0 ? "−" : "+"}${Math.abs(rate).toFixed(1)}%/wk)` : ""}
+          </span>
+        )}
+      </span>
+      <span aria-hidden="true">›</span>
+    </button>
   );
 }

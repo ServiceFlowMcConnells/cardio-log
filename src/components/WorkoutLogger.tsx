@@ -6,6 +6,8 @@ import {
   pctChange, previousFor, progressionHint, roundTo, volume,
 } from "../lib/strength";
 import { toLocalInput } from "../lib/dates";
+import type { Adjustment, Checkin } from "../lib/readiness";
+import { BAND_LABEL, adjustedRpe, adjustedSets, adjustmentFor } from "../lib/readiness";
 import { deleteWorkout, saveWorkout } from "../lib/strengthData";
 import ExercisePicker from "./ExercisePicker";
 
@@ -22,6 +24,11 @@ interface Draft {
   exercises: LExercise[];
   restEnd: number | null;
   restTotal: number;
+  // Readiness scan applied to this workout
+  checkin_id?: string | null;
+  checkinScore?: number | null;
+  checkinSoreness?: number | null;
+  useAdj?: boolean;
 }
 
 const DRAFT_KEY = "cardio-log:workout-draft";
@@ -46,8 +53,13 @@ function parse(s: string): number | null {
 
 const emptySet = (type: SetType = "working"): LSet => ({ key: uid(), set_type: type, weight: "", reps: "", rpe: "", done: false });
 
-function fromTemplate(t: Template | null): Draft {
+function fromTemplate(t: Template | null, checkin: Checkin | null): Draft {
+  const adj = checkin ? adjustmentFor(checkin) : null;
   return {
+    checkin_id: checkin?.id ?? null,
+    checkinScore: checkin?.score ?? null,
+    checkinSoreness: checkin?.soreness ?? null,
+    useAdj: Boolean(checkin),
     template_id: t?.id ?? null,
     name: t?.name ?? "Workout",
     started_at: new Date().toISOString(),
@@ -57,7 +69,7 @@ function fromTemplate(t: Template | null): Draft {
       key: uid(),
       exercise_id: te.exercise_id,
       plan: { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, rest_sec: te.rest_sec, notes: te.notes },
-      sets: Array.from({ length: te.sets }, () => emptySet()),
+      sets: Array.from({ length: adjustedSets(te.sets, adj) }, () => emptySet()),
     })),
     restEnd: null,
     restTotal: 0,
@@ -74,6 +86,7 @@ function fromWorkout(w: Workout, templates: Template[]): Draft {
   return {
     id: w.id,
     template_id: w.template_id,
+    checkin_id: w.checkin_id,
     name: w.name,
     started_at: w.started_at,
     duration: w.duration_min != null ? String(w.duration_min) : "",
@@ -110,16 +123,18 @@ interface Props {
   onSaved: (id: string, isNew: boolean) => void;
   onDeleted: () => void;
   onCreatedExercise: () => void;
+  checkin: Checkin | null;
+  onScan: () => void;
 }
 
-export default function WorkoutLogger({ workout, template, data, onClose, onSaved, onDeleted, onCreatedExercise }: Props) {
+export default function WorkoutLogger({ workout, template, data, onClose, onSaved, onDeleted, onCreatedExercise, checkin, onScan }: Props) {
   const { exercises, workouts, settings, templates } = data;
   const isEdit = Boolean(workout);
   const [draft, setDraft] = useState<Draft>(() => {
     if (workout) return fromWorkout(workout, templates);
     const saved = readWorkoutDraft();
     if (saved && !saved.id) return saved;
-    return fromTemplate(template);
+    return fromTemplate(template, checkin);
   });
   const [now, setNow] = useState(Date.now());
   const [picking, setPicking] = useState<null | { replaceKey?: string }>(null);
@@ -131,6 +146,17 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
   const inc = settings.weight_increment;
 
   useEffect(() => { if (!isEdit) writeDraft(draft); }, [draft, isEdit]);
+  // A scan done after the workout started (e.g. from the banner) gets attached here.
+  useEffect(() => {
+    if (!isEdit && checkin && !draft.checkin_id) {
+      setDraft((d) => ({ ...d, checkin_id: checkin.id, checkinScore: checkin.score, checkinSoreness: checkin.soreness, useAdj: true }));
+    }
+  }, [checkin, isEdit, draft.checkin_id]);
+
+  const planAdj: Adjustment | null = draft.checkinScore != null ? adjustmentFor({ score: draft.checkinScore, soreness: draft.checkinSoreness ?? 3 }) : null;
+  const adj: Adjustment | null = draft.useAdj && !isEdit ? planAdj : null;
+  const factor = adj?.loadFactor ?? 1;
+  const scale = (kg: number) => (factor === 1 ? kg : roundTo(kg * factor, inc, factor < 1 ? "down" : "nearest"));
   useEffect(() => {
     if (isEdit) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -157,19 +183,32 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     const plan = ex.plan;
     let workingKg: number | null = null;
     let why: string | null = null;
+    const pct = factor === 1 ? "" : ` (${factor > 1 ? "+" : "−"}${Math.round(Math.abs(factor - 1) * 1000) / 10}% for readiness)`;
+    const rpeToday = adjustedRpe(plan?.target_rpe ?? null, adj);
     if (plan?.target_rpe && ref) {
       const l = loadFor(ref, plan.rep_min, plan.target_rpe, formula);
       if (l) {
-        workingKg = roundTo(l, inc, "down");
-        why = `${fmtKg(workingKg)} kg for ${plan.rep_min} reps at RPE ${plan.target_rpe}, from your estimated 1RM of ${fmtKg(Math.round(ref * 10) / 10)} kg`;
+        workingKg = factor === 1 ? roundTo(l, inc, "down") : scale(l);
+        why = `${fmtKg(workingKg)} kg for ${plan.rep_min} reps${pct}, from your estimated 1RM of ${fmtKg(Math.round(ref * 10) / 10)} kg. Stop at RPE ${rpeToday}`;
       }
     }
     const hint = plan ? progressionHint(prev?.sets ?? null, plan.rep_max, inc) : null;
     if (workingKg == null && hint) {
-      workingKg = hint.from + hint.addKg;
-      why = `You hit ${plan!.rep_max} reps on every set last time. Go up to ${fmtKg(workingKg)} kg`;
+      if (!adj || adj.allowProgression) {
+        workingKg = scale(hint.from + hint.addKg);
+        why = `You hit ${plan!.rep_max} reps on every set last time. Go up to ${fmtKg(workingKg)} kg${pct}`;
+      } else {
+        workingKg = scale(hint.from);
+        why = `You've earned a weight increase, but readiness is ${BAND_LABEL[adj.band].toLowerCase()} today. Use ${fmtKg(workingKg)} kg${pct} and add weight next time`;
+      }
+    } else if (workingKg == null && adj && factor !== 1 && prev) {
+      const top = Math.max(0, ...prev.sets.filter((x) => x.set_type !== "warmup").map((x) => x.weight_kg));
+      if (top > 0) {
+        workingKg = scale(top);
+        why = `${fmtKg(workingKg)} kg: last time's ${fmtKg(top)} kg${pct}`;
+      }
     }
-    return { prev, ref, workingKg, why };
+    return { prev, ref, workingKg, why, rpeToday };
   }
 
   function placeholderFor(ex: LExercise, idx: number, sug: ReturnType<typeof suggestions>) {
@@ -179,7 +218,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     const working = s.set_type !== "warmup";
     // A new target load is set for the bottom of the rep range; otherwise repeat last time's reps.
     const reps = working && ex.plan && sug.workingKg != null ? String(ex.plan.rep_min) : p ? String(p.reps) : working && ex.plan ? String(ex.plan.rep_min) : "";
-    const rpe = s.set_type !== "warmup" && ex.plan?.target_rpe ? String(ex.plan.target_rpe) : "";
+    const rpe = s.set_type !== "warmup" && sug.rpeToday != null ? String(sug.rpeToday) : "";
     return { weight, reps, rpe };
   }
 
@@ -263,7 +302,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     setBusy(true);
     setError(null);
     try {
-      const id = await saveWorkout({ id: draft.id, template_id: draft.template_id, name: draft.name, started_at: started, duration_min: duration, notes: draft.notes, sets: c.sets });
+      const id = await saveWorkout({ id: draft.id, template_id: draft.template_id, checkin_id: draft.checkin_id ?? null, name: draft.name, started_at: started, duration_min: duration, notes: draft.notes, sets: c.sets });
       if (!isEdit) writeDraft(null);
       onSaved(id, !isEdit);
     } catch (e) {
@@ -363,6 +402,35 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
         </div>
       )}
 
+      {!isEdit && (planAdj ? (
+        <div className={`ready-strip band-${planAdj.band}`}>
+          <span className="ready-score sm">{planAdj.score}</span>
+          <span style={{ flex: 1 }}>
+            <strong>{BAND_LABEL[planAdj.band]}</strong>{" "}
+            <span className="small">{draft.useAdj ? planAdj.headline : "Readiness ignored: full plan"}</span>
+          </span>
+          <button className="link small" onClick={() => update((d) => {
+            const on = !d.useAdj;
+            // Restore or trim planned sets on exercises you haven't started yet
+            const exercises = d.exercises.map((e) => {
+              if (!e.plan || e.sets.some((x) => x.done || x.weight || x.reps)) return e;
+              const want = on ? adjustedSets(e.plan.sets, planAdj) : e.plan.sets;
+              const working = e.sets.filter((x) => x.set_type !== "warmup");
+              const warm = e.sets.filter((x) => x.set_type === "warmup");
+              const next = working.length >= want ? working.slice(0, want) : [...working, ...Array.from({ length: want - working.length }, () => emptySet())];
+              return { ...e, sets: [...warm, ...next] };
+            });
+            return { ...d, useAdj: on, exercises };
+          })}>
+            {draft.useAdj ? "Use full plan" : "Apply"}
+          </button>
+        </div>
+      ) : (
+        <button className="ready-strip none" onClick={onScan}>
+          <span style={{ flex: 1, textAlign: "left" }}>No readiness scan today. <span className="small">Take one to adjust loads.</span></span>
+          <span aria-hidden="true">›</span>
+        </button>
+      ))}
       {error && <p className="error panel" role="alert" style={{ marginTop: 10 }}>{error}</p>}
 
       {draft.exercises.length === 0 && (

@@ -53,13 +53,13 @@ export function WeeklyBars({ weeks, target, unit, format = (v) => String(Math.ro
   );
 }
 
-export function TrendChart({ points, color, unit }: { points: Point[]; color: string; unit: string }) {
+export function TrendChart({ points, color, unit, avg, band }: { points: Point[]; color: string; unit: string; avg?: Point[]; band?: [number, number] }) {
   const W = 340, H = 160, padL = 34, padB = 22, padT = 10, padR = 8;
   const ts = points.map((p) => p.t);
   const vs = points.map((p) => p.v);
   let t0 = Math.min(...ts), t1 = Math.max(...ts);
   if (t1 - t0 < 86400000) { t0 -= 86400000 * 3; t1 += 86400000 * 3; }
-  let v0 = Math.min(...vs), v1 = Math.max(...vs);
+  let v0 = Math.min(...vs, ...(band ?? [])), v1 = Math.max(...vs, ...(band ?? []));
   const pad = Math.max((v1 - v0) * 0.2, v1 * 0.05, 0.1);
   v0 -= pad; v1 += pad;
   const x = (t: number) => padL + ((t - t0) / (t1 - t0)) * (W - padL - padR);
@@ -79,9 +79,12 @@ export function TrendChart({ points, color, unit }: { points: Point[]; color: st
       {xTicks.map((t, i) => (
         <text key={i} x={x(t)} y={H - 6} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"}>{formatShort(new Date(t))}</text>
       ))}
-      {points.length > 1 && <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" opacity={0.55} />}
+      {band && <rect x={padL} width={W - padL - padR} y={y(band[1])} height={Math.max(0, y(band[0]) - y(band[1]))} fill="var(--in)" opacity={0.12} />}
+      {avg && avg.length > 1
+        ? <path d={avg.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ")} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" />
+        : points.length > 1 && <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" opacity={0.55} />}
       {points.map((p, i) => (
-        <circle key={i} cx={x(p.t)} cy={y(p.v)} r={4} fill={color}>
+        <circle key={i} cx={x(p.t)} cy={y(p.v)} r={avg ? 3 : 4} fill={color} opacity={avg ? 0.45 : 1}>
           <title>{`${formatShort(new Date(p.t))}: ${round(p.v, 2)} ${unit}`}</title>
         </circle>
       ))}

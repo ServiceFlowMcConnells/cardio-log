@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { AppData } from "../App";
 import type { Block, Machine, Session, Settings } from "../lib/types";
 import StrengthProgress from "./StrengthProgress";
+import BodyProgress from "./BodyProgress";
+import type { Checkin } from "../lib/readiness";
 import { MACHINE_LABEL } from "../lib/types";
 import { formatShort, weekLabel } from "../lib/dates";
 import { benchmarkKey, groupByWeek, outputPerBeat, recentWeeks, sessionMinutes, settingsSummary, zoneFor } from "../lib/calc";
@@ -209,10 +211,10 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
   );
 }
 
-type Mode = "cardio" | "strength";
+type Mode = "cardio" | "strength" | "body";
 const MODE_KEY = "cardio-log:progress-mode";
 
-export default function Progress({ data, onLog, onOpenExercise }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void }) {
+export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void }) {
   const [mode, setMode] = useState<Mode>(() => {
     try { return (localStorage.getItem(MODE_KEY) as Mode) || "cardio"; } catch { return "cardio"; }
   });
@@ -226,10 +228,11 @@ export default function Progress({ data, onLog, onOpenExercise }: { data: AppDat
       <div className="seg" role="group" aria-label="Progress type" style={{ marginBottom: 14 }}>
         <button className={mode === "cardio" ? "on" : ""} aria-pressed={mode === "cardio"} onClick={() => pick("cardio")}>Cardio</button>
         <button className={mode === "strength" ? "on" : ""} aria-pressed={mode === "strength"} onClick={() => pick("strength")}>Strength</button>
+        <button className={mode === "body" ? "on" : ""} aria-pressed={mode === "body"} onClick={() => pick("body")}>Recovery</button>
       </div>
-      {mode === "cardio"
-        ? <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />
-        : <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
+      {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}
+      {mode === "strength" && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
+      {mode === "body" && <BodyProgress data={data} onScan={onOpenCheckin} />}
     </>
   );
 }

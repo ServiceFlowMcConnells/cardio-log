@@ -3,6 +3,7 @@ import type { Workout } from "../lib/strength";
 import { SET_TYPE_LABEL, compareWorkout, e1rm, fmtKg, fmtTonnage, pctChange } from "../lib/strength";
 import { formatDay, formatTime } from "../lib/dates";
 import { Delta } from "./WorkoutLogger";
+import { BAND_LABEL, bandFor } from "../lib/readiness";
 
 interface Props {
   workoutId: string;
@@ -23,6 +24,7 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
     );
   }
   const exMap = new Map(exercises.map((e) => [e.id, e]));
+  const checkin = w.checkin_id ? data.checkins.find((x) => x.id === w.checkin_id) ?? null : null;
   const c = compareWorkout(w, workouts, settings.e1rm_formula);
   const d = new Date(w.started_at);
   const prs = c.exercises.flatMap((e) => e.prs.map((p) => ({ ex: exMap.get(e.exerciseId)?.name ?? "Exercise", p })));
@@ -36,6 +38,7 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
           <p className="muted small">
             {formatDay(d)}, {formatTime(d)}{w.duration_min != null ? `, ${Math.round(w.duration_min)} min` : ""}
           </p>
+          {checkin && <p className="small" style={{ marginTop: 4 }}><span className={`ready-score xs band-${bandFor(checkin.score)}`}>{checkin.score}</span> Readiness: {BAND_LABEL[bandFor(checkin.score)].toLowerCase()}</p>}
         </div>
         <button className="btn ghost" onClick={() => onEdit(w)}>Edit</button>
       </div>

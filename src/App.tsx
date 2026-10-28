@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { loadSessions, loadSettings } from "./lib/data";
-import { loadExercises, loadTemplates, loadWorkouts } from "./lib/strengthData";
+import { loadCheckins, loadExercises, loadTemplates, loadWorkouts } from "./lib/strengthData";
+import type { Checkin } from "./lib/readiness";
+import { todaysCheckin } from "./lib/readiness";
+import ReadinessScan from "./components/ReadinessScan";
 import type { Session, Settings } from "./lib/types";
 import { DEFAULT_SETTINGS } from "./lib/types";
 import type { Exercise, Template, Workout } from "./lib/strength";
@@ -27,7 +30,8 @@ export type View =
   | { k: "summary"; workoutId: string }
   | { k: "template"; template: Template | null }
   | { k: "exercise"; id: string }
-  | { k: "settings" };
+  | { k: "settings" }
+  | { k: "readiness"; checkin: Checkin | null; next: "home" | "resume" | { template: Template | null } };
 
 function initialView(): View {
   if (hasWorkoutDraft()) return { k: "workout", workout: null, template: null };
@@ -41,11 +45,12 @@ export interface AppData {
   exercises: Exercise[];
   templates: Template[];
   workouts: Workout[];
+  checkins: Checkin[];
 }
 
 export default function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
-  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [] });
+  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [] });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("week");
@@ -61,10 +66,10 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const [sessions, settings, exercises, templates, workouts] = await Promise.all([
-        loadSessions(), loadSettings(), loadExercises(), loadTemplates(), loadWorkouts(),
+      const [sessions, settings, exercises, templates, workouts, checkins] = await Promise.all([
+        loadSessions(), loadSettings(), loadExercises(), loadTemplates(), loadWorkouts(), loadCheckins(),
       ]);
-      setData({ sessions, settings, exercises, templates, workouts });
+      setData({ sessions, settings, exercises, templates, workouts, checkins });
       setLoadError(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Couldn't load your data.");
@@ -90,7 +95,11 @@ export default function App() {
     if (t) setTab(t);
     setView({ k: "tabs" });
   };
-  const { sessions, settings, exercises, templates, workouts } = data;
+  const { sessions, settings, exercises, templates, workouts, checkins } = data;
+  const today = todaysCheckin(checkins);
+  // Starting a workout: scan first if there's no scan today
+  const startWorkout = (template: Template | null) =>
+    go(today ? { k: "workout", workout: null, template } : { k: "readiness", checkin: null, next: { template } });
 
   let body;
   if (!loaded) {
@@ -114,12 +123,37 @@ export default function App() {
         data={data}
         onClose={() => home()}
         onCreatedExercise={refresh}
+        checkin={view.workout ? null : today}
+        onScan={() => go({ k: "readiness", checkin: null, next: "resume" })}
         onSaved={async (id, isNew) => {
           await refresh();
           if (isNew) go({ k: "summary", workoutId: id });
           else home("history");
         }}
         onDeleted={async () => { home("history"); await refresh(); }}
+      />
+    );
+  } else if (view.k === "readiness") {
+    const next = view.next;
+    const proceed = () => {
+      if (next === "home") home();
+      else if (next === "resume") go({ k: "workout", workout: null, template: null });
+      else go({ k: "workout", workout: null, template: next.template });
+    };
+    const existing = view.checkin ?? (next === "home" ? null : today);
+    body = (
+      <ReadinessScan
+        existing={existing}
+        checkins={checkins}
+        saveLabel={next === "home" ? "Save scan" : next === "resume" ? "Save and back to workout" : `Save and start ${next.template?.name ?? "workout"}`}
+        onSaved={async (c) => {
+          setData((d) => ({ ...d, checkins: [c, ...d.checkins.filter((x) => x.id !== c.id)].sort((a, b) => b.checked_at.localeCompare(a.checked_at)) }));
+          proceed();
+          refresh();
+        }}
+        onSkip={next === "home" ? undefined : () => (next === "resume" ? go({ k: "workout", workout: null, template: null }) : go({ k: "workout", workout: null, template: next.template }))}
+        onCancel={() => (next === "resume" ? go({ k: "workout", workout: null, template: null }) : home())}
+        onDeleted={async () => { home(); await refresh(); }}
       />
     );
   } else if (view.k === "summary") {
@@ -165,6 +199,7 @@ export default function App() {
         onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })}
         onTrain={() => home("train")}
         goSettings={() => go({ k: "settings" })}
+        onScan={(c) => go({ k: "readiness", checkin: c, next: "home" })}
       />
     );
   } else if (tab === "history") {
@@ -181,7 +216,7 @@ export default function App() {
       <Train
         data={data}
         onLogCardio={() => go({ k: "cardio", session: null })}
-        onStart={(t) => go({ k: "workout", workout: null, template: t })}
+        onStart={startWorkout}
         onResume={() => go({ k: "workout", workout: null, template: null })}
         onEditTemplate={(t) => go({ k: "template", template: t })}
         onChanged={refresh}
@@ -190,10 +225,10 @@ export default function App() {
   } else if (tab === "exercises") {
     body = <ExerciseLibrary data={data} onOpen={(id) => go({ k: "exercise", id })} onChanged={refresh} />;
   } else {
-    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} />;
+    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} />;
   }
 
-  const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" ? "train" : view.k === "exercise" ? "exercises" : tab;
+  const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
 
   return (
     <>

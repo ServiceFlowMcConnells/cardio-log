@@ -70,6 +70,7 @@ export interface WSet {
 export interface Workout {
   id: string;
   template_id: string | null;
+  checkin_id: string | null;
   name: string;
   started_at: string;
   duration_min: number | null;

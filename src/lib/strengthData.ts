@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import type { Exercise, Template, TemplateExercise, WSet, Workout } from "./strength";
+import type { Checkin } from "./readiness";
 
 const num = (v: unknown): number | null => (v === null || v === undefined || v === "" ? null : Number(v));
 type Row = Record<string, unknown>;
@@ -108,12 +109,13 @@ function setRow(r: Row): WSet {
 export async function loadWorkouts(): Promise<Workout[]> {
   const { data, error } = await supabase
     .from("workouts")
-    .select("id, template_id, name, started_at, duration_min, notes, workout_sets(*)")
+    .select("id, template_id, checkin_id, name, started_at, duration_min, notes, workout_sets(*)")
     .order("started_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((w: Row) => ({
     id: w.id as string,
     template_id: (w.template_id as string) ?? null,
+    checkin_id: (w.checkin_id as string) ?? null,
     name: w.name as string,
     started_at: w.started_at as string,
     duration_min: num(w.duration_min),
@@ -122,8 +124,8 @@ export async function loadWorkouts(): Promise<Workout[]> {
   }));
 }
 
-export async function saveWorkout(w: { id?: string; template_id: string | null; name: string; started_at: string; duration_min: number | null; notes: string; sets: WSet[] }): Promise<string> {
-  const head = { template_id: w.template_id, name: w.name.trim() || "Workout", started_at: w.started_at, duration_min: w.duration_min, notes: w.notes.trim() || null };
+export async function saveWorkout(w: { id?: string; template_id: string | null; checkin_id: string | null; name: string; started_at: string; duration_min: number | null; notes: string; sets: WSet[] }): Promise<string> {
+  const head = { template_id: w.template_id, checkin_id: w.checkin_id, name: w.name.trim() || "Workout", started_at: w.started_at, duration_min: w.duration_min, notes: w.notes.trim() || null };
   let id = w.id;
   if (id) {
     const { error } = await supabase.from("workouts").update(head).eq("id", id);
@@ -154,5 +156,42 @@ export async function saveWorkout(w: { id?: string; template_id: string | null; 
 
 export async function deleteWorkout(id: string): Promise<void> {
   const { error } = await supabase.from("workouts").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------- Readiness check-ins ----------
+
+export async function loadCheckins(): Promise<Checkin[]> {
+  const { data, error } = await supabase
+    .from("readiness_checkins")
+    .select("id, checked_at, sleep_quality, energy, soreness, sleep_hours, bodyweight_kg, score, notes")
+    .order("checked_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((c: Row) => ({
+    id: c.id as string,
+    checked_at: c.checked_at as string,
+    sleep_quality: Number(c.sleep_quality),
+    energy: Number(c.energy),
+    soreness: Number(c.soreness),
+    sleep_hours: num(c.sleep_hours),
+    bodyweight_kg: num(c.bodyweight_kg),
+    score: Number(c.score),
+    notes: (c.notes as string) ?? null,
+  }));
+}
+
+export async function saveCheckin(c: Omit<Checkin, "id"> & { id?: string }): Promise<Checkin> {
+  const row = {
+    checked_at: c.checked_at, sleep_quality: c.sleep_quality, energy: c.energy, soreness: c.soreness,
+    sleep_hours: c.sleep_hours, bodyweight_kg: c.bodyweight_kg, score: c.score, notes: c.notes?.trim() || null,
+  };
+  const q = c.id ? supabase.from("readiness_checkins").update(row).eq("id", c.id) : supabase.from("readiness_checkins").insert(row);
+  const { data, error } = await q.select("id").single();
+  if (error) throw error;
+  return { ...c, id: data.id as string };
+}
+
+export async function deleteCheckin(id: string): Promise<void> {
+  const { error } = await supabase.from("readiness_checkins").delete().eq("id", id);
   if (error) throw error;
 }
