@@ -3,7 +3,7 @@ import type { AppData } from "../App";
 import type { SetType, Template, WSet, Workout } from "../lib/strength";
 import {
   MUSCLE_LABEL, SET_TYPE_LABEL, SET_TYPE_SHORT, bestE1rm, bestE1rmBefore, fmtKg, fmtTonnage,
-  pctChange, previousFor, volume,
+  pctChange, previousFor, volume, warmupRamp,
 } from "../lib/strength";
 import { toLocalInput } from "../lib/dates";
 import type { Adjustment, Checkin } from "../lib/readiness";
@@ -238,7 +238,10 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
         return;
       }
       setError(null);
-      const rest = ex.plan?.rest_sec ?? settings.default_rest_sec;
+      const planRest = ex.plan?.rest_sec ?? settings.default_rest_sec;
+      // Warm-ups: ~1 min between them, up to 2 min after the last one before the first working set
+      const nextIsWarmup = ex.sets[idx + 1]?.set_type === "warmup";
+      const rest = s.set_type === "warmup" ? (nextIsWarmup ? Math.min(60, planRest) : Math.min(120, planRest)) : planRest;
       update((d) => ({
         ...d,
         restEnd: !isEdit && rest > 0 ? Date.now() + rest * 1000 : d.restEnd,
@@ -248,6 +251,35 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     } else {
       updSet(ex.key, s.key, (x) => ({ ...x, done: false }));
     }
+  }
+
+  /** Prefill a warm-up ramp from the first working set's target: weight rises, reps fall, last one ~80–90%. */
+  function addWarmups(ex: LExercise, sug: ReturnType<typeof suggestions>) {
+    const info = exMap.get(ex.exercise_id);
+    const firstWork = ex.sets.find((x) => x.set_type !== "warmup");
+    const prevTop = sug.prev ? Math.max(0, ...sug.prev.sets.filter((x) => x.set_type !== "warmup").map((x) => x.weight_kg)) : 0;
+    const typed = firstWork ? parse(firstWork.weight) : null;
+    const working = (typed != null && !Number.isNaN(typed) && typed > 0 ? typed : null) ?? sug.workingKg ?? (prevTop || null);
+    const typedReps = firstWork ? parse(firstWork.reps) : null;
+    const reps = sug.presc?.reps[0] ?? (typedReps != null && !Number.isNaN(typedReps) && typedReps > 0 ? typedReps : null) ?? ex.plan?.rep_min ?? 8;
+    const equipment = info?.equipment ?? "barbell";
+    if (working == null && equipment !== "bodyweight") {
+      setError("Enter the working weight on the first set, then tap Warm-ups again.");
+      return;
+    }
+    const inc = ex.plan?.increment_kg ?? info?.increment_kg ?? settings.weight_increment;
+    const ramp = warmupRamp(working ?? 0, reps, { equipment, inc });
+    if (!ramp.length) {
+      setError(`${fmtKg(working ?? 0)} kg is light enough that a warm-up set isn't needed. Start with your first working set.`);
+      return;
+    }
+    setError(null);
+    updEx(ex.key, (e) => {
+      // Replace any untouched warm-up rows; keep ones you've already filled or ticked
+      const kept = e.sets.filter((x) => x.set_type !== "warmup" || x.done || x.weight || x.reps);
+      const fresh: LSet[] = ramp.map((r) => ({ key: uid(), set_type: "warmup", weight: fmtKg(r.kg), reps: String(r.reps), rpe: "", done: false }));
+      return { ...e, sets: [...fresh, ...kept] };
+    });
   }
 
   function cycleType(ek: string, sk: string) {
@@ -344,7 +376,8 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     );
   }
 
-  const live = draft.exercises.flatMap((e) => e.sets.filter((s) => s.done).map((s) => ({ weight_kg: parse(s.weight) || 0, reps: parse(s.reps) || 0 })));
+  // Warm-ups don't count towards volume
+  const live = draft.exercises.flatMap((e) => e.sets.filter((s) => s.done && s.set_type !== "warmup").map((s) => ({ weight_kg: parse(s.weight) || 0, reps: parse(s.reps) || 0 })));
   const liveVolume = live.reduce((a, s) => a + s.weight_kg * s.reps, 0);
   const doneCount = draft.exercises.reduce((a, e) => a + e.sets.filter((s) => s.done && s.set_type !== "warmup").length, 0);
 
@@ -508,7 +541,9 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
             })}
             <div className="lift-actions">
               <button className="link small" onClick={() => updEx(ex.key, (e) => ({ ...e, sets: [...e.sets, emptySet(e.sets[e.sets.length - 1]?.set_type === "warmup" ? "warmup" : "working")] }))}>+ Add set</button>
-              <button className="link small" onClick={() => updEx(ex.key, (e) => ({ ...e, sets: [emptySet("warmup"), ...e.sets] }))}>+ Warm-up</button>
+              {ex.sets.some((x) => x.set_type === "warmup")
+                ? <button className="link small" onClick={() => updEx(ex.key, (e) => { const i = e.sets.map((x) => x.set_type).lastIndexOf("warmup"); const a = [...e.sets]; a.splice(i + 1, 0, emptySet("warmup")); return { ...e, sets: a }; })}>+ Warm-up set</button>
+                : <button className="link small" onClick={() => addWarmups(ex, sug)}>+ Warm-ups</button>}
               {ex.sets.length > 0 && <button className="link small" onClick={() => updEx(ex.key, (e) => ({ ...e, sets: e.sets.slice(0, -1) }))}>Remove last</button>}
             </div>
             {doneSets.length > 0 && (

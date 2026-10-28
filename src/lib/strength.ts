@@ -459,3 +459,51 @@ export function suggestWorking(
   }
   return { kg, why, increased };
 }
+
+// ---------- Warm-up ramps ----------
+//
+// Evidence base:
+//  - Ribeiro et al. 2020 (IJERPH): warm-ups that include a set at ~80% of the working load improved squat
+//    and bench performance more than light-only warm-ups; "few reps at low loads is not enough".
+//  - Ribeiro et al.: 8 reps at ~64% 1RM beat 8 at ~32%; doing both was best.
+//  - Sousa et al. 2024: a second warm-up at 90% 1RM beat one at 45% before squats to failure at 75% 1RM.
+//  - Brazilian crossover (via Stronger by Science, 2024): 5 reps at 80% of 10RM gave more total volume
+//    than 10 at 60% or 15 at 40%.
+// So: ramp up in a few steps, reps fall as the weight rises (low fatigue), and the last warm-up is heavy
+// (80–90% of the working weight). Heavier, lower-rep work gets more steps; high-rep work needs one.
+
+export interface WarmupStep { kg: number; reps: number }
+
+export function warmupRamp(working: number, reps: number, opts: { equipment: Equipment; inc: number }): WarmupStep[] {
+  const { equipment, inc } = opts;
+  if (working <= 0) {
+    // Bodyweight: one easy primer set
+    return equipment === "bodyweight" ? [{ kg: 0, reps: Math.max(3, Math.min(8, Math.round(reps / 2))) }] : [];
+  }
+  // [fraction of working weight, reps]
+  let steps: [number, number][];
+  if (reps <= 5) steps = [[0.4, 5], [0.6, 3], [0.75, 2], [0.9, 1]];
+  else if (reps <= 8) steps = [[0.45, 8], [0.65, 5], [0.85, 3]];
+  else if (reps <= 12) steps = [[0.5, 8], [0.8, 5]];
+  else steps = [[0.6, 8]];
+  // Dumbbells, cables and machines need less ramping than a loaded barbell
+  if (equipment !== "barbell" && equipment !== "smith" && steps.length >= 3) steps = steps.slice(1);
+
+  const bar = equipment === "barbell" ? 20 : 0;
+  const out: WarmupStep[] = [];
+  for (const [f, r] of steps) {
+    let kg = Math.max(bar, roundTo(working * f, inc, "nearest"));
+    if (kg >= working - inc / 2) continue; // too close to the working weight to be a warm-up
+    if (kg <= 0) kg = inc;
+    const last = out[out.length - 1];
+    if (last && kg <= last.kg) {
+      // Light weights round to the same number: keep the heavier step's lower reps only
+      last.reps = Math.min(last.reps, r);
+      continue;
+    }
+    out.push({ kg, reps: r });
+  }
+  // Empty-bar start for barbell lifts heavy enough to need it
+  if (equipment === "barbell" && out.length && out[0].kg > bar && working >= 60 && reps <= 8) out.unshift({ kg: bar, reps: 10 });
+  return out;
+}
