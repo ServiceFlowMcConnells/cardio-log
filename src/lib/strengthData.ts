@@ -42,6 +42,9 @@ function teRow(r: Row): TemplateExercise {
     target_rpe: num(r.target_rpe),
     rest_sec: num(r.rest_sec),
     notes: (r.notes as string) ?? null,
+    progression: (r.progression as TemplateExercise["progression"]) ?? "rep_range",
+    on_stall: (r.on_stall as TemplateExercise["on_stall"]) ?? "preserve",
+    increment_kg: num(r.increment_kg),
   };
 }
 
@@ -79,6 +82,7 @@ export async function saveTemplate(t: { id?: string; name: string; notes: string
     const rows = t.exercises.map((e, i) => ({
       template_id: tid, exercise_id: e.exercise_id, position: i, sets: e.sets, rep_min: e.rep_min, rep_max: e.rep_max,
       target_rpe: e.target_rpe, rest_sec: e.rest_sec, notes: e.notes?.trim() || null,
+      progression: e.progression ?? "rep_range", on_stall: e.on_stall ?? "preserve", increment_kg: e.increment_kg ?? null,
     }));
     const { error } = await supabase.from("template_exercises").insert(rows);
     if (error) throw error;

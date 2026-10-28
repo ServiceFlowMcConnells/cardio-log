@@ -57,7 +57,7 @@ export default function CoachPanel({ data, onOpenExercise, onChanged }: { data: 
         </div>
       ) : ov.slipping.length === 1 ? (
         <div className="coach-alert tone-warn">
-          <p><strong>{names.get(ov.slipping[0].exerciseId)} is slipping.</strong> The coach has switched it to Protect: same weight, one fewer set. If a second lift slips, it'll suggest a deload.</p>
+          <p><strong>{names.get(ov.slipping[0].exerciseId)} is slipping.</strong> The coach has switched it to Preserve muscle: same weight, match your reps, one fewer set. If a second lift slips, it'll suggest a deload.</p>
         </div>
       ) : null}
       {error && <p className="error">{error}</p>}

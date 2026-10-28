@@ -13,7 +13,14 @@ import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/c
 import { deleteWorkout, saveWorkout } from "../lib/strengthData";
 import ExercisePicker from "./ExercisePicker";
 
-interface Plan { sets: number; rep_min: number; rep_max: number; target_rpe: number | null; rest_sec: number | null; notes: string | null }
+interface Plan {
+  sets: number; rep_min: number; rep_max: number; target_rpe: number | null; rest_sec: number | null; notes: string | null;
+  progression?: "rep_range" | "fixed"; on_stall?: "preserve" | "reset"; increment_kg?: number | null;
+}
+const planOf = (te: Template["exercises"][number]): Plan => ({
+  sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, rest_sec: te.rest_sec, notes: te.notes,
+  progression: te.progression, on_stall: te.on_stall, increment_kg: te.increment_kg,
+});
 interface LSet { key: string; set_type: SetType; weight: string; reps: string; rpe: string; done: boolean }
 interface LExercise { key: string; exercise_id: string; plan: Plan | null; sets: LSet[] }
 interface Draft {
@@ -69,7 +76,7 @@ function fromTemplate(t: Template | null, checkin: Checkin | null, setsFor: (te:
     exercises: (t?.exercises ?? []).map((te) => ({
       key: uid(),
       exercise_id: te.exercise_id,
-      plan: { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, rest_sec: te.rest_sec, notes: te.notes },
+      plan: planOf(te),
       sets: Array.from({ length: setsFor(te) }, () => emptySet()),
     })),
     restEnd: null,
@@ -97,7 +104,7 @@ function fromWorkout(w: Workout, templates: Template[]): Draft {
       return {
         key: uid(),
         exercise_id: sets[0].exercise_id,
-        plan: te ? { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, rest_sec: te.rest_sec, notes: te.notes } : null,
+        plan: te ? planOf(te) : null,
         sets: sets.sort((a, b) => a.set_number - b.set_number).map((s) => ({
           key: uid(), set_type: s.set_type, weight: fmtKg(s.weight_kg), reps: String(s.reps), rpe: s.rpe != null ? String(s.rpe) : "", done: true,
         })),
@@ -140,7 +147,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     const start = new Date().toISOString();
     return fromTemplate(template, checkin, (te) =>
       coachExercise(exercises.find((e) => e.id === te.exercise_id), te.exercise_id,
-        { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe },
+        planOf(te),
         workouts, templates, start, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: adj0, deload: deloadActive(settings.deload_until) })?.sets ?? te.sets);
   });
   const [now, setNow] = useState(Date.now());
@@ -184,7 +191,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
 
   /** The coach's prescription for an exercise, with or without today's readiness. */
   function prescribe(ex: LExercise, withAdj: Adjustment | null = adj): Prescription | null {
-    const plan = ex.plan ? { sets: ex.plan.sets, rep_min: ex.plan.rep_min, rep_max: ex.plan.rep_max, target_rpe: ex.plan.target_rpe } : null;
+    const plan = ex.plan ? { sets: ex.plan.sets, rep_min: ex.plan.rep_min, rep_max: ex.plan.rep_max, target_rpe: ex.plan.target_rpe, progression: ex.plan.progression, on_stall: ex.plan.on_stall, increment_kg: ex.plan.increment_kg } : null;
     return coachExercise(exMap.get(ex.exercise_id), ex.exercise_id, plan, workouts, templates, draft.started_at,
       { formula, inc, adj: withAdj, deload, excludeId: draft.id });
   }

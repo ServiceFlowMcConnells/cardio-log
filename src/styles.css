@@ -400,3 +400,4 @@ select.input { appearance: auto; }
 .coach-alert .btn { margin-top: 10px; }
 .coach-alert .link { margin-top: 6px; display: inline-block; }
 .coach-verdict { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.rule-box { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--lift) 10%, transparent); border-left: 4px solid var(--lift); }

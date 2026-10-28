@@ -47,6 +47,9 @@ export interface TemplateExercise {
   target_rpe: number | null;
   rest_sec: number | null;
   notes: string | null;
+  progression?: "rep_range" | "fixed";
+  on_stall?: "preserve" | "reset";
+  increment_kg?: number | null;
 }
 
 export interface Template {

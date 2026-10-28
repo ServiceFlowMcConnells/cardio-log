@@ -31,7 +31,7 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
   const coachOpts = { formula: settings.e1rm_formula, inc: settings.weight_increment };
   const planOf = (id: string) => {
     const te = tpl?.exercises.find((x) => x.exercise_id === id);
-    return te ? { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe } : null;
+    return te ? { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, progression: te.progression, on_stall: te.on_stall, increment_kg: te.increment_kg } : null;
   };
   // What the coach asked for going into this workout, and what it wants next time
   const coachFor = (id: string) => {

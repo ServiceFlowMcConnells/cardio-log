@@ -35,7 +35,7 @@ export const STATUS_LABEL: Record<CoachStatus, string> = {
   add_set: "Add a set",
   consolidate: "Consolidate",
   reset: "Reset & rebuild",
-  protect: "Protect strength",
+  protect: "Preserve muscle",
   recover: "Easy day",
   deload: "Deload",
   readiness_hold: "Hold for readiness",
@@ -46,7 +46,41 @@ export const STATUS_TONE: Record<CoachStatus, "good" | "neutral" | "warn" | "bad
   protect: "bad", recover: "warn", deload: "warn", readiness_hold: "warn",
 };
 
-export interface Plan { sets: number; rep_min: number; rep_max: number; target_rpe: number | null }
+export type Progression = "rep_range" | "fixed";
+export type OnStall = "preserve" | "reset";
+export interface Plan {
+  sets: number;
+  rep_min: number;
+  rep_max: number;
+  target_rpe: number | null;
+  progression?: Progression; // rep_range: build reps to the top, then add weight. fixed: add weight when every set hits the reps
+  on_stall?: OnStall; // preserve: hold weight and trim volume when stuck or slipping. reset: drop 5–7.5% and rebuild
+  increment_kg?: number | null; // weight jump for this exercise in this template
+}
+
+/** Plain-English rule for a template exercise. */
+export function ruleText(plan: Plan, inc: number): string {
+  const p = normalise(plan);
+  const rpe = p.target_rpe ? ` @ RPE ${p.target_rpe}` : "";
+  const grow = p.progression === "fixed"
+    ? `Rule: ${p.sets} × ${p.rep_min}${rpe}. When every set hits ${p.rep_min}${p.target_rpe ? ` (averaging RPE ${p.target_rpe + 0.5} or easier)` : ""}, add ${fmtKg(inc)} kg.`
+    : `Rule: ${p.sets} × ${p.rep_min}–${p.rep_max}${rpe}. Add a rep at a time until all ${p.sets} sets reach ${p.rep_max}${p.target_rpe ? ` (averaging RPE ${p.target_rpe + 0.5} or easier)` : ""}, then add ${fmtKg(inc)} kg and start back at ${p.rep_min}.`;
+  const stall = p.on_stall === "reset"
+    ? " If it stalls for 3 sessions or reps drop below the range, drop 5–7.5% and rebuild."
+    : " If RPE stays high with no progress, or strength goes backwards, switch to preserving muscle: hold the weight, match your reps, trim a set.";
+  return grow + stall;
+}
+
+function normalise(plan: Plan): Required<Omit<Plan, "increment_kg">> & { increment_kg: number | null } {
+  const progression = plan.progression ?? (plan.rep_min === plan.rep_max ? "fixed" : "rep_range");
+  return {
+    ...plan,
+    progression,
+    rep_max: progression === "fixed" ? plan.rep_min : plan.rep_max,
+    on_stall: plan.on_stall ?? "preserve",
+    increment_kg: plan.increment_kg ?? null,
+  };
+}
 
 export interface LiftHistory {
   sessions: { at: string; workoutId: string; sets: WSet[]; top: number; topReps: number[]; e1rm: number | null }[];
@@ -130,7 +164,7 @@ export function planFor(exerciseId: string, templates: Template[], hist: LiftHis
   if (fromTemplate) return fromTemplate;
   for (const t of templates) {
     const te = t.exercises.find((e) => e.exercise_id === exerciseId);
-    if (te) return { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe };
+    if (te) return { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, progression: te.progression, on_stall: te.on_stall, increment_kg: te.increment_kg };
   }
   const last = hist.sessions[0];
   if (!last) return null;
@@ -180,10 +214,11 @@ export function coachExercise(
   opts: CoachOpts,
 ): Prescription | null {
   const { formula, adj, deload, excludeId } = opts;
-  const inc = incrementFor(exercise, opts.inc);
   const hist = liftHistory(exerciseId, workouts, before, formula, excludeId);
-  const plan = planFor(exerciseId, templates, hist, templatePlan);
-  if (!plan) return null;
+  const found = planFor(exerciseId, templates, hist, templatePlan);
+  if (!found) return null;
+  const plan = normalise(found);
+  const inc = plan.increment_kg ?? incrementFor(exercise, opts.inc);
   const target = plan.target_rpe;
   const last = hist.sessions[0];
   let sets = adjustedSets(plan.sets, adj);
@@ -229,7 +264,36 @@ export function coachExercise(
     const holdForReadiness = adj != null && !adj.allowProgression;
 
     const below = Math.abs(Math.round(hist.vsPeakPct ?? 0));
-    if (hist.slipping) {
+    const preserveMode = plan.on_stall === "preserve";
+    // "High" = above the band where progression is allowed (target + 0.5)
+    const highRpe = avgRpe != null && (target != null ? avgRpe > target + 0.5 : avgRpe >= 9);
+    // Going backwards: slipping vs the 6-week peak, or two session-to-session drops in a row
+    const e = hist.sessions.slice(0, 3).map((s) => s.e1rm);
+    const twoDrops = e.length === 3 && e.every((v) => v != null) && (e[0] as number) < (e[1] as number) * 0.98 && (e[1] as number) < (e[2] as number) * 0.98;
+    const backwards = hist.slipping || twoDrops;
+    const stuckHard = hist.stalled >= 2 && highRpe;
+
+    if (preserveMode && (backwards || stuckHard || missed >= 2)) {
+      status = "protect";
+      const trim = backwards || highRpe;
+      if (trim) sets = Math.max(Math.min(sets, 2), sets - 1);
+      if (target != null) rpe = Math.min(rpe ?? target, target);
+      const oneDown = last.top - inc;
+      const canDrop = missed >= 2 && oneDown > 0 && oneDown / last.top >= 0.85;
+      weight = canDrop ? oneDown : last.top;
+      reps = canDrop ? Array(sets).fill(plan.rep_min) : fit(last.topReps, sets, Math.min(...last.topReps)).map((r) => Math.min(r, plan.rep_max));
+      const reasons: string[] = [];
+      if (hist.slipping) reasons.push(`estimated 1RM is ${below}% under its 6-week best`);
+      else if (twoDrops) reasons.push("estimated 1RM has dropped two sessions running");
+      if (stuckHard) reasons.push(`no progress for ${hist.stalled} sessions with RPE averaging ${Math.round(avgRpe! * 10) / 10}${target != null ? ` against a target of ${target}` : ""}`);
+      if (missed >= 2) reasons.push(`reps fell below ${plan.rep_min} on ${missed} sets`);
+      const r0 = reasons.join(", and ");
+      why = `${r0.charAt(0).toUpperCase()}${r0.slice(1)}. Goal now: preserve muscle. `
+        + (canDrop
+          ? `Take one jump off to ${fmtKg(weight)} kg so every set lands back in the ${plan.rep_min}–${plan.rep_max} range, and keep it heavy.`
+          : `Keep ${fmtKg(last.top)} kg on the bar: heavy loading is the signal that holds muscle in a deficit. Match last time's reps rather than grinding for more.`)
+        + `${trim ? " One fewer set keeps fatigue down." : ""} Stop at RPE ${rpe ?? 8}. Progression resumes once reps climb or RPE drops; if it keeps sliding, take a deload week.`;
+    } else if (hist.slipping) {
       status = "protect";
       sets = Math.max(Math.min(sets, 2), sets - 1);
       if (target != null) rpe = Math.min(rpe ?? target, target);
@@ -243,7 +307,7 @@ export function coachExercise(
         reps = fit(last.topReps, sets, Math.min(...last.topReps)).map((r) => Math.min(r, plan.rep_max));
         why = `Estimated 1RM is ${below}% under its 6-week best on 2 of the last 3 sessions. Keep ${fmtKg(last.top)} kg (holding the weight is what holds strength in a deficit), match last time's reps with one fewer set to shed fatigue, and stop at RPE ${rpe ?? 8}. If it keeps dropping, take a deload week.`;
       }
-    } else if (missed >= 2 || hist.stalled >= 3) {
+    } else if (!preserveMode && (missed >= 2 || hist.stalled >= 3)) {
       status = "reset";
       const stalledCase = missed < 2;
       const dropped = dropBy(last.top, stalledCase ? 0.075 : 0.05, inc);
@@ -277,7 +341,7 @@ export function coachExercise(
         const predicted = ref && target ? predictReps(ref, weight, target, formula) : plan.rep_min;
         const goal = Math.max(plan.rep_min, Math.min(plan.rep_max - 1, predicted));
         reps = Array(sets).fill(goal);
-        why = `${plan.rep_max} reps on every set at ${fmtKg(last.top)} kg${avgRpe != null ? ` (average RPE ${Math.round(avgRpe * 10) / 10})` : ""}. Up ${fmtKg(jump)} kg to ${fmtKg(weight)} kg and aim for ${goal} per set, then build back to ${plan.rep_max}.`;
+        why = `${plan.rep_max} reps on every set at ${fmtKg(last.top)} kg${avgRpe != null ? ` (average RPE ${Math.round(avgRpe * 10) / 10})` : ""}. Up ${fmtKg(jump)} kg to ${fmtKg(weight)} kg and aim for ${goal} on every set${plan.progression === "fixed" ? "" : `, then build back to ${plan.rep_max}`}.`;
       }
     } else if (target != null && avgRpe != null && avgRpe > target + 1) {
       status = "consolidate";
