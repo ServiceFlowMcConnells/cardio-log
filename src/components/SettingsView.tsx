@@ -42,7 +42,7 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
     if (!(incN > 0 && incN <= 20)) return setMsg({ ok: false, text: "Weight increment should be between 0.25 and 20 kg." });
     const restN = Number(rest);
     if (!Number.isInteger(restN) || restN < 0 || restN > 900) return setMsg({ ok: false, text: "Rest should be 0 to 900 seconds." });
-    const next: Settings = { weekly_target_min: t, max_hr: maxHr ? mh : null, zone_low_pct: lo, zone_high_pct: hi, weight_increment: incN, default_rest_sec: restN, e1rm_formula: formula };
+    const next: Settings = { weekly_target_min: t, max_hr: maxHr ? mh : null, zone_low_pct: lo, zone_high_pct: hi, weight_increment: incN, default_rest_sec: restN, e1rm_formula: formula, deload_until: settings.deload_until };
     setBusy(true);
     setMsg(null);
     try {
