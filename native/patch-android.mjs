@@ -1,0 +1,30 @@
+// Runs in CI after `npx cap add android`: copies the native rest timer code in and patches the manifest.
+import fs from "node:fs";
+import path from "node:path";
+
+const root = path.resolve("android/app/src/main");
+const pkgDir = path.join(root, "java/ie/traininglog/app");
+fs.mkdirSync(pkgDir, { recursive: true });
+for (const f of fs.readdirSync("overlay/java")) fs.copyFileSync(path.join("overlay/java", f), path.join(pkgDir, f));
+fs.mkdirSync(path.join(root, "res/drawable"), { recursive: true });
+for (const f of fs.readdirSync("overlay/res/drawable")) fs.copyFileSync(path.join("overlay/res/drawable", f), path.join(root, "res/drawable", f));
+
+const mf = path.join(root, "AndroidManifest.xml");
+let xml = fs.readFileSync(mf, "utf8");
+const perms = [
+  '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+  '<uses-permission android:name="android.permission.VIBRATE" />',
+  '<uses-permission android:name="android.permission.USE_EXACT_ALARM" />',
+  '<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />',
+];
+for (const p of perms) if (!xml.includes(p.split('"')[1])) xml = xml.replace("</manifest>", `    ${p}\n</manifest>`);
+if (!xml.includes("RestAlarmReceiver")) xml = xml.replace("</application>", '        <receiver android:name=".RestAlarmReceiver" android:exported="false" />\n    </application>');
+fs.writeFileSync(mf, xml);
+
+// Version code from the CI run number so each APK installs over the last (same signing key permitting)
+const gradle = "android/app/build.gradle";
+let g = fs.readFileSync(gradle, "utf8");
+const run = process.env.GITHUB_RUN_NUMBER ?? "1";
+g = g.replace(/versionCode \d+/, `versionCode ${run}`).replace(/versionName "[^"]*"/, `versionName "1.0.${run}"`);
+fs.writeFileSync(gradle, g);
+console.log("patched android project, versionCode", run);

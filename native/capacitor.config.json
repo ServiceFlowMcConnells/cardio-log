@@ -1,0 +1,12 @@
+{
+  "appId": "ie.traininglog.app",
+  "appName": "Training Log",
+  "webDir": "www",
+  "server": {
+    "url": "https://training-log-coach.vercel.app",
+    "cleartext": false
+  },
+  "android": {
+    "backgroundColor": "#17232A"
+  }
+}
