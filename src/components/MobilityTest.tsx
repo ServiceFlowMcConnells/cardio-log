@@ -75,7 +75,7 @@ export default function MobilityTest({ previous, onClose, onSaved }: Props) {
 
   const t = TESTS[step];
   const r = results[t.id];
-  const set = (patch: Partial<TestResult>) => setResults((x) => ({ ...x, [t.id]: { score: 2, pain: false, ...x[t.id], ...patch } }));
+  const set = (patch: Partial<TestResult>) => setResults((x) => ({ ...x, [t.id]: { ...(x[t.id] ?? { score: 2, pain: false }), ...patch } }));
 
   return (
     <>
