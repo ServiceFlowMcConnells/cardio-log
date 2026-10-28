@@ -6,6 +6,7 @@ import {
   pctChange, previousFor, volume, warmupRamp,
 } from "../lib/strength";
 import { toLocalInput } from "../lib/dates";
+import { unlockAudio } from "../lib/restAlert";
 import type { Adjustment, Checkin } from "../lib/readiness";
 import { BAND_LABEL, adjustmentFor, latestPhase } from "../lib/readiness";
 import type { Prescription } from "../lib/coach";
@@ -177,12 +178,9 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     return () => clearInterval(t);
   }, [isEdit]);
 
-  // Rest timer: buzz once when it hits zero.
+  // Rest timer: the beep, buzz and minimised push live in useRestAlerts (App level).
   const restLeft = draft.restEnd ? Math.ceil((draft.restEnd - now) / 1000) : null;
   useEffect(() => {
-    if (restLeft === 0) {
-      try { navigator.vibrate?.([200, 100, 200]); } catch { /* not supported */ }
-    }
     if (restLeft != null && restLeft < -4) setDraft((d) => ({ ...d, restEnd: null }));
   }, [restLeft]);
 
@@ -229,6 +227,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
 
   function toggleDone(ex: LExercise, idx: number, sug: ReturnType<typeof suggestions>) {
     const s = ex.sets[idx];
+    unlockAudio(); // a tap, so the end-of-rest beep is allowed to play
     if (!s.done) {
       const ph = placeholderFor(ex, idx, sug);
       const weight = s.weight || ph.weight || "0";

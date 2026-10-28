@@ -9,6 +9,7 @@ import MobilityHome from "./components/MobilityHome";
 import MobilityTest from "./components/MobilityTest";
 import MobilityPlayer from "./components/MobilityPlayer";
 import Niggles from "./components/Niggles";
+import { useRestAlerts } from "./lib/useRestAlerts";
 import type { Checkin } from "./lib/readiness";
 import { todaysCheckin } from "./lib/readiness";
 import ReadinessScan from "./components/ReadinessScan";
@@ -76,6 +77,7 @@ export default function App() {
   }, []);
 
   const userId = auth?.user.id;
+  useRestAlerts(data.exercises);
 
   const refresh = useCallback(async () => {
     try {

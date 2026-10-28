@@ -1,3 +1,4 @@
+import RestAlertSettings from "./RestAlertSettings";
 import { useState } from "react";
 import type { Session, Settings } from "../lib/types";
 import type { Exercise, Workout } from "../lib/strength";
@@ -142,6 +143,8 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
         {msg && <p className={msg.ok ? "ok" : "error"} role="status">{msg.text}</p>}
         <button className="btn dark block" disabled={busy}>{busy ? "Saving…" : "Save settings"}</button>
       </form>
+
+      <RestAlertSettings />
 
       <section className="section panel stack">
         <h2>Your data</h2>
