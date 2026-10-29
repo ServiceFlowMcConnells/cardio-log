@@ -25,7 +25,9 @@ export function nativeRestTimer(): NativeRestTimer | null {
   if (!cap?.isNativePlatform?.() || !cap.nativePromise) return (cached = null);
   const call = <T,>(method: string, options: unknown = {}) => cap.nativePromise!<T>("RestTimer", method, options);
   cached = {
-    start: (o) => call("start", o),
+    // endAt must arrive as a decimal: a whole-number epoch-ms value is parsed natively as a Long, which
+    // Capacitor's getDouble() ignores (APK 1.0.2 and earlier then refuse to start). Half a millisecond is harmless.
+    start: (o) => call("start", { ...o, endAt: Math.floor(o.endAt) + 0.5 }),
     cancel: () => call<void>("cancel"),
     requestPermission: () => call("requestPermission"),
   };

@@ -18,7 +18,7 @@ export function useRestAlerts(exercises: Exercise[]) {
 
   useEffect(() => {
     const native = nativeRestTimer();
-    native?.requestPermission().catch(() => {});
+    native?.requestPermission().catch((e) => console.warn("RestTimer.requestPermission failed", e));
 
     const nextUp = () => {
       const d = readWorkoutDraft();
@@ -34,8 +34,8 @@ export function useRestAlerts(exercises: Exercise[]) {
       if (native) {
         // Mirror the rest to the phone whenever it starts, changes (±15 s) or stops
         if (end !== sentToPhone.current) {
-          if (end && end > Date.now() + 1000) native.start({ endAt: end, title: "Resting", body: nextUp(), sound: soundOn() }).catch(() => {});
-          else if (sentToPhone.current && (!end || end > Date.now())) native.cancel().catch(() => {});
+          if (end && end > Date.now() + 1000) native.start({ endAt: end, title: "Resting", body: nextUp(), sound: soundOn() }).catch((e) => console.warn("RestTimer.start failed", e));
+          else if (sentToPhone.current && (!end || end > Date.now())) native.cancel().catch((e) => console.warn("RestTimer.cancel failed", e));
           sentToPhone.current = end;
         }
         return;

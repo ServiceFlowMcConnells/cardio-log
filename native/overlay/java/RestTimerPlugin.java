@@ -105,9 +105,10 @@ public class RestTimerPlugin extends Plugin {
     @PluginMethod
     public void start(PluginCall call) {
         Context ctx = getContext();
-        Double endD = call.getDouble("endAt");
-        if (endD == null) { call.reject("endAt is required"); return; }
-        long endAt = endD.longValue();
+        // JSON numbers arrive as Integer, Long or Double depending on size; getDouble() ignores Longs
+        Object endRaw = call.getData().opt("endAt");
+        if (!(endRaw instanceof Number)) { call.reject("endAt is required"); return; }
+        long endAt = ((Number) endRaw).longValue();
         String title = call.getString("title", "Resting");
         String body = call.getString("body", "Time for your next set");
         boolean sound = Boolean.TRUE.equals(call.getBoolean("sound", true));
