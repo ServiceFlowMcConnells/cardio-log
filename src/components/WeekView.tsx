@@ -12,6 +12,7 @@ import type { Checkin } from "../lib/readiness";
 import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, weeklyLossPct } from "../lib/readiness";
 import { AREA_LABEL, daysThisWeek, doneToday, fmtMin, needsRetest } from "../lib/mobility";
 import { buildRoutine } from "./MobilityPlayer";
+import { nextUp } from "../lib/programs";
 
 const DAY_LETTERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -182,10 +183,11 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
 
 function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Template) => void; onWarmup: (t: Template) => void }) {
   const { templates, workouts, exercises, settings, checkins } = data;
-  if (!templates.length) return null;
-  // The template you've gone longest without (never done counts as longest)
-  const lastDone = (t: Template) => workouts.find((w) => w.template_id === t.id)?.started_at ?? "";
-  const t = [...templates].sort((a, b) => lastDone(a).localeCompare(lastDone(b)) || a.position - b.position)[0];
+  // The active program's next workout, else the template you've gone longest without
+  const up = nextUp(data);
+  if (!up) return null;
+  const t = up.template;
+  const lastDone = (x: Template) => workouts.find((w) => w.template_id === x.id)?.started_at ?? "";
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const today = todaysCheckin(checkins);
   const opts = { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: today ? adjustmentFor(today) : null, deload: deloadActive(settings.deload_until), phase: latestPhase(checkins) };
@@ -197,6 +199,9 @@ function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Templ
         <h3>Next up: {t.name}</h3>
         <span className="muted small">{last ? `last ${formatShort(new Date(last))}` : "not done yet"}</span>
       </div>
+      {up.program && up.step != null && (
+        <p className="small muted" style={{ marginTop: 2 }}>{up.program.name} · workout {String.fromCharCode(65 + up.step)} of {up.program.steps.length}</p>
+      )}
       <ul className="tpl-list">
         {t.exercises.map((te, i) => {
           const p = coachExercise(exMap.get(te.exercise_id), te.exercise_id,

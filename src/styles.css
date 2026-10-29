@@ -475,3 +475,22 @@ select.input { appearance: auto; }
 .chip.nig-chip { border: 0; font-size: 0.85rem; padding: 4px 10px; background: color-mix(in srgb, var(--mob) 16%, transparent); color: var(--mob); }
 .chip.nig-chip.blocked { background: color-mix(in srgb, var(--over) 16%, transparent); color: var(--over); }
 .row-v.small { font-family: var(--body); font-size: 0.85rem; font-weight: 600; }
+
+/* ---------- Programs ---------- */
+.prog-card { border-left-color: var(--signal); }
+.chip.prog-active { background: var(--signal); color: var(--signal-ink); }
+.prog-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.prog-chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 12px 4px 4px; background: var(--ground); font-size: 0.88rem; font-weight: 500; color: var(--muted); }
+.prog-chip b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--panel); color: var(--ink); font-family: var(--display); font-size: 0.9rem; }
+.prog-chip.next { background: var(--ink); color: var(--panel); }
+.prog-chip.next b { background: var(--signal); color: var(--signal-ink); }
+.prog-links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.prog-row-btns { display: flex; align-items: center; gap: 12px; flex: none; }
+.prog-row-btns .btn { min-height: 36px; padding: 6px 14px; }
+.prog-step { gap: 12px; }
+.prog-letter { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: var(--panel); font-family: var(--display); font-weight: 700; flex: none; }
+.prog-tools { display: flex; gap: 4px; flex: none; }
+.prog-tools .icon-btn { width: 34px; height: 34px; border-radius: 8px; background: var(--ground); border: 0; color: var(--ink); font-size: 0.95rem; }
+.prog-tools .icon-btn:disabled { opacity: 0.35; }
+.mob-cta.prog-cta { border-left-color: var(--signal); }
+.mob-cta.prog-cta strong { color: var(--ink); }

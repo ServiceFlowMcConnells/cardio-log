@@ -4,6 +4,8 @@ import { formatDay } from "../lib/dates";
 import { readWorkoutDraft } from "./WorkoutLogger";
 import CoachPanel from "./CoachPanel";
 import { daysThisWeek, doneToday } from "../lib/mobility";
+import ProgramsSection from "./ProgramsSection";
+import type { Program } from "../lib/programs";
 
 interface Props {
   data: AppData;
@@ -16,9 +18,10 @@ interface Props {
   onWarmup: (t: Template) => void;
   onMobility: () => void;
   onDailyMobility: () => void;
+  onEditProgram: (p: Program | null) => void;
 }
 
-export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise, onWarmup, onMobility, onDailyMobility }: Props) {
+export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise, onWarmup, onMobility, onDailyMobility, onEditProgram }: Props) {
   const { templates, exercises, workouts } = data;
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const draft = readWorkoutDraft();
@@ -39,11 +42,13 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
         </button>
       )}
 
-      <button className="btn ghost block" onClick={() => (draft ? onResume() : onStart(null))}>Start an empty workout</button>
+      <ProgramsSection data={data} busyDraft={Boolean(draft)} onStart={onStart} onWarmup={onWarmup} onEdit={onEditProgram} onChanged={onChanged} />
+
+      <button className="btn ghost block" style={{ marginTop: 14 }} onClick={() => (draft ? onResume() : onStart(null))}>Start an empty workout</button>
 
       <section className="section">
         <div className="page-head" style={{ marginBottom: 10 }}>
-          <h2>Templates</h2>
+          <h2>{data.programs.length ? "All templates" : "Templates"}</h2>
           <button className="link small" onClick={() => onEditTemplate(null)}>+ New template</button>
         </div>
         {templates.length === 0 ? (

@@ -75,6 +75,8 @@ export interface Workout {
   id: string;
   template_id: string | null;
   checkin_id: string | null;
+  program_id?: string | null; // the program step this workout completed, if any
+  program_step?: number | null;
   name: string;
   started_at: string;
   duration_min: number | null;
@@ -200,8 +202,10 @@ export interface ExerciseComparison {
   prs: string[];
 }
 
-export function compareExercise(w: Workout, exerciseId: string, sets: WSet[], all: Workout[], formula: E1rmFormula): ExerciseComparison {
-  const prev = previousFor(exerciseId, all, w.started_at, w.id);
+export type PrevPicker = (exerciseId: string) => { workout: Workout; sets: WSet[] } | null;
+
+export function compareExercise(w: Workout, exerciseId: string, sets: WSet[], all: Workout[], formula: E1rmFormula, pick?: PrevPicker): ExerciseComparison {
+  const prev = pick ? pick(exerciseId) : previousFor(exerciseId, all, w.started_at, w.id);
   const priorBest = bestE1rmBefore(exerciseId, all, w.started_at, formula, w.id);
   const topE1rm = bestE1rm(sets, formula);
   // Reference 1RM: your best going in. First time? Use today's best so intensity still shows.
@@ -252,8 +256,9 @@ export interface WorkoutComparison {
   prCount: number;
 }
 
-export function compareWorkout(w: Workout, all: Workout[], formula: E1rmFormula): WorkoutComparison {
-  const exercises = [...setsByExercise(w).entries()].map(([id, sets]) => compareExercise(w, id, sets, all, formula));
+/** `pick` chooses each exercise's previous session (the app passes a rep-range-aware one). */
+export function compareWorkout(w: Workout, all: Workout[], formula: E1rmFormula, pick?: PrevPicker): WorkoutComparison {
+  const exercises = [...setsByExercise(w).entries()].map(([id, sets]) => compareExercise(w, id, sets, all, formula, pick));
   const previous = previousWorkout(w, all);
   // Intensity: average of per-exercise mean %1RM, each against the same reference 1RM, so the two workouts are comparable.
   const ints = exercises.filter((e) => e.intensity != null);

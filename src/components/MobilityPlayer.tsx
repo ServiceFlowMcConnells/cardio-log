@@ -3,6 +3,7 @@ import type { AppData } from "../App";
 import type { Area, Routine } from "../lib/mobility";
 import { AREA_LABEL, dailyRoutine, doseText, fmtMin, mobilityCtx, preWorkout, templateDemand } from "../lib/mobility";
 import { saveMobilitySession } from "../lib/mobilityData";
+import { nextUp } from "../lib/programs";
 
 interface Props {
   data: AppData;
@@ -28,8 +29,7 @@ export function buildRoutine(data: AppData, kind: "daily" | "prewarm", templateI
     return t ? preWorkout(ctx, t, data.exercises) : null;
   }
   // Daily routines lean towards what your next workout needs
-  const lastDone = (id: string) => data.workouts.find((w) => w.template_id === id)?.started_at ?? "";
-  const next = [...data.templates].sort((a, b) => lastDone(a.id).localeCompare(lastDone(b.id)) || a.position - b.position)[0] ?? null;
+  const next = nextUp(data)?.template ?? null;
   const demand = templateDemand(next, data.exercises);
   for (const k of Object.keys(demand) as Area[]) demand[k] = demand[k]! * 0.5;
   return dailyRoutine(ctx, demand);

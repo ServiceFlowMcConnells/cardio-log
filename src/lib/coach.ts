@@ -120,12 +120,13 @@ export function incrementFor(ex: Exercise | undefined, fallback: number): number
 }
 
 /** Working sets of an exercise in each past session, newest first. */
-export function liftHistory(exerciseId: string, workouts: Workout[], before: string, formula: E1rmFormula, excludeId?: string): LiftHistory {
+export function liftHistory(exerciseId: string, workouts: Workout[], before: string, formula: E1rmFormula, excludeId?: string, match?: (w: Workout, sets: WSet[]) => boolean): LiftHistory {
   const sessions: LiftHistory["sessions"] = [];
   for (const w of workouts) {
     if (w.id === excludeId || w.started_at >= before) continue;
     const sets = w.sets.filter((s) => s.exercise_id === exerciseId && isWorking(s) && s.reps > 0).sort((a, b) => a.set_number - b.set_number);
     if (!sets.length) continue;
+    if (match && !match(w, sets)) continue;
     const top = Math.max(...sets.map((s) => s.weight_kg));
     sessions.push({ at: w.started_at, workoutId: w.id, sets, top, topReps: sets.filter((s) => s.weight_kg === top).map((s) => s.reps), e1rm: sessionE1rm(sets, formula) });
   }
@@ -159,6 +160,65 @@ export function liftHistory(exerciseId: string, workouts: Workout[], before: str
 }
 
 const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+
+// ---------- Rep ranges ----------
+// One lift can be trained in different rep ranges (bench 8–10 on day A, 3–5 on day B). Progression is
+// tracked per range: each range builds from the last session in that range, not the last bench session.
+// Estimated 1RM, PRs and charts still use every session, so a new range starts from your real strength.
+
+export interface RepRange { rep_min: number; rep_max: number }
+export const rangesOverlap = (a: RepRange, b: RepRange) => a.rep_min <= b.rep_max && a.rep_max >= b.rep_min;
+export const rangeLabel = (r: RepRange) => (r.rep_min === r.rep_max ? `${r.rep_min} reps` : `${r.rep_min}–${r.rep_max} reps`);
+
+/** Does a past session of this exercise belong to `range`? By the template it was logged under (if that
+ *  template has the exercise), otherwise by the reps actually done at the top weight. */
+export function inRange(w: Workout, sets: WSet[], exerciseId: string, range: RepRange, templates: Template[]): boolean {
+  const te = w.template_id ? templates.find((t) => t.id === w.template_id)?.exercises.find((e) => e.exercise_id === exerciseId) : undefined;
+  if (te) return rangesOverlap(te, range);
+  const top = Math.max(...sets.map((s) => s.weight_kg));
+  const reps = sets.filter((s) => s.weight_kg === top).map((s) => s.reps).sort((a, b) => a - b);
+  const mid = reps[Math.floor(reps.length / 2)];
+  return mid >= range.rep_min - 2 && mid <= range.rep_max + 2;
+}
+
+/** The distinct rep ranges an exercise is programmed in across templates (overlapping ranges merge). */
+export function planVariants(exerciseId: string, templates: Template[]): Plan[] {
+  const out: Plan[] = [];
+  for (const t of templates) {
+    for (const te of t.exercises) {
+      if (te.exercise_id !== exerciseId || out.some((p) => rangesOverlap(p, te))) continue;
+      out.push({ sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, progression: te.progression, on_stall: te.on_stall, increment_kg: te.increment_kg });
+    }
+  }
+  return out.sort((a, b) => a.rep_min - b.rep_min);
+}
+
+/** For comparing a finished workout: each exercise against its last session in the same rep range. */
+export function rangePicker(w: Workout, workouts: Workout[], templates: Template[]) {
+  const tpl = w.template_id ? templates.find((t) => t.id === w.template_id) : undefined;
+  return (exerciseId: string) => {
+    const te = tpl?.exercises.find((e) => e.exercise_id === exerciseId);
+    if (te) return previousInRange(exerciseId, te, workouts, templates, w.started_at, w.id);
+    const mine = w.sets.filter((s) => s.exercise_id === exerciseId && isWorking(s) && s.reps > 0);
+    if (!mine.length) return previousInRange(exerciseId, null, workouts, templates, w.started_at, w.id);
+    const top = Math.max(...mine.map((s) => s.weight_kg));
+    const r = mine.filter((s) => s.weight_kg === top).map((s) => s.reps).sort((a, b) => a - b)[Math.floor(mine.filter((s) => s.weight_kg === top).length / 2)];
+    return previousInRange(exerciseId, { rep_min: r, rep_max: r }, workouts, templates, w.started_at, w.id);
+  };
+}
+
+/** The last session of an exercise in this rep range (all its sets, warm-ups included), for the "Previous" column. */
+export function previousInRange(exerciseId: string, range: RepRange | null, workouts: Workout[], templates: Template[], before: string, excludeId?: string): { workout: Workout; sets: WSet[] } | null {
+  for (const w of workouts) {
+    if (w.id === excludeId || w.started_at >= before) continue;
+    const all = w.sets.filter((s) => s.exercise_id === exerciseId).sort((a, b) => a.set_number - b.set_number);
+    if (!all.length) continue;
+    const work = all.filter((s) => isWorking(s) && s.reps > 0);
+    if (range && work.length && !inRange(w, work, exerciseId, range, templates)) continue;
+    return { workout: w, sets: all };
+  }
+  return null;
+}
 
 /** Find a plan for an exercise: the template's, else one inferred from the last session. */
 export function planFor(exerciseId: string, templates: Template[], hist: LiftHistory, fromTemplate?: Plan | null): Plan | null {
@@ -218,10 +278,13 @@ export function coachExercise(
   const phase = opts.phase ?? null;
   // How far over target RPE still counts as "owned": a surplus recovers better, so it's more permissive
   const rpeBand = phase === "surplus" ? 1 : 0.5;
-  const hist = liftHistory(exerciseId, workouts, before, formula, excludeId);
-  const found = planFor(exerciseId, templates, hist, templatePlan);
+  const all = liftHistory(exerciseId, workouts, before, formula, excludeId);
+  const found = planFor(exerciseId, templates, all, templatePlan);
   if (!found) return null;
   const plan = normalise(found);
+  // Progress from sessions in this rep range only (bench 3–5 doesn't reset bench 8–10's progression)
+  const hist = liftHistory(exerciseId, workouts, before, formula, excludeId, (w, sets) => inRange(w, sets, exerciseId, plan, templates));
+  const otherRanges = all.sessions.length > hist.sessions.length;
   const inc = plan.increment_kg ?? incrementFor(exercise, opts.inc);
   const target = plan.target_rpe;
   const last = hist.sessions[0];
@@ -232,7 +295,11 @@ export function coachExercise(
   let reps: number[];
   let why: string;
 
-  const comparable = last && last.topReps.every((r) => r >= plan.rep_min - 2 && r <= plan.rep_max + 2);
+  // A last session logged under a different rep range (e.g. an 8–10 day feeding a new 10–12 template) seeds
+  // the weight but isn't judged against this range's targets
+  const lastTe = last ? templates.find((t) => t.id === workouts.find((w) => w.id === last.workoutId)?.template_id)?.exercises.find((e) => e.exercise_id === exerciseId) : undefined;
+  const sameRange = !lastTe || (lastTe.rep_min === plan.rep_min && lastTe.rep_max === plan.rep_max);
+  const comparable = last && sameRange && last.topReps.every((r) => r >= plan.rep_min - 2 && r <= plan.rep_max + 2);
   const recentE1rm = trainingE1rm(exerciseId, workouts, before, formula, excludeId);
 
   if (deload) {
@@ -249,11 +316,20 @@ export function coachExercise(
     why = "Readiness is very low, so today is about moving well, not progressing. Short and easy, or swap for cardio or rest.";
   } else if (!last || !comparable) {
     status = "new";
-    const l = recentE1rm && target ? loadFor(recentE1rm, plan.rep_min, target, formula) : null;
+    // Seed from estimated 1RM so a new range starts from real strength. Use the recent session (8 weeks)
+    // closest in reps: estimates from heavy triples run higher than from sets of 10, so like predicts like.
+    const seedRpe = target ?? (otherRanges ? 8 : null);
+    const cut = new Date(before).getTime() - 56 * DAY;
+    const near = all.sessions
+      .filter((x) => x.e1rm != null && new Date(x.at).getTime() >= cut)
+      .map((x) => ({ x, d: Math.abs([...x.topReps].sort((p, q) => p - q)[Math.floor(x.topReps.length / 2)] - plan.rep_min) }))
+      .sort((p, q) => p.d - q.d)[0]?.x;
+    const seedE1rm = near?.e1rm ?? recentE1rm;
+    const l = seedE1rm && seedRpe ? loadFor(seedE1rm, plan.rep_min, seedRpe, formula) : null;
     weight = l ? roundTo(l, inc, "down") : last ? last.top : null;
     reps = Array(sets).fill(plan.rep_min);
     why = weight
-      ? `First session in this rep range. ${fmtKg(weight)} kg should give ${plan.rep_min} reps${target ? ` at RPE ${target}` : ""}${recentE1rm ? `, from your recent estimated 1RM of ${fmtKg(Math.round(recentE1rm))} kg` : ""}. Adjust the first set if it's off, and the coach takes it from there.`
+      ? `First session at ${rangeLabel(plan)}. ${fmtKg(weight)} kg should give ${plan.rep_min} reps${seedRpe ? ` at RPE ${seedRpe}` : ""}${seedE1rm ? `, from your estimated 1RM of ${fmtKg(Math.round(seedE1rm))} kg${otherRanges && near ? ` (your ${fmtKg(near.top)} kg × ${near.topReps.join(", ")} session)` : ""}` : ""}. Adjust the first set if it's off, and the coach tracks this range on its own from here.`
       : `Pick a weight you can lift for ${plan.rep_min}–${plan.rep_max} reps${target ? ` at about RPE ${target}` : ""}. The coach takes over from your first session.`;
   } else {
     const atTopSets = last.sets.filter((s) => s.weight_kg === last.top);
@@ -425,12 +501,18 @@ export function coachOverview(exercises: Exercise[], workouts: Workout[], templa
   }
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const lifts = [...seen]
-    .map((id) => coachExercise(exMap.get(id), id, null, workouts, templates, now, opts))
-    .filter((p): p is Prescription => p != null);
+    .flatMap((id) => {
+      const variants = planVariants(id, templates);
+      const ps = (variants.length ? variants : [null]).map((v) => coachExercise(exMap.get(id), id, v, workouts, templates, now, opts));
+      // Skip a range with no sessions in the last 6 weeks when the lift has other ranges that do
+      const live = ps.filter((p): p is Prescription => p != null && (ps.length === 1 || p.history.sessions.some((s) => new Date(s.at).getTime() >= cutoff)));
+      return live;
+    });
   const slipping = lifts.filter((p) => p.history.slipping);
+  const slippingLifts = new Set(slipping.map((p) => p.exerciseId)).size;
   let deloadReason: string | null = null;
   if (!opts.deload) {
-    if (slipping.length >= 2) deloadReason = `${slipping.length} lifts are below their 6-week best.`;
+    if (slippingLifts >= 2) deloadReason = `${slippingLifts} lifts are below their 6-week best.`;
     else if (slipping.length === 1 && opts.readiness7 != null && opts.readiness7 < 60) deloadReason = "A lift is slipping and your readiness has averaged under 60 this week.";
   }
   return { lifts, slipping, deloadAdvised: deloadReason != null, deloadReason };

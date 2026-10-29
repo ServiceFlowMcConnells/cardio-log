@@ -7,10 +7,11 @@ import {
 } from "../lib/strength";
 import { toLocalInput } from "../lib/dates";
 import { unlockAudio } from "../lib/restAlert";
+import { advance, programStepFor, setNextStep } from "../lib/programs";
 import type { Adjustment, Checkin } from "../lib/readiness";
 import { BAND_LABEL, adjustmentFor, latestPhase } from "../lib/readiness";
 import type { Prescription } from "../lib/coach";
-import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/coach";
+import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, previousInRange } from "../lib/coach";
 import { deleteWorkout, saveWorkout } from "../lib/strengthData";
 import ExercisePicker from "./ExercisePicker";
 
@@ -36,6 +37,9 @@ interface Draft {
   restTotal: number;
   // Readiness scan applied to this workout
   checkin_id?: string | null;
+  // Set when this workout is the active program's next step; finishing it advances the rotation
+  program_id?: string | null;
+  program_step?: number | null;
   checkinScore?: number | null;
   checkinSoreness?: number | null;
   useAdj?: boolean;
@@ -96,6 +100,8 @@ function fromWorkout(w: Workout, templates: Template[]): Draft {
     id: w.id,
     template_id: w.template_id,
     checkin_id: w.checkin_id,
+    program_id: w.program_id ?? null,
+    program_step: w.program_step ?? null,
     name: w.name,
     started_at: w.started_at,
     duration: w.duration_min != null ? String(w.duration_min) : "",
@@ -147,10 +153,12 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     // Sets per exercise come from the coach (readiness, protect and deload can trim them)
     const adj0 = checkin ? adjustmentFor(checkin) : null;
     const start = new Date().toISOString();
-    return fromTemplate(template, checkin, (te) =>
+    const d = fromTemplate(template, checkin, (te) =>
       coachExercise(exercises.find((e) => e.id === te.exercise_id), te.exercise_id,
         planOf(te),
         workouts, templates, start, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: adj0, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins) })?.sets ?? te.sets);
+    const ps = programStepFor(template, data);
+    return ps ? { ...d, program_id: ps.programId, program_step: ps.step } : d;
   });
   const [now, setNow] = useState(Date.now());
   const [picking, setPicking] = useState<null | { replaceKey?: string }>(null);
@@ -197,7 +205,8 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
 
   /** What to pre-fill: the coach's weight, per-set rep goals and RPE. */
   function suggestions(ex: LExercise) {
-    const prev = previousFor(ex.exercise_id, workouts, draft.started_at, draft.id);
+    // "Previous" = the last session in this rep range (bench 8–10 shows the last 8–10 day, not the heavy day)
+    const prev = ex.plan ? previousInRange(ex.exercise_id, ex.plan, workouts, templates, draft.started_at, draft.id) : previousFor(ex.exercise_id, workouts, draft.started_at, draft.id);
     // Reference for the %1RM shown per set (same as the workout summary uses)
     const ref = bestE1rmBefore(ex.exercise_id, workouts, draft.started_at, formula, draft.id);
     const presc = isEdit ? null : prescribe(ex);
@@ -330,7 +339,10 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     setBusy(true);
     setError(null);
     try {
-      const id = await saveWorkout({ id: draft.id, template_id: draft.template_id, checkin_id: draft.checkin_id ?? null, name: draft.name, started_at: started, duration_min: duration, notes: draft.notes, sets: c.sets });
+      const id = await saveWorkout({ id: draft.id, template_id: draft.template_id, checkin_id: draft.checkin_id ?? null, program_id: draft.program_id ?? null, program_step: draft.program_step ?? null, name: draft.name, started_at: started, duration_min: duration, notes: draft.notes, sets: c.sets });
+      // Done the program's next workout: move the rotation on (A → B → A …)
+      const prog = !isEdit && draft.program_id != null && draft.program_step != null ? data.programs.find((p) => p.id === draft.program_id) : null;
+      if (prog) await setNextStep(prog.id, advance(prog, draft.program_step!)).catch(() => {});
       if (!isEdit) writeDraft(null);
       onSaved(id, !isEdit);
     } catch (e) {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AppData } from "../App";
-import { STATUS_LABEL, STATUS_TONE, coachOverview, deloadActive } from "../lib/coach";
+import { STATUS_LABEL, STATUS_TONE, coachOverview, deloadActive, rangeLabel } from "../lib/coach";
 import { adjustmentFor, latestPhase, todaysCheckin } from "../lib/readiness";
 import { saveSettings } from "../lib/data";
 import { fmtKg } from "../lib/strength";
@@ -40,6 +40,8 @@ export default function CoachPanel({ data, onOpenExercise, onChanged }: { data: 
 
   if (!ov.lifts.length && !deload) return null;
   const order = { bad: 0, warn: 1, neutral: 2, good: 3 } as const;
+  const multi = new Set(ov.lifts.map((p) => p.exerciseId).filter((id, i, a) => a.indexOf(id) !== i));
+  const label = (p: (typeof ov.lifts)[number]) => `${names.get(p.exerciseId) ?? "Exercise"}${multi.has(p.exerciseId) ? ` · ${rangeLabel(p.plan)}` : ""}`;
   const lifts = [...ov.lifts].sort((a, b) => order[STATUS_TONE[a.status]] - order[STATUS_TONE[b.status]] || (names.get(a.exerciseId) ?? "").localeCompare(names.get(b.exerciseId) ?? ""));
 
   return (
@@ -57,7 +59,7 @@ export default function CoachPanel({ data, onOpenExercise, onChanged }: { data: 
         </div>
       ) : ov.slipping.length === 1 ? (
         <div className="coach-alert tone-warn">
-          <p><strong>{names.get(ov.slipping[0].exerciseId)} is slipping.</strong> The coach has switched it to Preserve muscle: same weight, match your reps, one fewer set. If a second lift slips, it'll suggest a deload.</p>
+          <p><strong>{label(ov.slipping[0])} is slipping.</strong> The coach has switched it to Preserve muscle: same weight, match your reps, one fewer set. If a second lift slips, it'll suggest a deload.</p>
         </div>
       ) : null}
       {error && <p className="error">{error}</p>}
@@ -66,9 +68,9 @@ export default function CoachPanel({ data, onOpenExercise, onChanged }: { data: 
         {lifts.map((p) => {
           const vs = p.history.vsPeakPct;
           return (
-            <button key={p.exerciseId} className="list-row" onClick={() => onOpenExercise(p.exerciseId)}>
+            <button key={`${p.exerciseId}-${p.plan.rep_min}`} className="list-row" onClick={() => onOpenExercise(p.exerciseId)}>
               <span style={{ minWidth: 0 }}>
-                <strong>{names.get(p.exerciseId) ?? "Exercise"}</strong>
+                <strong>{label(p)}</strong>
                 <span className="small" style={{ display: "block" }}>
                   <span className={`coach-chip tone-${STATUS_TONE[p.status]}`}>{STATUS_LABEL[p.status]}</span> {p.headline}
                 </span>
@@ -85,7 +87,7 @@ export default function CoachPanel({ data, onOpenExercise, onChanged }: { data: 
           );
         })}
       </div>
-      <p className="muted small" style={{ marginTop: 6 }}>Next session's prescription for each lift you've trained in the last 6 weeks, and its estimated 1RM against its 6-week best.</p>
+      <p className="muted small" style={{ marginTop: 6 }}>Next session's prescription for each lift you've trained in the last 6 weeks, and its estimated 1RM against its 6-week best. A lift you train in two rep ranges gets a row for each, and each range progresses on its own.</p>
     </section>
   );
 }

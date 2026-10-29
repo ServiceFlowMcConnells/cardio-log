@@ -4,7 +4,7 @@ import { SET_TYPE_LABEL, compareWorkout, e1rm, fmtKg, fmtTonnage, pctChange } fr
 import { formatDay, formatTime } from "../lib/dates";
 import { Delta } from "./WorkoutLogger";
 import { BAND_LABEL, adjustmentFor, bandFor, latestPhase } from "../lib/readiness";
-import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, verdict } from "../lib/coach";
+import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, rangePicker, verdict } from "../lib/coach";
 
 interface Props {
   workoutId: string;
@@ -26,7 +26,7 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
   }
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const checkin = w.checkin_id ? data.checkins.find((x) => x.id === w.checkin_id) ?? null : null;
-  const c = compareWorkout(w, workouts, settings.e1rm_formula);
+  const c = compareWorkout(w, workouts, settings.e1rm_formula, rangePicker(w, workouts, data.templates));
   const tpl = data.templates.find((t) => t.id === w.template_id);
   const coachOpts = { formula: settings.e1rm_formula, inc: settings.weight_increment };
   const planOf = (id: string) => {

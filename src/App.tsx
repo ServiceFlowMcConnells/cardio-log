@@ -10,6 +10,9 @@ import MobilityTest from "./components/MobilityTest";
 import MobilityPlayer from "./components/MobilityPlayer";
 import Niggles from "./components/Niggles";
 import { useRestAlerts } from "./lib/useRestAlerts";
+import type { Program } from "./lib/programs";
+import { loadPrograms } from "./lib/programs";
+import ProgramEditor from "./components/ProgramEditor";
 import type { Checkin } from "./lib/readiness";
 import { todaysCheckin } from "./lib/readiness";
 import ReadinessScan from "./components/ReadinessScan";
@@ -39,6 +42,7 @@ export type View =
   | { k: "exercise"; id: string }
   | { k: "settings" }
   | { k: "readiness"; checkin: Checkin | null; next: "home" | "resume" | { template: Template | null } }
+  | { k: "program"; program: Program | null }
   | { k: "mobility" }
   | { k: "mobility-test" }
   | { k: "niggles"; back: "mobility" | "home" }
@@ -60,11 +64,13 @@ export interface AppData {
   mobilityTests: MTest[];
   niggles: Niggle[];
   mobilitySessions: MobilitySession[];
+  programs: Program[];
+  activeProgramId: string | null;
 }
 
 export default function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
-  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [] });
+  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [], programs: [], activeProgramId: null });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("week");
@@ -81,11 +87,11 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions] = await Promise.all([
+      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, prog] = await Promise.all([
         loadSessions(), loadSettings(), loadExercises(), loadTemplates(), loadWorkouts(), loadCheckins(),
-        loadMobilityTests(), loadNiggles(), loadMobilitySessions(),
+        loadMobilityTests(), loadNiggles(), loadMobilitySessions(), loadPrograms(),
       ]);
-      setData({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions });
+      setData({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, programs: prog.programs, activeProgramId: prog.activeId });
       setLoadError(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Couldn't load your data.");
@@ -175,6 +181,8 @@ export default function App() {
         onDeleted={async () => { home(); await refresh(); }}
       />
     );
+  } else if (view.k === "program") {
+    body = <ProgramEditor program={view.program} data={data} onClose={() => home("train")} onSaved={async () => { await refresh(); home("train"); }} />;
   } else if (view.k === "mobility") {
     body = (
       <MobilityHome
@@ -282,6 +290,7 @@ export default function App() {
         onWarmup={(t) => warmup(t)}
         onMobility={() => go({ k: "mobility" })}
         onDailyMobility={() => go({ k: "mobility-play", kind: "daily", template: null, next: "home" })}
+        onEditProgram={(p) => go({ k: "program", program: p })}
       />
     );
   } else if (tab === "exercises") {
@@ -290,7 +299,7 @@ export default function App() {
     body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} />;
   }
 
-  const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
+  const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k === "program" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
 
   return (
     <>

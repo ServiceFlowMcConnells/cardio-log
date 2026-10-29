@@ -10,7 +10,7 @@ import { saveExercise } from "../lib/strengthData";
 import { formatDay, formatShort } from "../lib/dates";
 import { TrendChart, trendText, type Point } from "./Charts";
 import { NewExerciseForm } from "./ExercisePicker";
-import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/coach";
+import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, planVariants, rangeLabel } from "../lib/coach";
 import { adjustmentFor, latestPhase, todaysCheckin } from "../lib/readiness";
 
 const FORMULA_LABEL = { rpe: "RTS RPE chart", epley: "Epley formula", brzycki: "Brzycki formula" } as const;
@@ -104,15 +104,18 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
 
       {(() => {
         const today = todaysCheckin(data.checkins);
-        const p = sessions.length ? coachExercise(ex, ex.id, null, workouts, data.templates, new Date(Date.now() + 1000).toISOString(),
-          { formula: f, inc, adj: today ? adjustmentFor(today) : null, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins) }) : null;
+        if (!sessions.length) return null;
+        const variants = planVariants(ex.id, data.templates);
+        const ps = (variants.length ? variants : [null]).map((v) => coachExercise(ex, ex.id, v, workouts, data.templates, new Date(Date.now() + 1000).toISOString(),
+          { formula: f, inc, adj: today ? adjustmentFor(today) : null, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins) }));
+        return ps.map((p) => {
         if (!p) return null;
         const h = p.history;
         return (
-          <div className={`coach-box tone-${STATUS_TONE[p.status]}`} style={{ marginTop: 14 }}>
+          <div key={p.plan.rep_min} className={`coach-box tone-${STATUS_TONE[p.status]}`} style={{ marginTop: 14 }}>
             <div className="coach-top">
               <span className="coach-chip">{STATUS_LABEL[p.status]}</span>
-              <strong className="coach-head">Next: {p.headline}</strong>
+              <strong className="coach-head">{ps.length > 1 ? `${rangeLabel(p.plan)}: ` : "Next: "}{p.headline}</strong>
             </div>
             <p className="small">{p.why}</p>
             <p className="small muted" style={{ marginTop: 6 }}>
@@ -122,6 +125,7 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
             </p>
           </div>
         );
+        });
       })()}
 
       {sessions.length === 0 ? (
