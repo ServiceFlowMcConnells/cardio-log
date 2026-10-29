@@ -84,7 +84,7 @@ export default function StrengthProgress({ data, onLog, onOpenExercise }: { data
       <section className="section panel">
         <h2>Hard sets per muscle</h2>
         <p className="chart-note" style={{ marginTop: 2 }}>
-          Working sets at RPE 7 or harder (or with no RPE logged). The shaded band is {SETS_LOW}–{SETS_HIGH} sets a week, a common evidence-based range for muscle growth. In a calorie deficit, holding volume steady is a good result.
+          Working sets at RPE 7 or harder (or with no RPE logged). Each set counts in full for the exercise's main muscle and half for muscles that help (triceps on bench, glutes on squats), the counting that best predicts growth. The shaded band is {SETS_LOW}–{SETS_HIGH} sets a week, a common evidence-based range for muscle growth. In a calorie deficit, holding volume steady is a good result.
         </p>
         {muscles.length === 0 ? (
           <p className="muted small" style={{ marginTop: 8 }}>No working sets in the last 5 weeks.</p>
@@ -96,12 +96,12 @@ export default function StrengthProgress({ data, onLog, onOpenExercise }: { data
               return (
                 <div className="mset" key={m}>
                   <span className="mlabel">{MUSCLE_LABEL[m]}</span>
-                  <div className="mtrack" aria-label={`${MUSCLE_LABEL[m]}: ${n} sets this week${avg != null ? `, ${Math.round(avg)} a week on average before` : ""}`}>
+                  <div className="mtrack" aria-label={`${MUSCLE_LABEL[m]}: ${Math.round(n * 2) / 2} sets this week${avg != null ? `, ${Math.round(avg)} a week on average before` : ""}`}>
                     <div className="mband" style={{ left: `${(SETS_LOW / maxSets) * 100}%`, width: `${((SETS_HIGH - SETS_LOW) / maxSets) * 100}%` }} />
                     <div className="mbar" style={{ width: `${(n / maxSets) * 100}%` }} />
                     {avg != null && avg > 0 && <div className="mavg" style={{ left: `${(avg / maxSets) * 100}%` }} title="4-week average" />}
                   </div>
-                  <span className="num mnum">{n}</span>
+                  <span className="num mnum">{Math.round(n * 2) / 2}</span>
                 </div>
               );
             })}

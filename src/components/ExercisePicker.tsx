@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Equipment, Exercise, Muscle } from "../lib/strength";
-import { EQUIPMENT, EQUIPMENT_LABEL, MUSCLES, MUSCLE_LABEL } from "../lib/strength";
+import { EQUIPMENT, EQUIPMENT_LABEL, MUSCLES, MUSCLE_LABEL, SECONDARY_MUSCLES, inferSecondary } from "../lib/strength";
 import { saveExercise } from "../lib/strengthData";
 
 interface Props {
@@ -94,6 +94,10 @@ export function NewExerciseForm({ initialName = "", existing, onCancel, onSaved 
   const [equipment, setEquipment] = useState<Equipment>(existing?.equipment ?? "barbell");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [incr, setIncr] = useState(existing?.increment_kg != null ? String(existing.increment_kg) : "");
+  // null = work out the secondary muscles from the name; an array = your own choice
+  const [secondary, setSecondary] = useState<Muscle[] | null>(existing?.secondary ?? null);
+  const shownSecondary = (secondary ?? inferSecondary({ name, muscle })).filter((m) => m !== muscle);
+  const toggleSecondary = (m: Muscle) => setSecondary(shownSecondary.includes(m) ? shownSecondary.filter((x) => x !== m) : [...shownSecondary, m]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,7 +109,7 @@ export function NewExerciseForm({ initialName = "", existing, onCancel, onSaved 
     try {
       const incN = incr.trim() ? Number(incr.replace(",", ".")) : null;
       if (incN != null && !(incN > 0 && incN <= 20)) { setError("Weight jump should be between 0.25 and 20 kg, or blank."); setBusy(false); return; }
-      const e = await saveExercise({ id: existing?.id, name, muscle, equipment, notes, archived: existing?.archived ?? false, increment_kg: incN });
+      const e = await saveExercise({ id: existing?.id, name, muscle, equipment, notes, archived: existing?.archived ?? false, increment_kg: incN, secondary: secondary ? secondary.filter((m) => m !== muscle) : null });
       onSaved(e);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save the exercise.");
@@ -132,6 +136,18 @@ export function NewExerciseForm({ initialName = "", existing, onCancel, onSaved 
             {EQUIPMENT.map((m) => <option key={m} value={m}>{EQUIPMENT_LABEL[m]}</option>)}
           </select>
         </label>
+      </div>
+      <div className="field">
+        <span>Also works <span className="muted">(counts as half a set each)</span></span>
+        <div className="nig-grid" role="group" aria-label="Secondary muscles">
+          {SECONDARY_MUSCLES.filter((m) => m !== muscle).map((m) => (
+            <button type="button" key={m} className={`fchip${shownSecondary.includes(m) ? " on" : ""}`} aria-pressed={shownSecondary.includes(m)} onClick={() => toggleSecondary(m)}>{MUSCLE_LABEL[m]}</button>
+          ))}
+        </div>
+        <span className="small muted" style={{ marginTop: 4 }}>
+          {secondary == null ? "Filled in from the name. " : ""}Only muscles that help move the weight (triceps on bench, biceps on rows, glutes on squats), not ones holding still.
+          {secondary != null && <> <button type="button" className="link small" onClick={() => setSecondary(null)}>Use the automatic choice</button></>}
+        </span>
       </div>
       <label className="field">
         <span>Weight jump for this exercise (kg)</span>

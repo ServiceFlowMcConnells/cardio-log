@@ -201,7 +201,7 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
                 </div>
               );
             })}
-            <p className="chart-note">Hard sets per week from the templates planned above. An exercise's main muscle counts in full; helpers count half (triceps on bench, glutes on squats). The shaded band is the target: 10+ sets per muscle is where most growth research lands{phase === "deficit" ? ", and in a deficit 10–16 holds muscle without outrunning recovery" : ""}.</p>
+            <p className="chart-note">Hard sets per week from the templates planned above. An exercise's main muscle counts in full and the muscles that help move the weight count half (triceps on bench, biceps on rows, glutes on squats), the counting that best predicted growth across 67 studies. Set them per exercise in its edit form. The shaded band is the target: 10+ sets per muscle is where most growth research lands{phase === "deficit" ? ", and in a deficit 10–16 holds muscle without outrunning recovery" : ""}.</p>
           </div>
 
           {sugg.some((x) => x.changes.length) ? (

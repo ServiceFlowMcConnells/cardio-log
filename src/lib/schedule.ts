@@ -7,7 +7,7 @@
 //  - Recovery typically takes 2–4 days; back-to-back days aren't harmful, but long gaps turn 2x into 1x.
 import { supabase } from "./supabase";
 import type { Exercise, Muscle, Template, Workout } from "./strength";
-import { MUSCLE_LABEL } from "./strength";
+import { MUSCLE_LABEL, muscleCredit } from "./strength";
 import type { Phase } from "./readiness";
 
 export interface PlannedWorkout { id: string; planned_on: string; template_id: string }
@@ -56,8 +56,7 @@ export function shortName(name: string): string {
 // ---------- Advice ----------
 
 const MAJOR: Muscle[] = ["chest", "back", "shoulders", "quads", "hamstrings", "glutes"];
-// Muscles that also get meaningful work from another muscle's main lifts (counted as half a set)
-const HELPS: Partial<Record<Muscle, Muscle[]>> = { chest: ["triceps", "shoulders"], back: ["biceps"], quads: ["glutes"], hamstrings: ["glutes"], full_body: ["quads", "back", "glutes"] };
+// Secondary movers count half a set each (fractional counting, Pelland et al. 2024); see muscleCredit()
 
 export interface MuscleLoad { muscle: Muscle; sessions: number; sets: number; maxGap: number | null; backToBack: boolean }
 export interface AdviceItem { tone: "good" | "warn" | "bad" | "neutral"; title: string; text: string }
@@ -77,21 +76,22 @@ export function planAdvice(days: { date: string; template: Template | null }[], 
     for (const te of d.template!.exercises) {
       const ex = exMap.get(te.exercise_id);
       if (!ex || ex.muscle === "other") continue;
-      const prim = ex.muscle === "full_body" ? [] : [ex.muscle];
-      for (const m of prim) per.set(m, (per.get(m) ?? 0) + te.sets);
-      for (const m of HELPS[ex.muscle] ?? []) per.set(m, (per.get(m) ?? 0) + te.sets * (ex.muscle === "full_body" ? 1 : 0.5));
+      for (const [m, n] of muscleCredit(ex, te.sets)) per.set(m, (per.get(m) ?? 0) + n);
     }
-    for (const [m, sets] of per) if (sets >= 2) (hits.get(m) ?? hits.set(m, []).get(m)!).push({ date: d.date, sets });
+    for (const [m, sets] of per) if (sets > 0) (hits.get(m) ?? hits.set(m, []).get(m)!).push({ date: d.date, sets });
   }
-  const muscles: MuscleLoad[] = [...hits.entries()].map(([muscle, hs]) => {
+  const muscles: MuscleLoad[] = [...hits.entries()].map(([muscle, all]) => {
+    // Every set counts towards the weekly total; a session only counts as training the muscle at 2+ sets
+    const hs = all.filter((h) => h.sets >= 2);
+    const total = Math.round(all.reduce((a, h) => a + h.sets, 0));
     // Gaps between hits, assuming the week repeats (last hit → first hit next week)
     const gaps = hs.length > 1 ? [...hs.slice(1).map((h, i) => daysBetween(hs[i].date, h.date)), 7 - daysBetween(hs[0].date, hs[hs.length - 1].date)] : [];
-    return { muscle, sessions: hs.length, sets: Math.round(hs.reduce((a, h) => a + h.sets, 0)), maxGap: gaps.length ? Math.max(...gaps) : null, backToBack: gaps.some((g) => g === 1) };
+    return { muscle, sessions: hs.length, sets: total, maxGap: gaps.length ? Math.max(...gaps) : null, backToBack: gaps.some((g) => g === 1) };
   }).sort((a, b) => (MAJOR.indexOf(a.muscle) + 1 || 99) - (MAJOR.indexOf(b.muscle) + 1 || 99));
 
   const majors = muscles.filter((m) => MAJOR.includes(m.muscle));
   const name = (ms: MuscleLoad[]) => ms.map((m) => MUSCLE_LABEL[m.muscle].toLowerCase()).join(", ").replace(/, ([^,]*)$/, " and $1");
-  const missing = MAJOR.filter((m) => !hits.has(m));
+  const missing = MAJOR.filter((m) => !(hits.get(m) ?? []).some((h) => h.sets >= 2));
 
   // 1. Sessions per week
   if (sessions === 1) {
@@ -198,10 +198,9 @@ export function volumeSuggestions(days: { date: string; template: Template | nul
   const weekly = (m: Muscle) => {
     let n = 0;
     for (const t of planned) for (const e of work.get(t.id)!) {
-      const em = muscleOf(e.exerciseId);
-      if (!em) continue;
-      if (em === m) n += e.sets * occ.get(t.id)!;
-      else if ((HELPS[em] ?? []).includes(m)) n += e.sets * (em === "full_body" ? 1 : 0.5) * occ.get(t.id)!;
+      const ex = exMap.get(e.exerciseId);
+      if (!ex) continue;
+      for (const [mu, c] of muscleCredit(ex, e.sets)) if (mu === m) n += c * occ.get(t.id)!;
     }
     return Math.round(n);
   };

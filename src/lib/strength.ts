@@ -35,6 +35,46 @@ export interface Exercise {
   notes: string | null;
   archived: boolean;
   increment_kg: number | null; // overrides the default weight jump
+  secondary?: Muscle[] | null; // also trained (half a set each); null = inferred from the name
+}
+
+// ---------- Secondary muscles ----------
+// Volume counting follows Pelland et al. 2024 (67 studies): counting a set at full value for the main muscle
+// and half ("fractional") for muscles that also do real work through the movement predicted growth and
+// strength best. Only prime movers count (triceps on bench, biceps on rows, glutes on squats), not muscles
+// holding still (core on squats, forearms gripping). Isolation lifts have none.
+export const SECONDARY_FRACTION = 0.5;
+export const SECONDARY_MUSCLES: Muscle[] = ["chest", "back", "shoulders", "biceps", "triceps", "quads", "hamstrings", "glutes", "calves", "core"];
+
+/** Best guess at an exercise's secondary movers from its name and main muscle. */
+export function inferSecondary(ex: Pick<Exercise, "name" | "muscle">): Muscle[] {
+  const n = ex.name.toLowerCase();
+  const out = new Set<Muscle>();
+  const has = (re: RegExp) => re.test(n);
+  const isolation = has(/\b(fly|flye|crossover|pec deck|raise|curl|extension|kickback|pushdown|pullover|shrug|crunch|plank|calf)\b/) && !has(/\b(leg press|press)\b/);
+  if (!isolation) {
+    if (has(/bench|chest press|push[- ]?up|press[- ]?up|floor press|incline|decline|dumbbell press/) && ex.muscle === "chest") { out.add("triceps"); out.add("shoulders"); }
+    if (has(/close[- ]?grip|jm press/) && ex.muscle === "triceps") { out.add("chest"); out.add("shoulders"); }
+    if (has(/\bdips?\b/)) { out.add(ex.muscle === "triceps" ? "chest" : "triceps"); out.add("shoulders"); }
+    if (has(/overhead press|shoulder press|military|arnold|push press|\bohp\b|seated dumbbell press|landmine press/) && ex.muscle === "shoulders") out.add("triceps");
+    if (has(/\brows?\b|pull[- ]?ups?|chin[- ]?ups?|pull[- ]?down|lat pull|inverted row|t-bar/) && ex.muscle === "back") out.add("biceps");
+    if (has(/romanian|\brdl\b|stiff[- ]?leg|good morning/)) out.add(ex.muscle === "glutes" ? "hamstrings" : "glutes");
+    else if (has(/deadlift/)) { out.add("glutes"); out.add("hamstrings"); }
+    if (has(/squat|leg press|lunge|split squat|step[- ]?ups?|hack/)) out.add(ex.muscle === "glutes" ? "quads" : "glutes");
+  }
+  out.delete(ex.muscle);
+  return [...out];
+}
+
+export const secondaryOf = (ex: Pick<Exercise, "name" | "muscle" | "secondary">): Muscle[] =>
+  (ex.secondary ?? inferSecondary(ex)).filter((m) => m !== ex.muscle);
+
+/** Sets credited to each muscle for `sets` sets of an exercise: 1 per set for the main muscle, 0.5 for secondaries. */
+export function muscleCredit(ex: Pick<Exercise, "name" | "muscle" | "secondary">, sets: number): [Muscle, number][] {
+  const out: [Muscle, number][] = [];
+  if (ex.muscle !== "other" && ex.muscle !== "full_body") out.push([ex.muscle, sets]);
+  for (const m of secondaryOf(ex)) out.push([m, sets * SECONDARY_FRACTION]);
+  return out;
 }
 
 export interface TemplateExercise {
@@ -297,8 +337,11 @@ export function hardSetsByMuscle(workouts: Workout[], exercises: Map<string, Exe
     for (const s of w.sets) {
       if (!isWorking(s) || (s.rpe != null && s.rpe < 7)) continue;
       const ex = exercises.get(s.exercise_id);
-      const muscle = ex?.muscle ?? "other";
-      m.set(muscle, (m.get(muscle) ?? 0) + 1);
+      if (!ex) { m.set("other", (m.get("other") ?? 0) + 1); continue; }
+      // Main muscle 1 set, secondary movers half a set (fractional counting)
+      const credit = muscleCredit(ex, 1);
+      if (!credit.length) m.set(ex.muscle, (m.get(ex.muscle) ?? 0) + 1);
+      for (const [mu, n] of credit) m.set(mu, (m.get(mu) ?? 0) + n);
     }
   }
   return m;

@@ -4,8 +4,7 @@ import type { Workout } from "../lib/strength";
 import {
   trainingE1rm,
   EQUIPMENT_LABEL, MUSCLE_LABEL, REP_MAX_ROWS, RELIABLE_REPS, bestE1rm, e1rm, fmtKg, fmtTonnage, isWorking, loadFor,
-  pctOf1rm, rirFromRpe, roundTo, volume,
-} from "../lib/strength";
+  pctOf1rm, rirFromRpe, roundTo, volume, secondaryOf } from "../lib/strength";
 import { saveExercise } from "../lib/strengthData";
 import { formatDay, formatShort } from "../lib/dates";
 import { TrendChart, trendText, type Point } from "./Charts";
@@ -100,6 +99,7 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
         <>
           <h1>{ex.name}</h1>
           <p className="muted">{MUSCLE_LABEL[ex.muscle]}, {EQUIPMENT_LABEL[ex.equipment].toLowerCase()}{ex.archived ? " (archived)" : ""}</p>
+          {secondaryOf(ex).length > 0 && <p className="small muted">Also works {secondaryOf(ex).map((m) => MUSCLE_LABEL[m].toLowerCase()).join(", ")} (half a set each towards weekly targets)</p>}
           {ex.notes && <p className="small" style={{ marginTop: 6 }}>{ex.notes}</p>}
         </>
       )}

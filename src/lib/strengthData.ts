@@ -5,8 +5,8 @@ import type { Checkin } from "./readiness";
 const num = (v: unknown): number | null => (v === null || v === undefined || v === "" ? null : Number(v));
 type Row = Record<string, unknown>;
 
-const EX_COLS = "id, name, muscle, equipment, notes, archived, increment_kg";
-const exRow = (r: Row): Exercise => ({ ...(r as unknown as Exercise), increment_kg: num(r.increment_kg) });
+const EX_COLS = "id, name, muscle, equipment, notes, archived, increment_kg, secondary";
+const exRow = (r: Row): Exercise => ({ ...(r as unknown as Exercise), increment_kg: num(r.increment_kg), secondary: (r.secondary as Exercise["secondary"]) ?? null });
 
 export async function loadExercises(): Promise<Exercise[]> {
   const { data, error } = await supabase.from("exercises").select(EX_COLS).order("name");
@@ -15,7 +15,7 @@ export async function loadExercises(): Promise<Exercise[]> {
 }
 
 export async function saveExercise(e: Partial<Exercise> & { name: string }): Promise<Exercise> {
-  const row = { name: e.name.trim(), muscle: e.muscle ?? "other", equipment: e.equipment ?? "barbell", notes: e.notes?.trim() || null, archived: e.archived ?? false, increment_kg: e.increment_kg ?? null };
+  const row = { name: e.name.trim(), muscle: e.muscle ?? "other", equipment: e.equipment ?? "barbell", notes: e.notes?.trim() || null, archived: e.archived ?? false, increment_kg: e.increment_kg ?? null, secondary: e.secondary ?? null };
   const q = e.id ? supabase.from("exercises").update(row).eq("id", e.id) : supabase.from("exercises").insert(row);
   const { data, error } = await q.select(EX_COLS).single();
   if (error) {
