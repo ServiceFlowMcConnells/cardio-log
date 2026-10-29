@@ -13,6 +13,7 @@ import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, wee
 import { AREA_LABEL, daysThisWeek, doneToday, fmtMin, needsRetest } from "../lib/mobility";
 import { buildRoutine } from "./MobilityPlayer";
 import { nextUp } from "../lib/programs";
+import { addDaysYmd, nextDays, planAdvice, plannedStatus, shortName, ymd } from "../lib/schedule";
 
 const DAY_LETTERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -24,13 +25,14 @@ interface Props {
   onTrain: () => void;
   onStart: (t: Template) => void;
   onWarmup: (t: Template) => void;
+  onPlan: () => void;
   onMobility: () => void;
   onDailyMobility: () => void;
   goSettings: () => void;
   onScan: (c: Checkin | null) => void;
 }
 
-export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, onStart, onWarmup, onMobility, onDailyMobility, goSettings, onScan }: Props) {
+export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, onStart, onWarmup, onPlan, onMobility, onDailyMobility, goSettings, onScan }: Props) {
   const { sessions, settings, workouts, exercises } = data;
   const z = zoneFor(settings);
   const start = startOfWeek(new Date());
@@ -72,7 +74,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
 
       <ReadinessCard checkins={data.checkins} onScan={onScan} />
 
-      <StrengthWeek data={data} start={start} onOpen={onOpenWorkout} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} />
+      <StrengthWeek data={data} start={start} onOpen={onOpenWorkout} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} onPlan={onPlan} />
 
       <MobilityCard data={data} onOpen={onMobility} onPlay={onDailyMobility} />
 
@@ -199,6 +201,7 @@ function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Templ
         <h3>Next up: {t.name}</h3>
         <span className="muted small">{last ? `last ${formatShort(new Date(last))}` : "not done yet"}</span>
       </div>
+      {up.planned && <p className="small muted" style={{ marginTop: 2 }}>Planned for today</p>}
       {up.program && up.step != null && (
         <p className="small muted" style={{ marginTop: 2 }}>{up.program.name} · workout {String.fromCharCode(65 + up.step)} of {up.program.steps.length}</p>
       )}
@@ -227,7 +230,7 @@ function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Templ
   );
 }
 
-function StrengthWeek({ data, start, onOpen, onTrain, onStart, onWarmup }: { data: AppData; start: Date; onOpen: (w: Workout) => void; onTrain: () => void; onStart: (t: Template) => void; onWarmup: (t: Template) => void }) {
+function StrengthWeek({ data, start, onOpen, onTrain, onStart, onWarmup, onPlan }: { data: AppData; start: Date; onOpen: (w: Workout) => void; onTrain: () => void; onStart: (t: Template) => void; onWarmup: (t: Template) => void; onPlan: () => void }) {
   const { workouts, exercises } = data;
   const end = addDays(start, 7).getTime();
   const lastStart = addDays(start, -7).getTime();
@@ -243,7 +246,11 @@ function StrengthWeek({ data, start, onOpen, onTrain, onStart, onWarmup }: { dat
 
   return (
     <section className="section" style={{ marginTop: 6 }}>
-      <h2 style={{ marginBottom: 10 }}>Strength</h2>
+      <div className="page-head" style={{ marginBottom: 10 }}>
+        <h2>Strength</h2>
+        {data.templates.length > 0 && <button className="link small" onClick={onPlan}>{data.planned.some((p) => p.planned_on >= ymd(new Date())) ? "Edit plan" : "Plan week"} ›</button>}
+      </div>
+      <PlanStrip data={data} start={start} onPlan={onPlan} />
       <NextUp data={data} onStart={onStart} onWarmup={onWarmup} />
       {thisWeek.length === 0 ? (
         <div className="empty" style={{ marginTop: 10 }}>
@@ -267,6 +274,36 @@ function StrengthWeek({ data, start, onOpen, onTrain, onStart, onWarmup }: { dat
         </>
       )}
     </section>
+  );
+}
+
+/** Mon–Sun with what's planned and what got done, plus the coach's spacing check for the next 7 days. */
+function PlanStrip({ data, start, onPlan }: { data: AppData; start: Date; onPlan: () => void }) {
+  const { planned, templates, workouts, exercises } = data;
+  const today = ymd(new Date());
+  const upcoming = nextDays(7).map((d) => ({ date: d, template: templates.find((t) => t.id === planned.find((p) => p.planned_on === d)?.template_id) ?? null }));
+  if (!planned.some((p) => p.planned_on >= addDaysYmd(ymd(start), 0))) return null;
+  const days = Array.from({ length: 7 }, (_, i) => addDaysYmd(ymd(start), i));
+  const advice = planAdvice(upcoming, exercises, latestPhase(data.checkins));
+  const flag = advice.items.find((i) => i.tone === "bad" || i.tone === "warn");
+  return (
+    <div className="plan-strip-wrap">
+      <button className="plan-strip" onClick={onPlan} aria-label="This week's plan">
+        {days.map((d) => {
+          const p = planned.find((x) => x.planned_on === d);
+          const t = p ? templates.find((x) => x.id === p.template_id) : undefined;
+          const doneOther = !p && workouts.some((w) => ymd(new Date(w.started_at)) === d);
+          const st = p && t ? plannedStatus(p, workouts, today) : doneOther ? "done" : d === today ? "today-rest" : "rest";
+          return (
+            <span key={d} className={`plan-pill ${st}${d === today ? " is-today" : ""}`} title={t?.name}>
+              <span className="pd">{new Date(d + "T12:00:00").toLocaleDateString("en-IE", { weekday: "narrow" })}</span>
+              <span className="pt">{t ? shortName(t.name) : doneOther ? "✓" : "·"}</span>
+            </span>
+          );
+        })}
+      </button>
+      {flag && <p className="small plan-flag"><span className={`coach-chip tone-${flag.tone}`}>Spacing</span> {flag.title}. <button className="link small" onClick={onPlan}>See why</button></p>}
+    </div>
   );
 }
 

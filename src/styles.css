@@ -500,3 +500,34 @@ select.input { appearance: auto; }
 .mob-guide svg { color: var(--mob); flex: none; }
 .mob-guide .muted { font-weight: 400; font-size: 0.85rem; }
 .mob-guide-btn { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--ground); color: var(--mob); flex: none; }
+
+/* ---------- Week planner ---------- */
+.plan-quick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.plan-row { gap: 10px; padding: 8px 12px 8px 8px; }
+.plan-day { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 4px; text-align: left; color: var(--ink); flex: 1; min-width: 0; }
+.plan-check { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; box-shadow: inset 0 0 0 2px var(--line); color: var(--signal-ink); font-weight: 700; flex: none; }
+.plan-row.on .plan-check { background: var(--signal); box-shadow: none; }
+.plan-select { width: auto; max-width: 52%; min-height: 40px; padding: 6px 10px; flex: none; }
+.plan-row:not(.on) .plan-select { color: var(--muted); }
+.set-row-target { display: grid; grid-template-columns: 100px 1fr auto; align-items: center; gap: 10px; padding: 6px 0; font-size: 0.9rem; }
+.st-track { position: relative; height: 12px; background: var(--ground); border-radius: 6px; overflow: hidden; }
+.st-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--in) 22%, transparent); }
+.st-after { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 6px; box-shadow: inset 0 0 0 2px var(--ink); opacity: 0.45; }
+.st-fill { position: absolute; top: 3px; bottom: 3px; left: 0; border-radius: 4px; }
+.st-fill.ok { background: var(--in); }
+.st-fill.low { background: var(--mob); }
+.st-fill.high { background: var(--over); }
+.st-num { font-weight: 600; white-space: nowrap; }
+.st-to { color: var(--in); }
+.plan-strip-wrap { margin-bottom: 10px; }
+.plan-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; width: 100%; border: 0; background: transparent; padding: 0; }
+.plan-pill { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 7px; border-radius: 10px; background: var(--panel); color: var(--muted); font-size: 0.72rem; }
+.plan-pill .pt { font-family: var(--display); font-weight: 700; font-size: 1.05rem; color: var(--ink); line-height: 1; }
+.plan-pill.rest .pt, .plan-pill.today-rest .pt { color: var(--line); }
+.plan-pill.is-today { box-shadow: inset 0 0 0 2px var(--ink); }
+.plan-pill.planned .pt, .plan-pill.today .pt { color: var(--signal); }
+.plan-pill.done { background: var(--in); color: rgb(255 255 255 / 0.85); }
+.plan-pill.done .pt { color: #fff; }
+.plan-pill.missed .pt { color: var(--muted); text-decoration: line-through; }
+.plan-pill.other { background: color-mix(in srgb, var(--in) 20%, var(--panel)); }
+.plan-flag { margin-top: 6px; }

@@ -98,11 +98,21 @@ export interface NextUp {
   template: Template;
   program: Program | null;
   step: number | null; // index in the program
+  planned?: boolean; // planned for today in the week planner
 }
 
-/** What to train next: the active program's next workout, else the template you've gone longest without. */
-export function nextUp(d: { templates: Template[]; workouts: Workout[]; programs: Program[]; activeProgramId: string | null }): NextUp | null {
+/** What to train next: today's planned workout, else the active program's next workout, else the
+ *  template you've gone longest without. */
+export function nextUp(d: { templates: Template[]; workouts: Workout[]; programs: Program[]; activeProgramId: string | null; planned?: { planned_on: string; template_id: string }[] }): NextUp | null {
   const active = d.programs.find((p) => p.id === d.activeProgramId) ?? null;
+  const today = (() => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; })();
+  const plan = d.planned?.find((p) => p.planned_on === today);
+  const planT = plan ? d.templates.find((t) => t.id === plan.template_id) : undefined;
+  const doneToday = planT && d.workouts.some((w) => w.template_id === planT.id && new Date(w.started_at).toDateString() === new Date().toDateString());
+  if (planT && !doneToday) {
+    const n = active ? nextInProgram(active, d.templates) : null;
+    return { template: planT, program: n && n.template.id === planT.id ? active : null, step: n && n.template.id === planT.id ? n.index : null, planned: true };
+  }
   if (active) {
     const n = nextInProgram(active, d.templates);
     if (n) return { template: n.template, program: active, step: n.index };

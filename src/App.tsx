@@ -14,6 +14,9 @@ import { useRestAlerts } from "./lib/useRestAlerts";
 import type { Program } from "./lib/programs";
 import { loadPrograms } from "./lib/programs";
 import ProgramEditor from "./components/ProgramEditor";
+import WeekPlanner from "./components/WeekPlanner";
+import type { PlannedWorkout } from "./lib/schedule";
+import { loadPlanned } from "./lib/schedule";
 import type { Checkin } from "./lib/readiness";
 import { todaysCheckin } from "./lib/readiness";
 import ReadinessScan from "./components/ReadinessScan";
@@ -44,6 +47,7 @@ export type View =
   | { k: "settings" }
   | { k: "readiness"; checkin: Checkin | null; next: "home" | "resume" | { template: Template | null } }
   | { k: "program"; program: Program | null }
+  | { k: "plan" }
   | { k: "mobility" }
   | { k: "mobility-test" }
   | { k: "niggles"; back: "mobility" | "home" }
@@ -67,11 +71,12 @@ export interface AppData {
   mobilitySessions: MobilitySession[];
   programs: Program[];
   activeProgramId: string | null;
+  planned: PlannedWorkout[];
 }
 
 export default function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
-  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [], programs: [], activeProgramId: null });
+  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [], programs: [], activeProgramId: null, planned: [] });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("week");
@@ -99,11 +104,11 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, prog] = await Promise.all([
+      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, prog, planned] = await Promise.all([
         loadSessions(), loadSettings(), loadExercises(), loadTemplates(), loadWorkouts(), loadCheckins(),
-        loadMobilityTests(), loadNiggles(), loadMobilitySessions(), loadPrograms(),
+        loadMobilityTests(), loadNiggles(), loadMobilitySessions(), loadPrograms(), loadPlanned(),
       ]);
-      setData({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, programs: prog.programs, activeProgramId: prog.activeId });
+      setData({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, programs: prog.programs, activeProgramId: prog.activeId, planned });
       setLoadError(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Couldn't load your data.");
@@ -199,6 +204,8 @@ export default function App() {
         onDeleted={async () => { home(); await refresh(); }}
       />
     );
+  } else if (view.k === "plan") {
+    body = <WeekPlanner data={data} onClose={() => home()} onSaved={async () => { await refresh(); home(); }} onRefresh={refresh} />;
   } else if (view.k === "program") {
     body = <ProgramEditor program={view.program} data={data} onClose={() => home("train")} onSaved={async () => { await refresh(); home("train"); }} />;
   } else if (view.k === "mobility") {
@@ -280,6 +287,7 @@ export default function App() {
         onTrain={() => home("train")}
         onStart={startWorkout}
         onWarmup={(t) => warmup(t)}
+        onPlan={() => go({ k: "plan" })}
         onMobility={() => go({ k: "mobility" })}
         onDailyMobility={() => go({ k: "mobility-play", kind: "daily", template: null, next: "home" })}
         goSettings={() => go({ k: "settings" })}
@@ -309,6 +317,7 @@ export default function App() {
         onMobility={() => go({ k: "mobility" })}
         onDailyMobility={() => go({ k: "mobility-play", kind: "daily", template: null, next: "home" })}
         onEditProgram={(p) => go({ k: "program", program: p })}
+        onPlan={() => go({ k: "plan" })}
       />
     );
   } else if (tab === "exercises") {
@@ -317,7 +326,7 @@ export default function App() {
     body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} />;
   }
 
-  const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k === "program" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
+  const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k === "program" || view.k === "plan" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
 
   return (
     <>

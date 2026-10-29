@@ -19,9 +19,10 @@ interface Props {
   onMobility: () => void;
   onDailyMobility: () => void;
   onEditProgram: (p: Program | null) => void;
+  onPlan: () => void;
 }
 
-export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise, onWarmup, onMobility, onDailyMobility, onEditProgram }: Props) {
+export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise, onWarmup, onMobility, onDailyMobility, onEditProgram, onPlan }: Props) {
   const { templates, exercises, workouts } = data;
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const draft = readWorkoutDraft();
@@ -43,6 +44,7 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
       )}
 
       <ProgramsSection data={data} busyDraft={Boolean(draft)} onStart={onStart} onWarmup={onWarmup} onEdit={onEditProgram} onChanged={onChanged} />
+      {data.templates.length > 0 && <button className="btn block" style={{ marginTop: 10 }} onClick={onPlan}>Plan my week</button>}
 
       <button className="btn ghost block" style={{ marginTop: 14 }} onClick={() => (draft ? onResume() : onStart(null))}>Start an empty workout</button>
 
