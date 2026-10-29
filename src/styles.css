@@ -494,3 +494,9 @@ select.input { appearance: auto; }
 .prog-tools .icon-btn:disabled { opacity: 0.35; }
 .mob-cta.prog-cta { border-left-color: var(--signal); }
 .mob-cta.prog-cta strong { color: var(--ink); }
+
+/* Mobility: link to a diagram of each drill */
+.mob-guide { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 10px; padding: 10px 14px; border-radius: 12px; background: var(--panel); color: var(--ink); font-weight: 600; text-decoration: none; font-size: 0.95rem; }
+.mob-guide svg { color: var(--mob); flex: none; }
+.mob-guide .muted { font-weight: 400; font-size: 0.85rem; }
+.mob-guide-btn { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--ground); color: var(--mob); flex: none; }

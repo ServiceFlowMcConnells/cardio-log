@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AppData } from "../App";
 import type { Area, Routine } from "../lib/mobility";
-import { AREA_LABEL, dailyRoutine, doseText, fmtMin, mobilityCtx, preWorkout, templateDemand } from "../lib/mobility";
+import { AREA_LABEL, dailyRoutine, doseText, drillGuideUrl, fmtMin, mobilityCtx, preWorkout, templateDemand } from "../lib/mobility";
 import { saveMobilitySession } from "../lib/mobilityData";
 import { nextUp } from "../lib/programs";
+import { inAndroidApp } from "../lib/nativeTimer";
+
+// In the Android app a plain link to another site opens the phone's browser; on the web, a new tab
+const linkProps = inAndroidApp() ? {} : { target: "_blank", rel: "noopener noreferrer" };
 
 interface Props {
   data: AppData;
@@ -193,6 +197,9 @@ export default function MobilityPlayer({ data, kind, templateId, doneLabel, onCl
                 <strong>{it.drill.name}</strong>
                 <span className="small muted" style={{ display: "block" }}>{doseText(it.drill)} · {it.phase === "raise" ? "Raise" : AREA_LABEL[it.area]}</span>
               </span>
+              <a className="mob-guide-btn" href={drillGuideUrl(it.drill)} {...linkProps} aria-label={`How ${it.drill.name} looks (opens Lift Manual)`}>
+                <GuideIcon />
+              </a>
               <span className={`chip mob-lv lv${it.drill.level}`} title="Difficulty">L{it.drill.level}</span>
             </li>
           ))}
@@ -285,6 +292,9 @@ export default function MobilityPlayer({ data, kind, templateId, doneLabel, onCl
         </div>
 
         <p className="mob-how">{d!.how}</p>
+        <a className="mob-guide" href={drillGuideUrl(d!)} {...linkProps}>
+          <GuideIcon /> See the movement <span className="muted">(diagram on Lift Manual)</span>
+        </a>
         <p className="small muted"><strong>Feel it:</strong> {d!.feel} Stop if it's sharp.</p>
       </section>
 
@@ -300,5 +310,13 @@ export default function MobilityPlayer({ data, kind, templateId, doneLabel, onCl
         <button className="btn ghost" onClick={() => (idx + 1 < total ? begin(idx + 1) : finish(total))} aria-label="Skip">Skip ›</button>
       </div>
     </>
+  );
+}
+
+function GuideIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-8 8" />
+    </svg>
   );
 }
