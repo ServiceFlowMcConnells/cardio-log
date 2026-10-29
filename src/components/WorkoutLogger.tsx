@@ -7,6 +7,7 @@ import {
 } from "../lib/strength";
 import { toLocalInput } from "../lib/dates";
 import { unlockAudio } from "../lib/restAlert";
+import { useBackHandler } from "../lib/backNav";
 import { advance, programStepFor, setNextStep } from "../lib/programs";
 import type { Adjustment, Checkin } from "../lib/readiness";
 import { BAND_LABEL, adjustmentFor, latestPhase } from "../lib/readiness";
@@ -162,6 +163,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
   });
   const [now, setNow] = useState(Date.now());
   const [picking, setPicking] = useState<null | { replaceKey?: string }>(null);
+  useBackHandler(picking != null, () => setPicking(null));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | "finish" | "discard" | "delete">(null);

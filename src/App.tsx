@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useHistoryTrap } from "./lib/backNav";
 import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { loadSessions, loadSettings } from "./lib/data";
@@ -85,6 +86,17 @@ export default function App() {
   const userId = auth?.user.id;
   useRestAlerts(data.exercises);
 
+  // Back button: previous screen, then the Week tab, then leave the app
+  const stack = useRef<View[]>([]);
+  useHistoryTrap(view.k === "tabs" && tab === "week", () => {
+    if (view.k !== "tabs") {
+      const prev = stack.current.pop();
+      setView(prev ?? { k: "tabs" });
+    } else if (tab !== "week") {
+      setTab("week");
+    }
+  });
+
   const refresh = useCallback(async () => {
     try {
       const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, prog] = await Promise.all([
@@ -112,8 +124,14 @@ export default function App() {
   if (auth === undefined) return <div className="center-load">Loading…</div>;
   if (!auth) return <Auth />;
 
-  const go = (v: View) => setView(v);
+  // Steps in a flow (scan → workout → summary) aren't screens to go back to
+  const TRANSIENT = new Set<View["k"]>(["readiness", "mobility-play", "mobility-test", "workout"]);
+  const go = (v: View) => {
+    if (view.k !== "tabs" && !TRANSIENT.has(view.k)) stack.current.push(view);
+    setView(v);
+  };
   const home = (t?: Tab) => {
+    stack.current = [];
     if (t) setTab(t);
     setView({ k: "tabs" });
   };

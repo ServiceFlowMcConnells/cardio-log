@@ -10,6 +10,7 @@ import { saveExercise } from "../lib/strengthData";
 import { formatDay, formatShort } from "../lib/dates";
 import { TrendChart, trendText, type Point } from "./Charts";
 import { NewExerciseForm } from "./ExercisePicker";
+import { useBackHandler } from "../lib/backNav";
 import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, planVariants, rangeLabel } from "../lib/coach";
 import { adjustmentFor, latestPhase, todaysCheckin } from "../lib/readiness";
 
@@ -28,6 +29,7 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
   const { exercises, workouts, settings } = data;
   const ex = exercises.find((e) => e.id === exerciseId);
   const [editing, setEditing] = useState(false);
+  useBackHandler(editing, () => setEditing(false));
   const [calcReps, setCalcReps] = useState("5");
   const [calcRpe, setCalcRpe] = useState("8");
   const [estW, setEstW] = useState("");

@@ -5,6 +5,7 @@ import { MUSCLE_LABEL } from "../lib/strength";
 import type { OnStall, Plan, Progression } from "../lib/coach";
 import { STATUS_LABEL, coachExercise, incrementFor, ruleText } from "../lib/coach";
 import { latestPhase } from "../lib/readiness";
+import { useBackHandler } from "../lib/backNav";
 import { deleteTemplate, saveTemplate } from "../lib/strengthData";
 import ExercisePicker from "./ExercisePicker";
 
@@ -35,6 +36,7 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
   const [notes, setNotes] = useState(template?.notes ?? "");
   const [rows, setRows] = useState<Row[]>(() => (template?.exercises ?? []).map(toRow));
   const [picking, setPicking] = useState(false);
+  useBackHandler(picking, () => setPicking(false));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useBackHandler } from "../lib/backNav";
 import type { AppData } from "../App";
 import type { Muscle } from "../lib/strength";
 import { COMMON_EXERCISES, EQUIPMENT_LABEL, MUSCLES, MUSCLE_LABEL, bestE1rm, fmtKg } from "../lib/strength";
@@ -10,6 +11,7 @@ export default function ExerciseLibrary({ data, onOpen, onChanged }: { data: App
   const { exercises, workouts, settings } = data;
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
+  useBackHandler(creating, () => setCreating(false));
   const [showArchived, setShowArchived] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
