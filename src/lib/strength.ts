@@ -229,6 +229,46 @@ export function bestE1rmBefore(exerciseId: string, workouts: Workout[], before: 
   return best;
 }
 
+// ---------- Personal records ----------
+// Like Strong: a set beats everything you've logged before for that exercise. Each kind counts once per
+// exercise per workout. Bodyweight lifts (no weight logged) get a reps record instead of weight/volume.
+// Nothing counts the first time you do an exercise (there's nothing to beat yet).
+
+export type PrKind = "e1rm" | "weight" | "volume" | "reps";
+export const PR_LABEL: Record<PrKind, string> = { e1rm: "estimated 1RM", weight: "heaviest weight", volume: "best set volume", reps: "most reps" };
+
+export function exercisePrs(exerciseId: string, sets: WSet[], history: Workout[], formula: E1rmFormula): PrKind[] {
+  const work = sets.filter((s) => s.exercise_id === exerciseId && isWorking(s) && s.reps > 0);
+  const prior = history.flatMap((x) => x.sets.filter((s) => s.exercise_id === exerciseId && isWorking(s) && s.reps > 0));
+  if (!work.length || !prior.length) return [];
+  const max = (xs: number[]) => (xs.length ? Math.max(...xs) : 0);
+  const out: PrKind[] = [];
+  const loaded = work.filter((s) => s.weight_kg > 0);
+  if (loaded.length) {
+    const priorLoaded = prior.filter((s) => s.weight_kg > 0);
+    const best1 = (xs: WSet[]) => max(xs.map((s) => e1rm(s, formula) ?? 0));
+    if (best1(loaded) > best1(priorLoaded) + 0.01 && best1(priorLoaded) > 0) out.push("e1rm");
+    if (max(loaded.map((s) => s.weight_kg)) > max(priorLoaded.map((s) => s.weight_kg)) + 0.001) out.push("weight");
+    if (max(loaded.map((s) => s.weight_kg * s.reps)) > max(priorLoaded.map((s) => s.weight_kg * s.reps)) + 0.001) out.push("volume");
+  } else {
+    const priorBw = prior.filter((s) => s.weight_kg <= 0);
+    if (priorBw.length && max(work.map((s) => s.reps)) > max(priorBw.map((s) => s.reps))) out.push("reps");
+  }
+  return out;
+}
+
+/** Every record set in a workout, by exercise. */
+export function workoutPrs(w: Workout, all: Workout[], formula: E1rmFormula): { count: number; byExercise: Map<string, PrKind[]> } {
+  const history = all.filter((x) => x.id !== w.id && x.started_at < w.started_at);
+  const byExercise = new Map<string, PrKind[]>();
+  let count = 0;
+  for (const [id, sets] of setsByExercise(w)) {
+    const k = exercisePrs(id, sets, history, formula);
+    if (k.length) { byExercise.set(id, k); count += k.length; }
+  }
+  return { count, byExercise };
+}
+
 export interface ExerciseComparison {
   exerciseId: string;
   sets: WSet[];
@@ -250,17 +290,8 @@ export function compareExercise(w: Workout, exerciseId: string, sets: WSet[], al
   const topE1rm = bestE1rm(sets, formula);
   // Reference 1RM: your best going in. First time? Use today's best so intensity still shows.
   const reference = priorBest ?? topE1rm;
-  const prs: string[] = [];
   const history = all.filter((x) => x.id !== w.id && x.started_at < w.started_at);
-  if (history.some((x) => x.sets.some((s) => s.exercise_id === exerciseId))) {
-    if (topE1rm != null && priorBest != null && topE1rm > priorBest + 0.01) prs.push("estimated 1RM");
-    const heaviest = Math.max(0, ...sets.filter(isWorking).map((s) => s.weight_kg));
-    const prevHeaviest = Math.max(0, ...history.flatMap((x) => x.sets.filter((s) => s.exercise_id === exerciseId && isWorking(s)).map((s) => s.weight_kg)));
-    if (heaviest > 0 && heaviest > prevHeaviest) prs.push("heaviest weight");
-    const vol = volume(sets);
-    const prevBestVol = Math.max(0, ...history.map((x) => volume(x.sets.filter((s) => s.exercise_id === exerciseId))));
-    if (vol > 0 && vol > prevBestVol) prs.push("session volume");
-  }
+  const prs = exercisePrs(exerciseId, sets, history, formula).map((k) => PR_LABEL[k]);
   return {
     exerciseId,
     sets,

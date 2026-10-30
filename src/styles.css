@@ -16,6 +16,7 @@
   --under: #6f8691;
   --danger: #b3261e;
   --mob: #c2620f;
+  --pr: #a86a00;
   --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   --body: "Barlow", system-ui, -apple-system, sans-serif;
   color-scheme: light;
@@ -38,6 +39,7 @@
     --under: #8aa1ac;
     --danger: #f2877e;
     --mob: #f0a050;
+    --pr: #f2b544;
     color-scheme: dark;
   }
 }
@@ -133,6 +135,10 @@ p { margin: 0; }
 .session-card .mins { font-family: var(--display); font-weight: 600; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
 .session-card .mins.intensity { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; white-space: nowrap; }
 .session-card .mins.intensity .l { font-family: var(--body, inherit); font-weight: 400; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.02em; }
+.session-card .card-foot { display: flex; gap: 14px; align-items: center; margin-top: 6px; }
+.pr-count, .pr-mark { display: inline-flex; align-items: center; gap: 3px; color: var(--pr); font-weight: 600; white-space: nowrap; }
+.pr-mark { margin-left: 8px; font-size: 0.85em; }
+.trophy { flex: none; }
 .block-line { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.92rem; flex-wrap: wrap; }
 .block-line .dot { vertical-align: 0; }
 .chip { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--ground); color: var(--muted); }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { AppData } from "../App";
 import type { Session } from "../lib/types";
 import type { Workout } from "../lib/strength";
-import { fmtTonnage, volume } from "../lib/strength";
+import { fmtTonnage, volume, workoutPrs } from "../lib/strength";
 import { startOfWeek, weekKey, weekLabel } from "../lib/dates";
 import { sessionMinutes } from "../lib/calc";
 import SessionCard from "./SessionCard";
@@ -26,15 +26,15 @@ export default function History({ data, onOpenSession, onOpenWorkout, onTrain }:
     ...(filter !== "cardio" ? workouts.map((w) => ({ kind: "lift" as const, at: w.started_at, w })) : []),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
-  const weeks = new Map<string, { start: Date; items: Item[]; minutes: number; workouts: number; volume: number }>();
+  const weeks = new Map<string, { start: Date; items: Item[]; minutes: number; workouts: number; volume: number; prs: number }>();
   for (const it of items) {
     const d = new Date(it.at);
     const k = weekKey(d);
-    if (!weeks.has(k)) weeks.set(k, { start: startOfWeek(d), items: [], minutes: 0, workouts: 0, volume: 0 });
+    if (!weeks.has(k)) weeks.set(k, { start: startOfWeek(d), items: [], minutes: 0, workouts: 0, volume: 0, prs: 0 });
     const w = weeks.get(k)!;
     w.items.push(it);
     if (it.kind === "cardio") w.minutes += sessionMinutes(it.s);
-    else { w.workouts++; w.volume += volume(it.w.sets); }
+    else { w.workouts++; w.volume += volume(it.w.sets); w.prs += workoutPrs(it.w, workouts, settings.e1rm_formula).count; }
   }
   const target = settings.weekly_target_min;
 
@@ -62,7 +62,7 @@ export default function History({ data, onOpenSession, onOpenWorkout, onTrain }:
         const hit = w.minutes >= target;
         const parts: string[] = [];
         if (filter !== "lift") parts.push(`${Math.round(w.minutes)} / ${target} min`);
-        if (filter !== "cardio" && w.workouts) parts.push(`${w.workouts} workout${w.workouts === 1 ? "" : "s"}, ${fmtTonnage(w.volume)}`);
+        if (filter !== "cardio" && w.workouts) parts.push(`${w.workouts} workout${w.workouts === 1 ? "" : "s"}, ${fmtTonnage(w.volume)}${w.prs ? `, ${w.prs} PR${w.prs === 1 ? "" : "s"}` : ""}`);
         return (
           <section key={weekKey(w.start)}>
             <div className="week-head">
