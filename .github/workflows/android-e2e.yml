@@ -39,6 +39,7 @@ jobs:
           api-level: 34
           target: google_apis
           arch: x86_64
+          profile: pixel_6
           disable-animations: true
           script: bash native/e2e/run.sh
 

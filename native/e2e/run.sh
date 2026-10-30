@@ -26,7 +26,7 @@ if [ -n "$B" ]; then
 else
   # Fall back to the button's position on a 1080x2400 screen (from the previous run's screenshot)
   adb shell wm size | tee -a $OUT/uidump.txt
-  adb shell input tap 666 1368
+  adb shell input tap 666 1368  # pixel_6 profile is 1080x2400
 fi
 sleep 3
 adb shell screencap -p /sdcard/s2.png && adb pull /sdcard/s2.png $OUT/2-shade-after-plus15.png
