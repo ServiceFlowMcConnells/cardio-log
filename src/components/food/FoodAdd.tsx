@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DbFood, Food, Macros, NewEntry, NutritionData, Recipe, RecentItem } from "../../lib/nutrition";
-import { addEntries, adoptFood, fromYmd, isTime, hourTime, macrosFor, nowHour, perServing, recentItems, scaleMacros, setFoodFlags, setRecipeFavorite, sumMacros, targetFor, todayYmd } from "../../lib/nutrition";
+import { addEntries, adoptFood, lookupBarcode, saveFood, fromYmd, isTime, hourTime, macrosFor, nowHour, perServing, recentItems, scaleMacros, setFoodFlags, setRecipeFavorite, sumMacros, targetFor, todayYmd } from "../../lib/nutrition";
 import { useDesktop } from "../../lib/desktop";
 import FoodSearch, { type Picked } from "./FoodSearch";
 import AmountPanel, { defaultAmount, type Loggable } from "./AmountPanel";
@@ -112,7 +112,27 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
     else {
       const mine = nutri.foods.find((f) => f.source === p.db.source && f.source_ref === p.db.ref);
       setSel(mine ? { item: { type: "food", food: mine, id: mine.id } } : { item: { type: "food", food: p.db, id: null, note: p.db.source === "cofid" ? "McCance & Widdowson (CoFID 2021)" : "Open Food Facts" }, db: p.db });
+      // Search results don't carry portion sizes; the product page does, when the label has one
+      if (!mine && p.db.source === "off" && !p.db.serving_g) {
+        lookupBarcode(p.db.ref).then((full) => {
+          if (!full?.serving_g) return;
+          setSel((cur) => (cur?.db?.ref === p.db.ref ? { item: { type: "food", food: full, id: null, note: "Open Food Facts" }, db: full } : cur));
+        }).catch(() => { /* keep per 100 g */ });
+      }
     }
+  }
+
+  async function setServing(label: string, grams: number) {
+    if (!sel || sel.item.type !== "food") return;
+    let saved: Food;
+    if (sel.item.id) {
+      const f = foodsById.get(sel.item.id)!;
+      saved = await saveFood({ name: f.name, brand: f.brand, source: f.source, source_ref: f.source_ref, barcode: f.barcode, kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat, fibre: f.fibre, serving_g: grams, serving_label: label }, f.id);
+    } else if (sel.db) {
+      saved = await adoptFood({ ...sel.db, serving_g: grams, serving_label: label }, nutri.foods);
+    } else return;
+    setNutri((n) => ({ ...n, foods: n.foods.some((x) => x.id === saved.id) ? n.foods.map((x) => (x.id === saved.id ? saved : x)) : [...n.foods, saved] }));
+    setSel({ item: { type: "food", food: saved, id: saved.id } });
   }
   function addSelected(amount: number, unit: "g" | "serving") {
     if (!sel) return;
@@ -221,7 +241,8 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
 
   const picker = sel ? (
     <AmountPanel
-      key={sel.item.type === "recipe" ? sel.item.recipe.id : sel.item.id ?? sel.db?.ref}
+      key={sel.item.type === "recipe" ? sel.item.recipe.id : `${sel.item.id ?? sel.db?.ref}-${sel.item.food.serving_g ?? ""}`}
+      onSetServing={sel.item.type === "food" ? setServing : undefined}
       item={sel.item}
       nutri={nutri}
       actionLabel="Add to plate"

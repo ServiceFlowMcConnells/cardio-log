@@ -758,3 +758,6 @@ select.input { appearance: auto; }
 .scanner-bottom p { color: #fff; margin-bottom: 10px; }
 .scanner-type { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .scanner-type .input { background: rgb(255 255 255 / 0.95); color: #111; border-color: transparent; }
+.portion-link { display: block; margin-top: 10px; }
+.portion-form { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-top: 12px; padding: 10px; border-radius: 12px; background: var(--ground); }
+.portion-form .input { background: var(--panel); }
