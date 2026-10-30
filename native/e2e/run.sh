@@ -17,12 +17,16 @@ adb shell cmd statusbar expand-notifications
 sleep 3
 adb shell screencap -p /sdcard/s1.png && adb pull /sdcard/s1.png $OUT/1-shade.png
 # Tap "+15 s" on the notification
-adb shell uiautomator dump /sdcard/ui.xml >/dev/null && adb pull /sdcard/ui.xml $OUT/ui.xml
-B=$(grep -o 'text="+15 s"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' $OUT/ui.xml | grep -o 'bounds="[^"]*"' | head -1)
-echo "plus bounds: $B"
+for i in 1 2 3; do adb shell uiautomator dump /sdcard/ui.xml 2>&1 | tee -a $OUT/uidump.txt; adb pull /sdcard/ui.xml $OUT/ui.xml && break; sleep 2; done
+B=$(tr '>' '\n' < $OUT/ui.xml | grep 'text="+15 s"' | grep -o 'bounds="[^"]*"' | head -1)
+echo "plus bounds: $B" | tee -a $OUT/uidump.txt
 if [ -n "$B" ]; then
   read X1 Y1 X2 Y2 <<< $(echo $B | grep -o '[0-9]*' | tr '\n' ' ')
   adb shell input tap $(( (X1 + X2) / 2 )) $(( (Y1 + Y2) / 2 ))
+else
+  # Fall back to the button's position on a 1080x2400 screen (from the previous run's screenshot)
+  adb shell wm size | tee -a $OUT/uidump.txt
+  adb shell input tap 666 1368
 fi
 sleep 3
 adb shell screencap -p /sdcard/s2.png && adb pull /sdcard/s2.png $OUT/2-shade-after-plus15.png

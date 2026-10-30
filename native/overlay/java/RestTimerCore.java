@@ -140,9 +140,8 @@ public final class RestTimerCore {
             .setCustomBigContentView(big)
             .setCustomHeadsUpContentView(small)
             .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
-            .setWhen(endAt)
+            // The big countdown is in the layout; keep the header to just the app name, like the Clock app
             .setShowWhen(false)
-            .setUsesChronometer(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -151,7 +150,6 @@ public final class RestTimerCore {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setColor(0xFFED202F)
             .setContentIntent(openApp(ctx));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) b.setChronometerCountDown(true);
         try { nm.notify(ID_COUNTDOWN, b.build()); } catch (SecurityException ignored) { /* notifications not allowed */ }
 
         AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
