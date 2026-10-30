@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Checkin } from "../../lib/readiness";
 import type { LogEntry, MealIndex, NewEntry, NutritionData } from "../../lib/nutrition";
 import { MEALS, addDays, addEntries, deleteEntry, fromYmd, macrosFor, mealForNow, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
-import { MacroLine, TargetBar, fmtG, fmtKcal, num } from "./bits";
+import { MacroInputs, MacroLine, TargetBar, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 import { WeightCard } from "./Weight";
 
 interface Props {
@@ -140,14 +140,14 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
   const [amount, setAmount] = useState(String(e.amount));
   const [unit, setUnit] = useState(e.unit);
   const [meal, setMeal] = useState<MealIndex>(e.meal);
-  const [q, setQ] = useState({ kcal: String(Math.round(e.kcal)), protein: fmtG(e.protein), carbs: fmtG(e.carbs), fat: fmtG(e.fat) });
+  const [q, setQ] = useState<MacroForm>(() => macroForm(e));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const a = num(amount);
 
   let macros = null as null | { kcal: number; protein: number; carbs: number; fat: number };
   if (e.kind === "quick") {
-    const k = num(q.kcal);
+    const k = formKcal(q);
     macros = k != null && k > 0 ? { kcal: k, protein: num(q.protein) ?? 0, carbs: num(q.carbs) ?? 0, fat: num(q.fat) ?? 0 } : null;
   } else if (a != null && a > 0) {
     if (food) macros = macrosFor(food, a, unit);
@@ -179,11 +179,7 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
         <button className="link small" onClick={onClose}>Close</button>
       </div>
       {e.kind === "quick" ? (
-        <div className="grid c4">
-          {(["kcal", "protein", "carbs", "fat"] as const).map((k) => (
-            <label className="field" key={k}><span>{k === "kcal" ? "kcal" : `${k[0].toUpperCase()}${k.slice(1)} g`}</span><input className="input" inputMode="decimal" value={q[k]} onChange={(ev) => setQ({ ...q, [k]: ev.target.value })} /></label>
-          ))}
-        </div>
+        <MacroInputs v={q} set={setQ} />
       ) : (
         <div className="amount-row">
           <label className="field" style={{ flex: 1 }}>

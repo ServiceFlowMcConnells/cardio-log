@@ -55,3 +55,52 @@ export const num = (s: string): number | null => {
   const v = parseFloat(s.replace(",", "."));
   return Number.isFinite(v) ? v : null;
 };
+
+// ---------- macros-first entry ----------
+export type MacroForm = { protein: string; carbs: string; fat: string; kcal: string; manual: boolean };
+
+export const macroForm = (m?: { protein: number | null; carbs: number | null; fat: number | null; kcal: number | null } | null): MacroForm => {
+  const s = (v: number | null | undefined) => (v == null ? "" : String(Math.round(v * 10) / 10));
+  const fromMacros = m && m.protein != null && m.carbs != null && m.fat != null ? m.protein * 4 + m.carbs * 4 + m.fat * 9 : null;
+  // Calories typed in by hand if they don't match the macros (e.g. alcohol, or a calories-only entry)
+  const manual = m?.kcal != null && (fromMacros == null || (fromMacros === 0 && m.kcal > 0) || Math.abs(fromMacros - m.kcal) > Math.max(5, m.kcal * 0.02));
+  return { protein: s(m?.protein), carbs: s(m?.carbs), fat: s(m?.fat), kcal: manual ? s(m?.kcal) : "", manual };
+};
+
+/** Calories: 4 per gram of protein and carbs, 9 per gram of fat, unless typed in by hand. */
+export function formKcal(v: MacroForm): number | null {
+  if (v.manual) return num(v.kcal);
+  const p = num(v.protein), c = num(v.carbs), f = num(v.fat);
+  if (p == null && c == null && f == null) return null;
+  return (p ?? 0) * 4 + (c ?? 0) * 4 + (f ?? 0) * 9;
+}
+
+export function MacroInputs({ v, set, autoFocus, kcalLabel = "Calories" }: { v: MacroForm; set: (v: MacroForm) => void; autoFocus?: boolean; kcalLabel?: string }) {
+  const k = formKcal(v);
+  return (
+    <div className="macro-inputs">
+      <div className="grid c3">
+        {(["protein", "carbs", "fat"] as const).map((key, i) => (
+          <label className="field" key={key}>
+            <span><i className={`mk ${key[0]}`} />{key[0].toUpperCase() + key.slice(1)} (g)</span>
+            <input className="input" inputMode="decimal" value={v[key]} autoFocus={autoFocus && i === 0} onChange={(e) => set({ ...v, [key]: e.target.value })} />
+          </label>
+        ))}
+      </div>
+      {v.manual ? (
+        <label className="field" style={{ marginTop: 10 }}>
+          <span>{kcalLabel} (kcal)</span>
+          <input className="input" inputMode="decimal" value={v.kcal} onChange={(e) => set({ ...v, kcal: e.target.value })} />
+        </label>
+      ) : (
+        <div className="kcal-auto">
+          <span className="muted small">{kcalLabel}</span>
+          <span><strong className="num">{k != null ? fmtKcal(k) : "–"}</strong> <span className="muted">kcal</span></span>
+        </div>
+      )}
+      <button type="button" className="link small" style={{ marginTop: 6 }} onClick={() => set({ ...v, manual: !v.manual, kcal: v.manual ? "" : k != null ? String(Math.round(k)) : "" })}>
+        {v.manual ? "Work calories out from the macros" : "Enter calories yourself"}
+      </button>
+    </div>
+  );
+}

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Food, MealIndex, NewEntry, NutritionData, Recipe, RecentItem } from "../../lib/nutrition";
-import { MEALS, addEntries, adoptFood, fromYmd, macrosFor, perServing, recentItems, roundMacros, scaleMacros, setFoodFlags, setRecipeFavorite, todayYmd } from "../../lib/nutrition";
+import { MEALS, addEntries, adoptFood, fromYmd, macrosFor, perServing, recentItems, scaleMacros, setFoodFlags, setRecipeFavorite, todayYmd } from "../../lib/nutrition";
 import { useDesktop } from "../../lib/desktop";
 import FoodSearch, { type Picked } from "./FoodSearch";
 import AmountPanel, { type Loggable } from "./AmountPanel";
-import { MacroLine, PlusIcon, Star, fmtG, fmtKcal, num } from "./bits";
+import { MacroInputs, PlusIcon, Star, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 
 type Tab = "recent" | "saved" | "recipes";
 type Sel = { item: Loggable; db?: Picked & { type: "db" } };
@@ -262,12 +262,9 @@ export default function FoodAdd({ nutri, day, meal: meal0, setNutri, onDone, onN
 
 function QuickAdd({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (name: string, m: { kcal: number; protein: number; carbs: number; fat: number }) => void; onCancel: () => void }) {
   const [name, setName] = useState("");
-  const [v, setV] = useState({ kcal: "", protein: "", carbs: "", fat: "" });
-  const kcal = num(v.kcal);
+  const [v, setV] = useState<MacroForm>(() => macroForm(null));
+  const k = formKcal(v);
   const p = num(v.protein) ?? 0, c = num(v.carbs) ?? 0, f = num(v.fat) ?? 0;
-  // Calories from the macros if those are filled and calories aren't
-  const fromMacros = p * 4 + c * 4 + f * 9;
-  const k = kcal ?? (fromMacros > 0 ? fromMacros : null);
   return (
     <section className="panel amount-panel">
       <button className="link small" onClick={onCancel}>‹ Back</button>
@@ -277,17 +274,9 @@ function QuickAdd({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (name: stri
         <span>Name (optional)</span>
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Chicken wrap from the canteen" />
       </label>
-      <div className="grid c4" style={{ marginTop: 10 }}>
-        {(["kcal", "protein", "carbs", "fat"] as const).map((key) => (
-          <label className="field" key={key}>
-            <span>{key === "kcal" ? "Calories" : `${key[0].toUpperCase()}${key.slice(1)} (g)`}</span>
-            <input className="input" inputMode="decimal" value={v[key]} placeholder={key === "kcal" && fromMacros > 0 ? String(Math.round(fromMacros)) : ""} onChange={(e) => setV({ ...v, [key]: e.target.value })} />
-          </label>
-        ))}
-      </div>
-      {k != null && <p className="small" style={{ marginTop: 10 }}><MacroLine m={roundMacros({ kcal: k, protein: p, carbs: c, fat: f })} /></p>}
+      <div style={{ marginTop: 10 }}><MacroInputs v={v} set={setV} /></div>
       <button className="btn primary block" style={{ marginTop: 12 }} disabled={k == null || k <= 0 || busy} onClick={() => k != null && onAdd(name.trim() || "Quick add", { kcal: k, protein: p, carbs: c, fat: f })}>
-        {busy ? "Adding…" : "Add"}
+        {busy ? "Adding…" : k != null && k > 0 ? `Add ${fmtKcal(k)} kcal` : "Add"}
       </button>
     </section>
   );

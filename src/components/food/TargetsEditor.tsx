@@ -1,19 +1,18 @@
 import { useState } from "react";
 import type { NutritionData } from "../../lib/nutrition";
-import { deleteTarget, fromYmd, loadNutrition, macroKcal, saveTarget, targetFor, todayYmd } from "../../lib/nutrition";
-import { fmtKcal, num } from "./bits";
+import { deleteTarget, fromYmd, loadNutrition, saveTarget, targetFor, todayYmd } from "../../lib/nutrition";
+import { MacroInputs, fmtKcal, formKcal, macroForm, num } from "./bits";
 
 /** Calorie and macro targets from your coach. A change applies from the date you pick; earlier days keep the old targets. */
 export default function TargetsEditor({ nutri, setNutri, onClose }: { nutri: NutritionData; setNutri: (f: (n: NutritionData) => NutritionData) => void; onClose: () => void }) {
   const cur = targetFor(nutri.targets, todayYmd());
   const [from, setFrom] = useState(todayYmd());
-  const [v, setV] = useState({ kcal: cur ? String(cur.kcal) : "", protein: cur?.protein != null ? String(cur.protein) : "", carbs: cur?.carbs != null ? String(cur.carbs) : "", fat: cur?.fat != null ? String(cur.fat) : "" });
+  const [v, setV] = useState(() => macroForm(cur));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const k = num(v.kcal), p = num(v.protein), c = num(v.carbs), f = num(v.fat);
-  const fromMacros = p != null && c != null && f != null ? macroKcal(p, c, f) : null;
-  const valid = k != null && k >= 800 && k <= 8000 && /^\d{4}-\d{2}-\d{2}$/.test(from);
+  const k = formKcal(v), p = num(v.protein), c = num(v.carbs), f = num(v.fat);
+  const valid = k != null && k >= 800 && k <= 8000 && (v.manual || (p != null && c != null && f != null)) && /^\d{4}-\d{2}-\d{2}$/.test(from);
 
   async function run(fn: () => Promise<void>, close = true) {
     setBusy(true);
@@ -43,15 +42,9 @@ export default function TargetsEditor({ nutri, setNutri, onClose }: { nutri: Nut
       </div>
 
       <section className="panel grid">
-        <label className="field"><span>Calories (kcal a day)</span><input className="input" inputMode="numeric" value={v.kcal} onChange={(e) => setV({ ...v, kcal: e.target.value })} placeholder="e.g. 2200" autoFocus={!cur} /></label>
-        <div className="grid c3">
-          {(["protein", "carbs", "fat"] as const).map((key) => (
-            <label className="field" key={key}><span>{key[0].toUpperCase() + key.slice(1)} (g)</span><input className="input" inputMode="numeric" value={v[key]} onChange={(e) => setV({ ...v, [key]: e.target.value })} placeholder="optional" /></label>
-          ))}
-        </div>
-        {fromMacros != null && k != null && Math.abs(fromMacros - k) > 60 && (
-          <p className="small">Those macros come to {fmtKcal(fromMacros)} kcal ({fromMacros > k ? "+" : ""}{fmtKcal(fromMacros - k)} vs your calorie target). That's fine if your coach set them that way.</p>
-        )}
+        <p className="small muted">Enter the grams your coach gave you; calories are worked out from them.</p>
+        <MacroInputs v={v} set={setV} autoFocus={!cur} kcalLabel="Calories a day" />
+        {k != null && (k < 800 || k > 8000) && <p className="small error">That's {fmtKcal(k)} kcal a day. Check the numbers.</p>}
         <label className="field"><span>Starting</span><input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
       </section>
 

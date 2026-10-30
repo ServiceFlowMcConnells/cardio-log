@@ -655,3 +655,5 @@ select.input { appearance: auto; }
 .desk .toast { bottom: 24px; }
 .side-ctas { display: grid; gap: 8px; }
 @media (max-width: 380px) { .fs-macros { gap: 8px; } .unit-seg { min-width: 120px; } }
+.kcal-auto { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--ground); }
+.kcal-auto strong { font-family: var(--display); font-size: 1.5rem; }
