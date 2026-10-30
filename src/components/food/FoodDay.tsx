@@ -135,8 +135,9 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
             </span>
           ) : <span />}
           <span className="hour-tools">
-            <button className="hour-add" onClick={() => onAdd(t)} aria-label={`Log food at ${t}`}>+</button>
-            <button className={`time-pill num${allOn ? " on" : ""}`} disabled={!list.length} onClick={() => toggle(list.map((e) => e.id))} aria-label={list.length ? `Select everything at ${t}` : t}>{t}</button>
+            {list.length > 0
+              ? <button className={`time-pill num${allOn ? " on" : ""}`} onClick={() => toggle(list.map((e) => e.id))} aria-label={`Select everything at ${t}`}>{t}</button>
+              : <button className="time-pill num" onClick={() => onAdd(t)} aria-label={`Log food at ${t}`}>{t}</button>}
           </span>
         </div>
         {list.length > 0 && (
@@ -206,7 +207,7 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
               Copy everything from {isToday ? "yesterday" : "the day before"} ({fmtKcal(sumMacros(yesterday).kcal)} kcal)
             </button>
           )}
-          {entries.length > 0 && sel.size === 0 && <p className="muted small hint">Tap foods to select them: copy, move, remove or make a recipe. The pencil edits one.</p>}
+          {entries.length > 0 && sel.size === 0 && <p className="muted small hint">Tap foods to select them: copy, move, remove or make a recipe. The pencil edits one. Tap an empty hour to log food at that time.</p>}
           <div className="timeline">{rows}</div>
         </div>
       </div>
