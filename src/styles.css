@@ -657,3 +657,35 @@ select.input { appearance: auto; }
 @media (max-width: 380px) { .fs-macros { gap: 8px; } .unit-seg { min-width: 120px; } }
 .kcal-auto { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--ground); }
 .kcal-auto strong { font-family: var(--display); font-size: 1.5rem; }
+
+/* ---------- Plate (log food) ---------- */
+.plate-top { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.time-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--ground); border-radius: 999px; padding: 4px 6px 4px 12px; cursor: pointer; }
+.time-chip input { border: 0; background: transparent; font: inherit; font-family: var(--display); font-weight: 700; font-size: 1.35rem; color: var(--ink); padding: 4px 0; min-width: 84px; }
+.time-chip input:focus { outline: none; }
+.plate-bars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-top: 12px; }
+.mini .tbar-track { margin-top: 3px; height: 4px; }
+.mini .small { font-size: 0.8rem; white-space: nowrap; }
+.time-quick { margin-top: 0; }
+.time-quick .fchip { padding: 4px 10px; font-size: 0.82rem; }
+.plate-h { font-size: 1.3rem; margin: 16px 0 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.plate-list { border-radius: 12px; background: var(--ground); overflow: hidden; }
+.plate-row { display: flex; align-items: center; gap: 8px; padding: 10px 6px 10px 12px; border-top: 1px solid var(--line); }
+.plate-row:first-child { border-top: 0; }
+.plate-amt { display: flex; align-items: center; gap: 4px; flex: none; }
+.plate-amt .cell { width: 62px; background: var(--panel); }
+.unit-tog { border: 0; border-radius: 8px; background: var(--panel); color: var(--ink); font-weight: 600; font-size: 0.8rem; min-width: 38px; height: 38px; text-decoration: underline dotted; text-underline-offset: 3px; }
+.unit-lbl { min-width: 38px; text-align: center; }
+.plate-total { margin-top: 10px; padding: 0 4px; }
+.plate-actions { display: flex; gap: 8px; margin-top: 14px; }
+.app:not(.desk) .plate-log { display: none; }
+.app:not(.desk) .plate-actions .btn.ghost { flex: 1; min-height: 40px; }
+.plate-float { z-index: 16; }
+.desk .plate-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+.desk .plate-col { position: sticky; top: 24px; }
+.food-add .cols > .col + .col { margin-top: 14px; }
+.desk .food-add .cols > .col + .col { margin-top: 0; }
+.log-btn { margin-bottom: 14px; }
+.tgroup { margin-top: 16px; }
+.tgroup-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; padding: 0 2px; }
+.time-pill { flex: none; background: var(--panel); border-radius: 999px; padding: 4px 12px; font-family: var(--display); font-weight: 700; font-size: 1.05rem; }

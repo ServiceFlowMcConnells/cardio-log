@@ -38,8 +38,8 @@ import WorkoutSummary from "./components/WorkoutSummary";
 import TemplateEditor from "./components/TemplateEditor";
 import ExerciseLibrary from "./components/ExerciseLibrary";
 import ExerciseDetail from "./components/ExerciseDetail";
-import type { Food, MealIndex, NutritionData, Recipe } from "./lib/nutrition";
-import { EMPTY_NUTRITION, loadNutrition, mealForNow, todayYmd } from "./lib/nutrition";
+import type { Food, NutritionData, Recipe } from "./lib/nutrition";
+import { EMPTY_NUTRITION, loadNutrition, todayYmd } from "./lib/nutrition";
 import FoodDay from "./components/food/FoodDay";
 import FoodAdd from "./components/food/FoodAdd";
 import FoodEditor from "./components/food/FoodEditor";
@@ -62,8 +62,8 @@ export type View =
   | { k: "mobility-test" }
   | { k: "niggles"; back: "mobility" | "home" }
   | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" }
-  | { k: "food-add"; meal: MealIndex; preselect?: string | null }
-  | { k: "food-edit"; food: Food | null; name?: string; meal?: MealIndex }
+  | { k: "food-add"; time?: string; preselect?: string | null }
+  | { k: "food-edit"; food: Food | null; name?: string; fromAdd?: boolean }
   | { k: "recipe"; recipe: Recipe | null }
   | { k: "targets" }
   | { k: "weight" };
@@ -295,31 +295,30 @@ export default function App() {
       />
     );
   } else if (view.k === "food-add") {
-    const meal = view.meal;
     body = (
       <FoodAdd
         key={`${foodDay}-${view.preselect ?? ""}`}
         nutri={data.nutrition}
         day={foodDay}
-        meal={meal}
+        time={view.time}
         preselect={view.preselect}
         setNutri={setNutri}
         onDone={() => home("food")}
-        onNewFood={(name) => go({ k: "food-edit", food: null, name, meal })}
-        onEditFood={(f) => go({ k: "food-edit", food: f, meal })}
+        onNewFood={(name) => go({ k: "food-edit", food: null, name, fromAdd: true })}
+        onEditFood={(f) => go({ k: "food-edit", food: f, fromAdd: true })}
         onNewRecipe={() => go({ k: "recipe", recipe: null })}
         onEditRecipe={(r) => go({ k: "recipe", recipe: r })}
       />
     );
   } else if (view.k === "food-edit") {
-    const meal = view.meal;
+    const fromAdd = view.fromAdd;
     body = (
       <FoodEditor
         food={view.food}
         initialName={view.name}
         setNutri={setNutri}
         onClose={() => back()}
-        onSaved={(f) => back(meal != null ? { k: "food-add", meal, preselect: f.id } : undefined)}
+        onSaved={(f) => back(fromAdd ? { k: "food-add", preselect: f.id } : undefined)}
       />
     );
   } else if (view.k === "recipe") {
@@ -392,7 +391,7 @@ export default function App() {
         day={foodDay}
         setDay={setFoodDay}
         setNutri={setNutri}
-        onAdd={(meal) => go({ k: "food-add", meal })}
+        onAdd={(time) => go({ k: "food-add", time })}
         onTargets={() => go({ k: "targets" })}
         onWeight={() => go({ k: "weight" })}
       />
@@ -422,11 +421,11 @@ export default function App() {
       else home(n);
     };
     // Editors and forms read best at a comfortable width; overview pages use the full width
-    const narrow = ["cardio", "template", "program", "settings", "readiness", "workout", "mobility-test", "niggles", "mobility-play", "food-add", "food-edit", "recipe", "targets"].includes(view.k);
+    const narrow = ["cardio", "template", "program", "settings", "readiness", "workout", "mobility-test", "niggles", "mobility-play", "food-edit", "recipe", "targets"].includes(view.k);
     return (
       <DesktopContext.Provider value={true}>
         <div className="desk-shell">
-          <Sidebar active={deskActive} onNav={onNav} onLogCardio={() => go({ k: "cardio", session: null })} onLogFood={() => { setFoodDay(todayYmd()); stack.current = []; setView({ k: "food-add", meal: mealForNow() }); }} email={auth.user.email ?? ""} />
+          <Sidebar active={deskActive} onNav={onNav} onLogCardio={() => go({ k: "cardio", session: null })} onLogFood={() => { setFoodDay(todayYmd()); stack.current = []; setView({ k: "food-add" }); }} email={auth.user.email ?? ""} />
           <main className={`app desk${narrow ? " narrow" : ""}`}>
             {banner}
             {body}

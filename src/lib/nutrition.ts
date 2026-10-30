@@ -28,7 +28,8 @@ export const MEALS = ["Breakfast", "Lunch", "Dinner", "Snacks"] as const;
 export interface LogEntry extends Macros {
   id: string;
   eaten_on: string; // YYYY-MM-DD
-  meal: MealIndex;
+  eaten_time: string; // HH:MM
+  meal: MealIndex; // derived from the time (kept for older screens)
   kind: "food" | "recipe" | "quick";
   food_id: string | null;
   recipe_id: string | null;
@@ -58,6 +59,16 @@ export function mealForNow(d = new Date()): MealIndex {
   const h = d.getHours();
   return h < 11 ? 0 : h < 15 ? 1 : h < 21 ? 2 : 3;
 }
+export function mealForTime(t: string): MealIndex {
+  const h = Number(t.slice(0, 2));
+  return h < 11 ? 0 : h < 15 ? 1 : h < 21 ? 2 : 3;
+}
+const pad = (n: number) => String(n).padStart(2, "0");
+/** Now, rounded down to the quarter hour: "20:30". */
+export function nowTime(d = new Date()): string {
+  return `${pad(d.getHours())}:${pad(Math.floor(d.getMinutes() / 15) * 15)}`;
+}
+export const isTime = (t: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
 
 // ---------- maths ----------
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -98,7 +109,7 @@ export function targetFor(targets: Target[], day: string): Target | null {
 /** Protein/carbs/fat calories, for a target's macro split. */
 export const macroKcal = (p: number, c: number, f: number) => p * 4 + c * 4 + f * 9;
 
-export interface RecentItem { key: string; kind: "food" | "recipe" | "quick"; id: string | null; name: string; amount: number; unit: "g" | "serving"; macros: Macros; meal: MealIndex; lastUsed: string; uses: number }
+export interface RecentItem { key: string; kind: "food" | "recipe" | "quick"; id: string | null; name: string; amount: number; unit: "g" | "serving"; macros: Macros; lastUsed: string; uses: number }
 
 /** Foods and recipes you've logged, most recent first, with the amount you used last time.
  *  Quick adds repeat by name and calories. */
@@ -106,7 +117,7 @@ export function recentItems(log: LogEntry[], foods: Food[], recipes: Recipe[], l
   const foodIds = new Set(foods.filter((f) => !f.archived).map((f) => f.id));
   const recipeIds = new Set(recipes.map((r) => r.id));
   const seen = new Map<string, RecentItem>();
-  const sorted = [...log].sort((a, b) => (b.eaten_on + b.created_at).localeCompare(a.eaten_on + a.created_at));
+  const sorted = [...log].sort((a, b) => (b.eaten_on + b.eaten_time + b.created_at).localeCompare(a.eaten_on + a.eaten_time + a.created_at));
   for (const e of sorted) {
     let key: string | null = null;
     if (e.kind === "food" && e.food_id && foodIds.has(e.food_id)) key = "f:" + e.food_id;
@@ -115,7 +126,7 @@ export function recentItems(log: LogEntry[], foods: Food[], recipes: Recipe[], l
     if (!key) continue;
     const had = seen.get(key);
     if (had) { had.uses++; continue; }
-    seen.set(key, { key, kind: e.kind, id: e.kind === "food" ? e.food_id : e.kind === "recipe" ? e.recipe_id : null, name: e.name, amount: e.amount, unit: e.unit, macros: { kcal: e.kcal, protein: e.protein, carbs: e.carbs, fat: e.fat }, meal: e.meal, lastUsed: e.eaten_on, uses: 1 });
+    seen.set(key, { key, kind: e.kind, id: e.kind === "food" ? e.food_id : e.kind === "recipe" ? e.recipe_id : null, name: e.name, amount: e.amount, unit: e.unit, macros: { kcal: e.kcal, protein: e.protein, carbs: e.carbs, fat: e.fat }, lastUsed: e.eaten_on, uses: 1 });
   }
   return [...seen.values()].slice(0, limit);
 }
@@ -189,7 +200,7 @@ const toFood = (r: Row): Food => ({
   serving_g: nn(r.serving_g), serving_label: (r.serving_label as string) ?? null, favorite: Boolean(r.favorite), archived: Boolean(r.archived),
 });
 const toEntry = (r: Row): LogEntry => ({
-  id: r.id as string, eaten_on: r.eaten_on as string, meal: n(r.meal) as MealIndex, kind: r.kind as LogEntry["kind"], food_id: (r.food_id as string) ?? null,
+  id: r.id as string, eaten_on: r.eaten_on as string, eaten_time: String(r.eaten_time ?? "12:00").slice(0, 5), meal: n(r.meal) as MealIndex, kind: r.kind as LogEntry["kind"], food_id: (r.food_id as string) ?? null,
   recipe_id: (r.recipe_id as string) ?? null, name: r.name as string, amount: n(r.amount), unit: r.unit as LogEntry["unit"],
   kcal: n(r.kcal), protein: n(r.protein), carbs: n(r.carbs), fat: n(r.fat), created_at: r.created_at as string,
 });
@@ -199,7 +210,7 @@ export async function loadNutrition(days = 180): Promise<NutritionData> {
   const [f, r, l, t, w] = await Promise.all([
     supabase.from("foods").select(FOOD_COLS).order("name"),
     supabase.from("recipes").select("id, name, servings, notes, favorite, recipe_items(id, food_id, grams, position)").order("name"),
-    supabase.from("food_log").select("*").gte("eaten_on", since).order("eaten_on").order("created_at"),
+    supabase.from("food_log").select("*").gte("eaten_on", since).order("eaten_on").order("eaten_time").order("created_at"),
     supabase.from("nutrition_targets").select("id, effective_from, kcal, protein, carbs, fat").order("effective_from"),
     supabase.from("body_weights").select("id, measured_on, weight_kg").order("measured_on"),
   ]);
@@ -216,10 +227,10 @@ export async function loadNutrition(days = 180): Promise<NutritionData> {
   };
 }
 
-export type NewEntry = Omit<LogEntry, "id" | "created_at">;
+export type NewEntry = Omit<LogEntry, "id" | "created_at" | "meal">;
 const entryRow = (e: NewEntry) => {
   const m = roundMacros(e);
-  return { eaten_on: e.eaten_on, meal: e.meal, kind: e.kind, food_id: e.food_id, recipe_id: e.recipe_id, name: e.name.trim() || "Quick add", amount: e.amount, unit: e.unit, ...m };
+  return { eaten_on: e.eaten_on, eaten_time: e.eaten_time, meal: mealForTime(e.eaten_time), kind: e.kind, food_id: e.food_id, recipe_id: e.recipe_id, name: e.name.trim() || "Quick add", amount: e.amount, unit: e.unit, ...m };
 };
 
 export async function addEntries(es: NewEntry[]): Promise<LogEntry[]> {
