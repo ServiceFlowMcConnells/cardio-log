@@ -1,8 +1,12 @@
-import type { Exercise, Workout } from "../lib/strength";
-import { fmtKg, fmtTonnage, isWorking, setsByExercise, volume } from "../lib/strength";
+import { useMemo } from "react";
+import type { E1rmFormula, Exercise, Workout } from "../lib/strength";
+import { fmtKg, isWorking, setsByExercise, workoutIntensity } from "../lib/strength";
 import { formatDay, formatTime } from "../lib/dates";
 
-export default function WorkoutCard({ workout: w, exercises, onOpen }: { workout: Workout; exercises: Exercise[]; onOpen: (w: Workout) => void }) {
+interface Props { workout: Workout; exercises: Exercise[]; workouts: Workout[]; formula: E1rmFormula; onOpen: (w: Workout) => void }
+
+export default function WorkoutCard({ workout: w, exercises, workouts, formula, onOpen }: Props) {
+  const intensity = useMemo(() => workoutIntensity(w, workouts, formula), [w, workouts, formula]);
   const names = new Map(exercises.map((e) => [e.id, e.name]));
   const d = new Date(w.started_at);
   const groups = [...setsByExercise(w).entries()];
@@ -12,7 +16,11 @@ export default function WorkoutCard({ workout: w, exercises, onOpen }: { workout
         <span className="when">
           {w.name} <span className="muted small">{formatDay(d)}, {formatTime(d)}</span>
         </span>
-        <span className="mins">{fmtTonnage(volume(w.sets))}</span>
+        {intensity != null && (
+          <span className="mins intensity" title="Average intensity: mean weight as a % of your estimated 1RM going in">
+            {Math.round(intensity * 100)}%<span className="l">avg intensity</span>
+          </span>
+        )}
       </div>
       {groups.map(([id, sets]) => {
         const work = sets.filter(isWorking);

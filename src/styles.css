@@ -131,6 +131,8 @@ p { margin: 0; }
 .session-card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .session-card .when { font-weight: 600; }
 .session-card .mins { font-family: var(--display); font-weight: 600; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.session-card .mins.intensity { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; white-space: nowrap; }
+.session-card .mins.intensity .l { font-family: var(--body, inherit); font-weight: 400; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.02em; }
 .block-line { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.92rem; flex-wrap: wrap; }
 .block-line .dot { vertical-align: 0; }
 .chip { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--ground); color: var(--muted); }

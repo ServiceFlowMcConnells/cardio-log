@@ -73,7 +73,7 @@ export default function History({ data, onOpenSession, onOpenWorkout, onTrain }:
             {w.items.map((it) =>
               it.kind === "cardio"
                 ? <SessionCard key={it.s.id} session={it.s} settings={settings} onOpen={onOpenSession} />
-                : <WorkoutCard key={it.w.id} workout={it.w} exercises={exercises} onOpen={onOpenWorkout} />
+                : <WorkoutCard key={it.w.id} workout={it.w} exercises={exercises} workouts={workouts} formula={settings.e1rm_formula} onOpen={onOpenWorkout} />
             )}
             </div>
           </section>

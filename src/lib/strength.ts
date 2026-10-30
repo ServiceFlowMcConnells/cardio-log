@@ -275,6 +275,18 @@ export function compareExercise(w: Workout, exerciseId: string, sets: WSet[], al
   };
 }
 
+/** A workout's average intensity: each exercise's mean %1RM (against your best e1RM going in, or that
+ *  day's best the first time), averaged across exercises. Same figure as the post-workout summary. */
+export function workoutIntensity(w: Workout, all: Workout[], formula: E1rmFormula): number | null {
+  const vals: number[] = [];
+  for (const [id, sets] of setsByExercise(w)) {
+    const ref = bestE1rmBefore(id, all, w.started_at, formula, w.id) ?? bestE1rm(sets, formula);
+    const v = avgIntensity(sets, ref);
+    if (v != null) vals.push(v);
+  }
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+
 /** The workout to compare against: last one from the same template, otherwise the same name. */
 export function previousWorkout(w: Workout, all: Workout[]): Workout | null {
   const earlier = all.filter((x) => x.id !== w.id && x.started_at < w.started_at);

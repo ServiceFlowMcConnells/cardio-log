@@ -282,7 +282,7 @@ function StrengthWeek({ data, start, onOpen, onTrain, onStart, onWarmup, onPlan 
           </div>
           {lastVol > 0 && <p className="muted small" style={{ marginTop: 6 }}>Volume change is against last week up to the same day ({fmtTonnage(lastVol)} for the full week).</p>}
           <div style={{ marginTop: 8 }}>
-            {thisWeek.map((w) => <WorkoutCard key={w.id} workout={w} exercises={exercises} onOpen={onOpen} />)}
+            {thisWeek.map((w) => <WorkoutCard key={w.id} workout={w} exercises={exercises} workouts={workouts} formula={data.settings.e1rm_formula} onOpen={onOpen} />)}
           </div>
         </>
       )}
