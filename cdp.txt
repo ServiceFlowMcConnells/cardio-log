@@ -1,0 +1,3 @@
+permission: "{\"granted\":true}"
+start: "{\"granted\":true,\"exact\":true}"
+state: "{\"endAt\":1793342917162,\"changedAt\":1793342823375,\"source\":\"notification\",\"secondsLeft\":90,\"addedVsStart\":15}"

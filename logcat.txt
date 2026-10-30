@@ -1,0 +1,80 @@
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{43411f8 com.google.android.projection.gearhead/10123} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{99e96f8 com.google.android.uwb.resources/10181} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{57566d1 com.android.cts.ctsshim/10183} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{65607d1 com.google.android.wifi.resources/10185} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{5a93236 com.google.android.wifi.dialog/10186} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{21b0537 com.google.android.apps.wallpaper/10161} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{a22aa4 com.google.android.odad/10121} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{ce2500d com.android.settings.auto_generated_rro_product__/10028} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{7ce3bc2 com.android.internal.systemui.navbar.gestural/10051} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{65f21da com.google.android.apps.youtube.music/10155} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{310bdd3 com.android.bluetoothmidiservice/10107} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{c294d10 com.android.storagemanager.auto_generated_rro_product__/10026} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{d70e009 com.google.android.cellbroadcastreceiver/10173} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{d48520e com.android.phone.auto_generated_rro_product__/10061} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{59f642f android.auto_generated_rro_product__/10069} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{be2a3c com.android.internal.systemui.navbar.gestural_narrow_back/10052} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{83e73c5 com.google.android.inputmethod.latin/10147} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{93b811a android.auto_generated_rro_vendor__/10075} BLOCKED
+10-30 06:46:29.755   522   907 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{3c8144b com.google.android.apps.restore/10120} BLOCKED
+10-30 06:46:29.830  3265  3265 W traininglog.app: Accessing hidden method Landroid/os/Trace;->isTagEnabled(J)Z (unsupported, reflection, allowed)
+10-30 06:46:29.830  3265  3265 W traininglog.app: Accessing hidden method Landroid/os/Trace;->traceBegin(JLjava/lang/String;)V (unsupported, reflection, allowed)
+10-30 06:46:29.830  3265  3265 W traininglog.app: Accessing hidden method Landroid/os/Trace;->traceEnd(J)V (unsupported, reflection, allowed)
+10-30 06:46:29.830  3265  3265 W traininglog.app: Accessing hidden method Landroid/os/Trace;->asyncTraceBegin(JLjava/lang/String;I)V (unsupported, reflection, allowed)
+10-30 06:46:29.831  3265  3265 W traininglog.app: Accessing hidden method Landroid/os/Trace;->asyncTraceEnd(JLjava/lang/String;I)V (unsupported, reflection, allowed)
+10-30 06:46:29.934  3265  3519 I cr_VariationsUtils: Failed reading seed file "/data/user/0/ie.traininglog.app/app_webview/variations_seed_new"
+10-30 06:46:29.940  3265  3519 I cr_VariationsUtils: Failed reading seed file "/data/user/0/ie.traininglog.app/app_webview/variations_seed"
+10-30 06:46:31.085   522   553 I ActivityManager: Start proc 3589:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0ai9000 for  {ie.traininglog.app/org.chromium.content.app.SandboxedProcessService0:0}
+10-30 06:46:32.138  3265  3265 D Capacitor: Registering plugin instance: RestTimer
+10-30 06:46:32.499   522  1974 D CoreBackPreview: Window{ae74b51 u0 ie.traininglog.app/ie.traininglog.app.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@73aa01c, mPriority=0, mIsAnimationCallback=false}
+10-30 06:46:32.964   522   541 W ziparchive: Unable to open '/data/app/~~mgQekw1fA6BpDIInHG__YQ==/ie.traininglog.app-U5UXrAAF4RODNFgiDcEhmg==/base.dm': No such file or directory
+10-30 06:46:32.967   522   541 I ActivityTaskManager: Displayed ie.traininglog.app/.MainActivity for user 0: +6s110ms
+10-30 06:46:33.100   522  2305 D CoreBackPreview: Window{ca6dea2 u0 Splash Screen ie.traininglog.app EXITING}: Setting back callback null
+10-30 06:46:33.101   522  2328 W InputManager-JNI: Input channel object 'ca6dea2 Splash Screen ie.traininglog.app (client)' was disposed without first being removed with the input manager!
+10-30 06:46:33.255   522  2328 I ImeTracker: ie.traininglog.app:ca1bf2f7: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_UNSPECIFIED_WINDOW
+10-30 06:46:33.255   522  2328 I ImeTracker: ie.traininglog.app:ca1bf2f7: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-30 06:46:33.468  1545  1545 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x0(NULL) imeOptions=0x12000000 privateImeOptions=null actionName=UNSPECIFIED actionLabel=null actionId=0 initialSelStart=-1 initialSelEnd=-1 initialCapsMode=0x0 hintText=null label=null packageName=ie.traininglog.app fieldId=0 fieldName=null extras=null}, false)
+10-30 06:46:34.587  3265  3265 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 128204379, pluginId: RestTimer, methodName: requestPermission
+10-30 06:46:34.587  3265  3265 V Capacitor: callback: 128204379, pluginId: RestTimer, methodName: requestPermission, methodData: {}
+10-30 06:46:35.832  3265  3600 W traininglog.app: Long monitor contention with owner ThreadPoolForeg (3598) at org.chromium.net.AndroidCertVerifyResult OB0.h(byte[][], java.lang.String, java.lang.String)(chromium-TrichromeWebViewGoogle6432.apk-stable-567263637:242) waiters=0 in org.chromium.net.AndroidCertVerifyResult OB0.h(byte[][], java.lang.String, java.lang.String) for 259ms
+10-30 06:46:35.935  1614  1614 I AiAiEcho: AppFetcherImplV2 updateApps package:[ie.traininglog.app], userId:[0], reason:[package is added.].
+10-30 06:46:36.943  1614  1614 I AiAiEcho: AppFetcherImpl onPackageChanged ie.traininglog.app.
+10-30 06:46:36.947  1614  2554 I AiAiEcho: AppIndexer Package:[ie.traininglog.app] UserProfile:[0] Enabled:[true].
+10-30 06:46:36.947  1614  2554 I AiAiEcho: AppFetcherImplV2 updateApps package:[ie.traininglog.app], userId:[0], reason:[package is updated.].
+10-30 06:46:38.130   522  2307 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{e470293 com.google.android.gm/10142} BLOCKED
+10-30 06:46:38.279  3265  4095 D ProfileInstaller: Installing profile for ie.traininglog.app
+10-30 06:46:38.372  3265  3282 I traininglog.app: Background concurrent copying GC freed 66513(3599KB) AllocSpace objects, 21(904KB) LOS objects, 49% free, 3680KB/7361KB, paused 43us,43us total 318.369ms
+10-30 06:46:39.836  3546  3573 I Launcher.IconCache: Database bulk icon loading failed, using fallback bulk icon loading for: ComponentInfo{ie.traininglog.app/ie.traininglog.app.MainActivity}
+10-30 06:46:39.922   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{caabba1 com.android.camera2/10143} BLOCKED
+10-30 06:46:39.923   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{96321c6 com.google.android.devicelockcontroller/10188} BLOCKED
+10-30 06:46:39.923   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{8a3e587 com.google.android.rkpdapp/10191} BLOCKED
+10-30 06:46:39.923   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{e02ab6b com.google.android.projection.gearhead/10123} BLOCKED
+10-30 06:46:40.117   522  2467 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{227c092 com.google.android.settings.intelligence/10118} BLOCKED
+10-30 06:46:40.117   522  2467 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{65e660 com.google.android.settings.intelligence/10118} BLOCKED
+10-30 06:46:45.633  1406  3624 I FontLog : Package ie.traininglog.app has no metadata [CONTEXT service_id=132 ]
+10-30 06:46:45.645  1465  3328 I BlockstoreStorage: Clearing Blockstore Data for package ie.traininglog.app [CONTEXT service_id=258 ]
+10-30 06:46:50.030   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{9a5d484 com.google.android.googlequicksearchbox/10132} BLOCKED
+10-30 06:46:50.031   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{473e46d com.google.android.gm/10142} BLOCKED
+10-30 06:46:52.152  3265  3265 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 128204380, pluginId: RestTimer, methodName: requestPermission
+10-30 06:46:52.152  3265  3265 V Capacitor: callback: 128204380, pluginId: RestTimer, methodName: requestPermission, methodData: {}
+10-30 06:46:52.163  3265  3265 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 128204381, pluginId: RestTimer, methodName: start
+10-30 06:46:52.163  3265  3265 V Capacitor: callback: 128204381, pluginId: RestTimer, methodName: start, methodData: {"endAt":1.7933429021625E12,"title":"Resting","body":"Next: Bench Press, set 2","sound":true}
+10-30 06:46:54.092   522   541 V WindowManager:     info={id=9 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{bbea3e8 Task{30ffa43 #1 type=home}}} m=TO_FRONT f=SHOW_WALLPAPER|MOVE_TO_TOP leash=Surface(name=Task=1)/@0xddd379c sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{RemoteToken{db739a0 Task{51281b5 #8 type=standard A=10192:ie.traininglog.app}}} m=TO_BACK f=NONE leash=Surface(name=Task=8)/@0x3e119d6 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{null m=TO_FRONT f=IS_WALLPAPER leash=Surface(name=WallpaperWindowToken{a41fa13 token=android.os.Binder@704fd77})/@0x4a250d5 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+10-30 06:47:03.300  3265  3265 V ActivityThread: getPackageInfo() caused update to cached ApplicationInfo for package ie.traininglog.app
+10-30 06:47:03.349   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{b5159d4 com.google.android.as/10125} BLOCKED
+10-30 06:47:03.350   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{8fa077d com.google.android.contacts/10153} BLOCKED
+10-30 06:47:04.372   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{3916b6f com.google.android.googlequicksearchbox/10132} BLOCKED
+10-30 06:47:06.261   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{9fee66f com.google.android.youtube/10139} BLOCKED
+10-30 06:47:06.261   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{6c3f129 com.google.android.apps.maps/10156} BLOCKED
+10-30 06:47:06.263   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{4981f7c com.google.android.settings.intelligence/10118} BLOCKED
+10-30 06:47:07.483  3265  3265 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 128204382, pluginId: RestTimer, methodName: getState
+10-30 06:47:07.483  3265  3265 V Capacitor: callback: 128204382, pluginId: RestTimer, methodName: getState, methodData: {}
+10-30 06:47:08.512  4848  4848 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-30 06:47:08.537  4848  4848 I AndroidRuntime: Using default boot image
+10-30 06:47:08.537  4848  4848 I AndroidRuntime: Leaving lock profiling enabled
+10-30 06:47:08.993  4848  4848 D AndroidRuntime: Calling main entry com.android.commands.locksettings.LockSettingsCmd
+10-30 06:47:09.369   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{62310fb com.google.android.gm/10142} BLOCKED
+10-30 06:47:10.695  4848  4848 D AndroidRuntime: Shutting down VM
+10-30 06:47:11.612   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{390b9a0 com.google.android.contacts/10153} BLOCKED
+10-30 06:47:13.094   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{2e7eba6 com.google.android.apps.messaging/10130} BLOCKED
+10-30 06:47:17.898   522   575 I AppsFilter: interaction: PackageSetting{4c16aa5 ie.traininglog.app/10192} -> PackageSetting{49c36a2 com.google.android.apps.messaging/10130} BLOCKED

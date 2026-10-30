@@ -1,0 +1,55 @@
+name: Android emulator check
+
+on:
+  push:
+    branches: ["e2e/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+
+      - name: Build debug APK
+        working-directory: native
+        run: |
+          npm install --no-audit --no-fund
+          npx cap add android
+          node patch-android.mjs
+          npx cap sync android
+          cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash native/e2e/run.sh
+
+      - name: Publish results to the e2e-results branch
+        if: always()
+        run: |
+          git config user.name "ci"; git config user.email "ci@users.noreply.github.com"
+          cp -r native/e2e/out /tmp/out
+          git fetch origin e2e-results || true
+          git checkout --orphan e2e-results-tmp
+          git rm -rq --cached . ; rm -rf ./*
+          cp -r /tmp/out/* .
+          git add -A && git commit -qm "e2e results ${{ github.sha }}" && git push -f origin HEAD:e2e-results

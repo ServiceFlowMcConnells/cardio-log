@@ -1,0 +1,77 @@
+name: Android app
+
+on:
+  push:
+    branches: [main]
+    paths: ["native/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # publish the release
+  id-token: write   # GitHub OIDC token, exchanged for the signing key
+
+concurrency: { group: android, cancel-in-progress: false }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+
+      - name: Install Capacitor
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Android project
+        run: |
+          npx cap add android
+          npx capacitor-assets generate --android \
+            --iconBackgroundColor '#17232A' --iconBackgroundColorDark '#17232A' \
+            --splashBackgroundColor '#17232A' --splashBackgroundColorDark '#10171B'
+          node patch-android.mjs
+          npx cap sync android
+
+      - name: Fetch signing key
+        run: |
+          TOKEN=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=training-log-signing" | jq -r .value)
+          curl -sSf -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}' \
+            https://vrrlqxqdtuorluvenofs.supabase.co/functions/v1/android-signing-key > "$RUNNER_TEMP/key.json"
+          PW=$(jq -r .password "$RUNNER_TEMP/key.json")
+          echo "::add-mask::$PW"
+          echo "KS_PASS=$PW" >> "$GITHUB_ENV"
+          jq -r .keystore "$RUNNER_TEMP/key.json" | base64 -d > "$RUNNER_TEMP/release.jks"
+          rm "$RUNNER_TEMP/key.json"
+
+      - name: Build APK
+        working-directory: native/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Sign APK
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/zipalign" -p -f 4 android/app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias traininglog \
+            --ks-pass env:KS_PASS --key-pass env:KS_PASS --out TrainingLog.apk aligned.apk
+          "$BT/apksigner" verify --print-certs TrainingLog.apk | head -3
+          rm "$RUNNER_TEMP/release.jks"
+
+      - uses: actions/upload-artifact@v4
+        with: { name: TrainingLog-apk, path: native/TrainingLog.apk }
+
+      - name: Publish release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release create "android-v1.0.${{ github.run_number }}" TrainingLog.apk \
+            --title "Training Log for Android 1.0.${{ github.run_number }}" \
+            --notes "Install TrainingLog.apk on your phone. Live rest countdown in notifications, with an alert at the end even when the app is minimised." \
+            --latest
