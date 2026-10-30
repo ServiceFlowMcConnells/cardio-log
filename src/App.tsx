@@ -63,7 +63,7 @@ export type View =
   | { k: "niggles"; back: "mobility" | "home" }
   | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" }
   | { k: "food-add"; time?: string; preselect?: string | null }
-  | { k: "food-edit"; food: Food | null; name?: string; fromAdd?: boolean }
+  | { k: "food-edit"; food: Food | null; name?: string; barcode?: string; fromAdd?: boolean }
   | { k: "recipe"; recipe: Recipe | null; items?: { food_id: string; grams: number }[] }
   | { k: "targets" }
   | { k: "weight" };
@@ -304,7 +304,7 @@ export default function App() {
         preselect={view.preselect}
         setNutri={setNutri}
         onDone={() => home("food")}
-        onNewFood={(name) => go({ k: "food-edit", food: null, name, fromAdd: true })}
+        onNewFood={(name, barcode) => go({ k: "food-edit", food: null, name, barcode, fromAdd: true })}
         onEditFood={(f) => go({ k: "food-edit", food: f, fromAdd: true })}
         onNewRecipe={() => go({ k: "recipe", recipe: null })}
         onEditRecipe={(r) => go({ k: "recipe", recipe: r })}
@@ -316,6 +316,7 @@ export default function App() {
       <FoodEditor
         food={view.food}
         initialName={view.name}
+        initialBarcode={view.barcode}
         setNutri={setNutri}
         onClose={() => back()}
         onSaved={(f) => back(fromAdd ? { k: "food-add", preselect: f.id } : undefined)}

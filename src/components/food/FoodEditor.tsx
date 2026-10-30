@@ -11,9 +11,10 @@ const LABEL: Record<Key, string> = { kcal: "Calories (kcal)", protein: "Protein 
 const show = (v: number | null | undefined) => (v == null ? "" : String(Math.round(v * 10) / 10));
 
 /** Create or edit one of your foods, typed in from the label (per 100 g or per serving). */
-export default function FoodEditor({ food, initialName, setNutri, onClose, onSaved }: {
+export default function FoodEditor({ food, initialName, initialBarcode, setNutri, onClose, onSaved }: {
   food: Food | null;
   initialName?: string;
+  initialBarcode?: string;
   setNutri: (f: (n: NutritionData) => NutritionData) => void;
   onClose: () => void;
   onSaved: (f: Food) => void;
@@ -53,7 +54,7 @@ export default function FoodEditor({ food, initialName, setNutri, onClose, onSav
     setError(null);
     try {
       const f = await saveFood({
-        name, brand: brand || null, source: food?.source ?? "custom", source_ref: food?.source_ref ?? null, barcode: food?.barcode ?? null,
+        name, brand: brand || null, source: food?.source ?? "custom", source_ref: food?.source_ref ?? null, barcode: food?.barcode ?? initialBarcode ?? null,
         kcal: kcal!, protein: per100("protein") ?? 0, carbs: per100("carbs") ?? 0, fat: per100("fat") ?? 0, fibre: per100("fibre"),
         serving_g: servingOk ? sg : null, serving_label: servingOk ? servingLabel || null : null,
       }, food?.id);
@@ -83,7 +84,7 @@ export default function FoodEditor({ food, initialName, setNutri, onClose, onSav
       <div className="editor-bar">
         <div>
           <h1>{food ? "Edit food" : "New food"}</h1>
-          <p className="muted small">Type it in from the nutrition label.</p>
+          <p className="muted small">Type it in from the nutrition label.{(food?.barcode ?? initialBarcode) ? ` Barcode ${food?.barcode ?? initialBarcode}.` : ""}</p>
         </div>
         <button className="btn ghost" onClick={onClose}>Cancel</button>
       </div>

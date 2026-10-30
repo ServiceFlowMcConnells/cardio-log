@@ -18,8 +18,11 @@ const perms = [
   '<uses-permission android:name="android.permission.VIBRATE" />',
   '<uses-permission android:name="android.permission.USE_EXACT_ALARM" />',
   '<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />',
+  // Barcode scanning in the food log (the web view asks for the camera; Capacitor turns that into this permission)
+  '<uses-permission android:name="android.permission.CAMERA" />',
 ];
 for (const p of perms) if (!xml.includes(p.split('"')[1])) xml = xml.replace("</manifest>", `    ${p}\n</manifest>`);
+if (!xml.includes("android.hardware.camera")) xml = xml.replace("</manifest>", '    <uses-feature android:name="android.hardware.camera" android:required="false" />\n</manifest>');
 if (!xml.includes("RestAlarmReceiver")) xml = xml.replace("</application>", '        <receiver android:name=".RestAlarmReceiver" android:exported="false" />\n    </application>');
 if (!xml.includes("RestActionReceiver")) xml = xml.replace("</application>", '        <receiver android:name=".RestActionReceiver" android:exported="false" />\n    </application>');
 fs.writeFileSync(mf, xml);

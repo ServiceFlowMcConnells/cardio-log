@@ -388,3 +388,14 @@ export async function searchBranded(q: string): Promise<DbFood[]> {
   if (error) throw new Error("Couldn't reach Open Food Facts. Try again in a moment.");
   return ((data as { results?: DbFood[] })?.results ?? []).map((x) => ({ ...x, source: "off" as const }));
 }
+
+/** One product by barcode from Open Food Facts, or null if it isn't there. */
+export async function lookupBarcode(code: string): Promise<DbFood | null> {
+  const { data, error } = await supabase.functions.invoke("food-search", { body: { code } });
+  if (error) throw new Error("Couldn't reach Open Food Facts. Try again in a moment.");
+  const r = (data as { results?: DbFood[] })?.results?.[0];
+  return r ? { ...r, source: "off" } : null;
+}
+
+/** Your food with this barcode, if you've saved one. */
+export const foodByBarcode = (foods: Food[], code: string) => foods.find((f) => !f.archived && (f.barcode === code || (f.source === "off" && f.source_ref === code)));

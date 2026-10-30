@@ -32,7 +32,7 @@ interface Props {
   time?: string;
   setNutri: (f: (n: NutritionData) => NutritionData) => void;
   onDone: () => void;
-  onNewFood: (name: string) => void;
+  onNewFood: (name: string, barcode?: string) => void;
   onEditFood: (f: Food) => void;
   onNewRecipe: () => void;
   onEditRecipe: (r: Recipe) => void;
@@ -239,7 +239,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
         <button className="fchip" onClick={onNewRecipe}>New recipe</button>
       </div>
       <div style={{ marginTop: 12 }}>
-        <FoodSearch nutri={nutri} onPick={pick} query={query} setQuery={setQuery} autoFocus={desktop} />
+        <FoodSearch nutri={nutri} onPick={pick} query={query} setQuery={setQuery} autoFocus={desktop} onNewFood={onNewFood} />
       </div>
       {!query.trim() && (
         <>

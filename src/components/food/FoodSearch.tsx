@@ -1,20 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DbFood, Food, NutritionData, Recipe } from "../../lib/nutrition";
-import { loadFoodDb, matchScore, perServing, searchBranded } from "../../lib/nutrition";
+import { foodByBarcode, loadFoodDb, lookupBarcode, matchScore, perServing, searchBranded } from "../../lib/nutrition";
+import BarcodeScanner from "./BarcodeScanner";
 
 export type Picked = { type: "food"; food: Food } | { type: "db"; db: DbFood } | { type: "recipe"; recipe: Recipe };
 
 const per100 = (m: { kcal: number; protein: number }) => `${Math.round(m.kcal)} kcal · ${Math.round(m.protein * 10) / 10} g protein per 100 g`;
 
 /** Search box over your foods (and recipes), the McCance & Widdowson reference foods, and Open Food Facts. */
-export default function FoodSearch({ nutri, onPick, recipes = true, query, setQuery, autoFocus }: {
+export default function FoodSearch({ nutri, onPick, recipes = true, query, setQuery, autoFocus, onNewFood }: {
   nutri: NutritionData;
   onPick: (p: Picked) => void;
   recipes?: boolean;
   query: string;
   setQuery: (q: string) => void;
   autoFocus?: boolean;
+  onNewFood?: (name: string, barcode?: string) => void; // offered when a scanned barcode isn't found
 }) {
+  const [scanning, setScanning] = useState(false);
+  const [scan, setScan] = useState<null | { code: string; busy?: boolean; missing?: boolean; error?: string }>(null);
+  const canScan = typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
+
+  async function onCode(code: string) {
+    setScanning(false);
+    const mine = foodByBarcode(nutri.foods, code);
+    if (mine) { setScan(null); onPick({ type: "food", food: mine }); return; }
+    setScan({ code, busy: true });
+    try {
+      const found = await lookupBarcode(code);
+      if (found) { setScan(null); onPick({ type: "db", db: found }); }
+      else setScan({ code, missing: true });
+    } catch (e) {
+      setScan({ code, error: e instanceof Error ? e.message : "Lookup failed." });
+    }
+  }
   const [db, setDb] = useState<DbFood[] | null>(null);
   const [dbErr, setDbErr] = useState(false);
   const [branded, setBranded] = useState<{ q: string; results: DbFood[] } | null>(null);
@@ -59,6 +78,7 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
 
   return (
     <>
+      {scanning && <BarcodeScanner onCode={onCode} onClose={() => setScanning(false)} />}
       <form className="food-search" role="search" onSubmit={(e) => { e.preventDefault(); findBranded(); }}>
         <input
           className="input"
@@ -70,7 +90,26 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
           aria-label="Search foods"
           enterKeyHint="search"
         />
+        {canScan && (
+          <button type="button" className="scan-btn" aria-label="Scan a barcode" onClick={() => { setScan(null); setScanning(true); }}>
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8" /></svg>
+          </button>
+        )}
       </form>
+      {scan && (
+        <div className={`panel scan-result${scan.missing || scan.error ? " warn" : ""}`}>
+          {scan.busy ? <p className="small">Looking up {scan.code}…</p>
+            : scan.error ? <p className="small error">{scan.error}</p>
+            : (
+              <>
+                <p className="small"><strong>{scan.code}</strong> isn't in Open Food Facts yet.</p>
+                {onNewFood && <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNewFood("", scan.code)}>Add it from the label</button>}
+                <p className="muted small" style={{ marginTop: 6 }}>Saved with its barcode, so it comes straight up next time you scan it.</p>
+              </>
+            )}
+          {!scan.busy && <button className="link small" style={{ marginTop: 6 }} onClick={() => setScan(null)}>Dismiss</button>}
+        </div>
+      )}
 
       {q.length > 0 && (
         <>
