@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import type { Checkin } from "../../lib/readiness";
 import type { LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
 import { addDays, addEntries, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
@@ -30,6 +30,9 @@ const amountText = (e: LogEntry) => (e.kind === "quick" ? "quick add" : e.unit =
 function PencilIcon() {
   return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M4 17.2V20h2.8l8.3-8.3-2.8-2.8L4 17.2zm13.7-7.6a1 1 0 0 0 0-1.4l-1.9-1.9a1 1 0 0 0-1.4 0l-1.5 1.5 2.8 2.8 2-1z" /></svg>;
 }
+function BinIcon() {
+  return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>;
+}
 function Check({ on }: { on: boolean }) {
   return (
     <span className={`sel-dot${on ? " on" : ""}`} aria-hidden="true">
@@ -46,6 +49,63 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // Swipe a row left to swap its pencil for a bin
+  const [swiped, setSwiped] = useState<string | null>(null);
+  const [dragX, setDragX] = useState<{ id: string; dx: number } | null>(null);
+  const drag = useRef<{ id: string; x: number; y: number; dx: number; horiz: boolean | null } | null>(null);
+  const justSwiped = useRef(false);
+  const [undo, setUndo] = useState<LogEntry | null>(null);
+  const undoTimer = useRef<number>();
+
+  const onDown = (id: string) => (ev: RPointerEvent) => {
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    drag.current = { id, x: ev.clientX, y: ev.clientY, dx: 0, horiz: null };
+  };
+  const onMove = (ev: RPointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
+    if (d.horiz == null && Math.hypot(dx, dy) > 8) d.horiz = Math.abs(dx) > Math.abs(dy) * 1.2;
+    if (!d.horiz) return;
+    d.dx = dx;
+    const base = swiped === d.id ? -20 : 0;
+    setDragX({ id: d.id, dx: Math.max(-48, Math.min(0, base + dx * 0.5)) });
+  };
+  const onUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    setDragX(null);
+    if (!d || !d.horiz) return;
+    justSwiped.current = true;
+    window.setTimeout(() => { justSwiped.current = false; }, 50);
+    if (d.dx < -40) setSwiped(d.id);
+    else if (d.dx > 30 && swiped === d.id) setSwiped(null);
+  };
+
+  async function quickDelete(e: LogEntry) {
+    setSwiped(null);
+    setNutri((n) => ({ ...n, log: n.log.filter((x) => x.id !== e.id) }));
+    try {
+      await deleteEntry(e.id);
+      setUndo(e);
+      window.clearTimeout(undoTimer.current);
+      undoTimer.current = window.setTimeout(() => setUndo(null), 5000);
+    } catch (err) {
+      setNutri((n) => ({ ...n, log: [...n.log, e] }));
+      setError(err instanceof Error ? err.message : "Couldn't remove that.");
+    }
+  }
+  async function undoDelete() {
+    const e = undo;
+    if (!e) return;
+    setUndo(null);
+    try {
+      const added = await addEntries([copyOf(e, e.eaten_on, e.eaten_time)]);
+      setNutri((n) => ({ ...n, log: [...n.log, ...added] }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't put it back.");
+    }
+  }
 
   const entries = nutri.log.filter((e) => e.eaten_on === day);
   const total = sumMacros(entries);
@@ -65,6 +125,7 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
   const goDay = (d: string) => { setOpen(null); setSel(new Set()); setSheet(null); setDay(d); };
   const toggle = (ids: string[], on?: boolean) => {
     setOpen(null);
+    setSwiped(null);
     setConfirmRemove(false);
     setSel((s) => {
       const n = new Set(s);
@@ -145,13 +206,23 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
             {list.map((e) => open === e.id ? (
               <div key={e.id} className="panel list-panel"><EntryEditor entry={e} nutri={nutri} setNutri={setNutri} onClose={() => setOpen(null)} /></div>
             ) : (
-              <div key={e.id} className={`food-row${sel.has(e.id) ? " on" : ""}`}>
-                <button className="food-row-main" onClick={() => toggle([e.id])} aria-pressed={sel.has(e.id)}>
+              <div
+                key={e.id}
+                className={`food-row${sel.has(e.id) ? " on" : ""}${swiped === e.id ? " swiped" : ""}`}
+                onPointerDown={onDown(e.id)}
+                onPointerMove={onMove}
+                onPointerUp={onUp}
+                onPointerCancel={onUp}
+                style={dragX?.id === e.id ? { transform: `translateX(${dragX.dx}px)`, transition: "none" } : swiped === e.id ? { transform: "translateX(-20px)" } : undefined}
+              >
+                <button className="food-row-main" onClick={() => { if (justSwiped.current) return; if (swiped) { setSwiped(null); return; } toggle([e.id]); }} aria-pressed={sel.has(e.id)}>
                   <span className="food-row-name">{e.name}</span>
                   <MacroSub m={e} amount={amountText(e)} />
                 </button>
-                <button className="pencil" aria-label={`Edit ${e.name}`} onClick={() => { clearSel(); setOpen(e.id); }}><PencilIcon /></button>
-                {sel.size > 0 && <button className="sel-btn" aria-label={sel.has(e.id) ? "Deselect" : "Select"} onClick={() => toggle([e.id])}><Check on={sel.has(e.id)} /></button>}
+                {swiped === e.id
+                  ? <button className="pencil bin" aria-label={`Delete ${e.name}`} onClick={() => quickDelete(e)}><BinIcon /></button>
+                  : <button className="pencil" aria-label={`Edit ${e.name}`} onClick={() => { if (justSwiped.current) return; clearSel(); setSwiped(null); setOpen(e.id); }}><PencilIcon /></button>}
+                {sel.size > 0 && swiped !== e.id && <button className="sel-btn" aria-label={sel.has(e.id) ? "Deselect" : "Select"} onClick={() => toggle([e.id])}><Check on={sel.has(e.id)} /></button>}
               </div>
             ))}
           </div>
@@ -201,6 +272,12 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
         <div className="col">
           {error && <p className="error">{error}</p>}
           {note && <p className="ok">{note}</p>}
+          {undo && (
+            <div className="undo-toast" role="status">
+              <span>Removed {undo.name}</span>
+              <button className="link small" onClick={undoDelete}>Undo</button>
+            </div>
+          )}
           <button className="btn primary block log-btn" onClick={() => onAdd()}>+ Log food</button>
           {entries.length === 0 && yesterday.length > 0 && (
             <button className="btn ghost block" disabled={busy} onClick={copyDay} style={{ marginBottom: 10 }}>

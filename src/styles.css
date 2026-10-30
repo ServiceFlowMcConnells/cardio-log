@@ -735,3 +735,10 @@ select.input { appearance: auto; }
 .hour-items > .list-panel { margin-right: -64px; }
 .hour-head .macro-sub.big { min-width: 0; }
 .timeline { padding-bottom: 72px; }
+.food-row { touch-action: pan-y; transition: transform 0.18s ease; user-select: none; -webkit-user-select: none; }
+.pencil.bin { background: var(--danger); color: #fff; }
+.food-row.swiped { box-shadow: inset 0 0 0 2px var(--danger); }
+.undo-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 84px); z-index: 30; display: flex; gap: 14px; align-items: center; background: var(--ink); color: var(--panel); padding: 10px 16px; border-radius: 12px; font-size: 0.92rem; box-shadow: 0 6px 20px rgb(0 0 0 / 0.2); max-width: calc(100vw - 32px); }
+.undo-toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.undo-toast .link { color: var(--panel); font-weight: 700; flex: none; }
+.desk .undo-toast { bottom: 24px; left: calc(50% + 132px); }
