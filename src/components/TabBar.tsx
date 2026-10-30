@@ -1,4 +1,4 @@
-export type Tab = "week" | "history" | "train" | "exercises" | "progress";
+export type Tab = "week" | "history" | "train" | "food" | "exercises" | "progress";
 
 const icons: Record<Exclude<Tab, "train">, JSX.Element> = {
   week: (
@@ -18,6 +18,12 @@ const icons: Record<Exclude<Tab, "train">, JSX.Element> = {
       <path d="M15 7h5v5" />
     </svg>
   ),
+  food: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10" />
+      <path d="M17 21V3c-2.2 1.2-3.5 3.7-3.5 7v3H17" />
+    </svg>
+  ),
   exercises: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
       <path d="M7 7v10M17 7v10M4 9.5v5M20 9.5v5M7 12h10" />
@@ -25,10 +31,10 @@ const icons: Record<Exclude<Tab, "train">, JSX.Element> = {
   ),
 };
 
-const labels: Record<Tab, string> = { week: "Week", history: "History", train: "Train", exercises: "Exercises", progress: "Progress" };
+const labels: Record<Tab, string> = { week: "Week", history: "History", train: "Train", food: "Food", exercises: "Exercises", progress: "Progress" };
 
 export default function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
-  const order: Tab[] = ["week", "history", "train", "exercises", "progress"];
+  const order: Tab[] = ["week", "history", "train", "food", "progress"];
   return (
     <nav className="tabbar" aria-label="Main">
       <div className="tabbar-inner">

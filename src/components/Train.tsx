@@ -21,9 +21,10 @@ interface Props {
   onDailyMobility: () => void;
   onEditProgram: (p: Program | null) => void;
   onPlan: () => void;
+  onExercises: () => void;
 }
 
-export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise, onWarmup, onMobility, onDailyMobility, onEditProgram, onPlan }: Props) {
+export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise, onWarmup, onMobility, onDailyMobility, onEditProgram, onPlan, onExercises }: Props) {
   const { templates, exercises, workouts } = data;
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const desktop = useDesktop();
@@ -31,7 +32,10 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
 
   return (
     <>
-      <div className="page-head"><h1>{desktop ? "Programs & templates" : "Train"}</h1></div>
+      <div className="page-head">
+        <h1>{desktop ? "Programs & templates" : "Train"}</h1>
+        {!desktop && <button className="link small" onClick={onExercises}>Exercise library ›</button>}
+      </div>
 
       <div className="cols">
       <div className="col">

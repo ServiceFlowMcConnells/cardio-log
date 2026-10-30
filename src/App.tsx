@@ -38,6 +38,14 @@ import WorkoutSummary from "./components/WorkoutSummary";
 import TemplateEditor from "./components/TemplateEditor";
 import ExerciseLibrary from "./components/ExerciseLibrary";
 import ExerciseDetail from "./components/ExerciseDetail";
+import type { Food, MealIndex, NutritionData, Recipe } from "./lib/nutrition";
+import { EMPTY_NUTRITION, loadNutrition, mealForNow, todayYmd } from "./lib/nutrition";
+import FoodDay from "./components/food/FoodDay";
+import FoodAdd from "./components/food/FoodAdd";
+import FoodEditor from "./components/food/FoodEditor";
+import RecipeEditor from "./components/food/RecipeEditor";
+import TargetsEditor from "./components/food/TargetsEditor";
+import WeightView from "./components/food/Weight";
 
 export type View =
   | { k: "tabs" }
@@ -53,7 +61,12 @@ export type View =
   | { k: "mobility" }
   | { k: "mobility-test" }
   | { k: "niggles"; back: "mobility" | "home" }
-  | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" };
+  | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" }
+  | { k: "food-add"; meal: MealIndex; preselect?: string | null }
+  | { k: "food-edit"; food: Food | null; name?: string; meal?: MealIndex }
+  | { k: "recipe"; recipe: Recipe | null }
+  | { k: "targets" }
+  | { k: "weight" };
 
 function initialView(): View {
   const desktop = window.matchMedia?.("(min-width: 1024px)").matches && !(window as unknown as { Capacitor?: unknown }).Capacitor;
@@ -75,15 +88,17 @@ export interface AppData {
   programs: Program[];
   activeProgramId: string | null;
   planned: PlannedWorkout[];
+  nutrition: NutritionData;
 }
 
 export default function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
-  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [], programs: [], activeProgramId: null, planned: [] });
+  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [], programs: [], activeProgramId: null, planned: [], nutrition: EMPTY_NUTRITION });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("week");
   const [view, setView] = useState<View>(initialView);
+  const [foodDay, setFoodDay] = useState(todayYmd);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuth(data.session));
@@ -108,11 +123,12 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, prog, planned] = await Promise.all([
+      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, prog, planned, nutrition] = await Promise.all([
         loadSessions(), loadSettings(), loadExercises(), loadTemplates(), loadWorkouts(), loadCheckins(),
         loadMobilityTests(), loadNiggles(), loadMobilitySessions(), loadPrograms(), loadPlanned(),
+        loadNutrition().catch((e) => { console.warn("loadNutrition failed", e); return null; }),
       ]);
-      setData({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, programs: prog.programs, activeProgramId: prog.activeId, planned });
+      setData((d) => ({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, programs: prog.programs, activeProgramId: prog.activeId, planned, nutrition: nutrition ?? d.nutrition }));
       setLoadError(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Couldn't load your data.");
@@ -150,6 +166,13 @@ export default function App() {
   const startWorkout = (template: Template | null) => {
     if (desktop) return; // live recording is phone-only
     go(today ? { k: "workout", workout: null, template } : { k: "readiness", checkin: null, next: { template } });
+  };
+
+  const setNutri = (f: (n: NutritionData) => NutritionData) => setData((d) => ({ ...d, nutrition: f(d.nutrition) }));
+  // Leave a sub-screen for the one underneath it (or `to` in its place)
+  const back = (to?: View) => {
+    const prev = stack.current.pop();
+    setView(to ?? prev ?? { k: "tabs" });
   };
 
   const warmup = (t: Template, next: "start" | "resume" = "start") => go({ k: "mobility-play", kind: "prewarm", template: t, next });
@@ -271,6 +294,40 @@ export default function App() {
         onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })}
       />
     );
+  } else if (view.k === "food-add") {
+    const meal = view.meal;
+    body = (
+      <FoodAdd
+        key={`${foodDay}-${view.preselect ?? ""}`}
+        nutri={data.nutrition}
+        day={foodDay}
+        meal={meal}
+        preselect={view.preselect}
+        setNutri={setNutri}
+        onDone={() => home("food")}
+        onNewFood={(name) => go({ k: "food-edit", food: null, name, meal })}
+        onEditFood={(f) => go({ k: "food-edit", food: f, meal })}
+        onNewRecipe={() => go({ k: "recipe", recipe: null })}
+        onEditRecipe={(r) => go({ k: "recipe", recipe: r })}
+      />
+    );
+  } else if (view.k === "food-edit") {
+    const meal = view.meal;
+    body = (
+      <FoodEditor
+        food={view.food}
+        initialName={view.name}
+        setNutri={setNutri}
+        onClose={() => back()}
+        onSaved={(f) => back(meal != null ? { k: "food-add", meal, preselect: f.id } : undefined)}
+      />
+    );
+  } else if (view.k === "recipe") {
+    body = <RecipeEditor recipe={view.recipe} nutri={data.nutrition} setNutri={setNutri} onClose={() => back()} onSaved={() => back()} />;
+  } else if (view.k === "targets") {
+    body = <TargetsEditor nutri={data.nutrition} setNutri={setNutri} onClose={() => home("food")} />;
+  } else if (view.k === "weight") {
+    body = <WeightView nutri={data.nutrition} checkins={checkins} setNutri={setNutri} onClose={() => home("food")} />;
   } else if (view.k === "settings") {
     body = (
       <SettingsView
@@ -324,6 +381,20 @@ export default function App() {
         onDailyMobility={() => go({ k: "mobility-play", kind: "daily", template: null, next: "home" })}
         onEditProgram={(p) => go({ k: "program", program: p })}
         onPlan={() => go({ k: "plan" })}
+        onExercises={() => home("exercises")}
+      />
+    );
+  } else if (tab === "food") {
+    body = (
+      <FoodDay
+        nutri={data.nutrition}
+        checkins={checkins}
+        day={foodDay}
+        setDay={setFoodDay}
+        setNutri={setNutri}
+        onAdd={(meal) => go({ k: "food-add", meal })}
+        onTargets={() => go({ k: "targets" })}
+        onWeight={() => go({ k: "weight" })}
       />
     );
   } else if (tab === "exercises") {
@@ -332,7 +403,8 @@ export default function App() {
     body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} />;
   }
 
-  const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k === "program" || view.k === "plan" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
+  const FOOD_VIEWS = new Set<View["k"]>(["food-add", "food-edit", "recipe", "targets", "weight"]);
+  const activeTab: Tab = view.k === "tabs" ? (tab === "exercises" && !desktop ? "train" : tab) : FOOD_VIEWS.has(view.k) ? "food" : view.k === "exercise" && !desktop ? "train" : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k === "program" || view.k === "plan" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
 
   const banner = loadError && (
     <div className="banner">
@@ -350,11 +422,11 @@ export default function App() {
       else home(n);
     };
     // Editors and forms read best at a comfortable width; overview pages use the full width
-    const narrow = ["cardio", "template", "program", "settings", "readiness", "workout", "mobility-test", "niggles", "mobility-play"].includes(view.k);
+    const narrow = ["cardio", "template", "program", "settings", "readiness", "workout", "mobility-test", "niggles", "mobility-play", "food-add", "food-edit", "recipe", "targets"].includes(view.k);
     return (
       <DesktopContext.Provider value={true}>
         <div className="desk-shell">
-          <Sidebar active={deskActive} onNav={onNav} onLogCardio={() => go({ k: "cardio", session: null })} email={auth.user.email ?? ""} />
+          <Sidebar active={deskActive} onNav={onNav} onLogCardio={() => go({ k: "cardio", session: null })} onLogFood={() => { setFoodDay(todayYmd()); stack.current = []; setView({ k: "food-add", meal: mealForNow() }); }} email={auth.user.email ?? ""} />
           <main className={`app desk${narrow ? " narrow" : ""}`}>
             {banner}
             {body}

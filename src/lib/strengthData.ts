@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { saveWeight, ymd } from "./nutrition";
 import type { Exercise, Template, TemplateExercise, WSet, Workout } from "./strength";
 import type { Checkin } from "./readiness";
 
@@ -200,6 +201,8 @@ export async function saveCheckin(c: Omit<Checkin, "id"> & { id?: string }): Pro
   const q = c.id ? supabase.from("readiness_checkins").update(row).eq("id", c.id) : supabase.from("readiness_checkins").insert(row);
   const { data, error } = await q.select("id").single();
   if (error) throw error;
+  // The scan's weigh-in also goes in the bodyweight log (one per day; the latest wins)
+  if (c.bodyweight_kg != null) await saveWeight(ymd(new Date(c.checked_at)), c.bodyweight_kg).catch((e) => console.warn("saveWeight failed", e));
   return { ...c, id: data.id as string };
 }
 
