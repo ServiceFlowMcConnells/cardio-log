@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { Checkin } from "../../lib/readiness";
 import type { LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
-import { addDays, addEntries, deleteEntry, fromYmd, isTime, macrosFor, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
-import { MacroInputs, MacroLine, TargetBar, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
+import { addDays, addEntries, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
+import { HourPicker, MacroInputs, MacroLine, MacroSub, TargetBar, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 import { WeightCard } from "./Weight";
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
   onAdd: (time?: string) => void;
   onTargets: () => void;
   onWeight: () => void;
+  onMakeRecipe: (items: { food_id: string; grams: number }[]) => void;
 }
 
 function dayTitle(d: string) {
@@ -24,32 +25,138 @@ function dayTitle(d: string) {
   return fromYmd(d).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" });
 }
 
-const amountText = (e: LogEntry) => (e.kind === "quick" ? "Quick add" : e.unit === "g" ? `${fmtG(e.amount)} g` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
+const amountText = (e: LogEntry) => (e.kind === "quick" ? "quick add" : e.unit === "g" ? `${fmtG(e.amount)} g` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
 
-export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd, onTargets, onWeight }: Props) {
+function PencilIcon() {
+  return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M4 17.2V20h2.8l8.3-8.3-2.8-2.8L4 17.2zm13.7-7.6a1 1 0 0 0 0-1.4l-1.9-1.9a1 1 0 0 0-1.4 0l-1.5 1.5 2.8 2.8 2-1z" /></svg>;
+}
+function Check({ on }: { on: boolean }) {
+  return (
+    <span className={`sel-dot${on ? " on" : ""}`} aria-hidden="true">
+      {on && <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>}
+    </span>
+  );
+}
+
+export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd, onTargets, onWeight, onMakeRecipe }: Props) {
   const [open, setOpen] = useState<string | null>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [sheet, setSheet] = useState<null | { mode: "copy" | "move"; day: string; time: string }>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   const entries = nutri.log.filter((e) => e.eaten_on === day);
   const total = sumMacros(entries);
   const target = targetFor(nutri.targets, day);
   const left = target ? target.kcal - total.kcal : null;
   const yesterday = nutri.log.filter((e) => e.eaten_on === addDays(day, -1));
-  // One group per time: a plate logged together shares its time
-  const groups = [...entries.reduce((m, e) => m.set(e.eaten_time, [...(m.get(e.eaten_time) ?? []), e]), new Map<string, LogEntry[]>())].sort((a, b) => a[0].localeCompare(b[0]));
+  const selected = entries.filter((e) => sel.has(e.id));
 
-  async function copy(from: LogEntry[]) {
+  // Every hour from 07:00 (or your first entry) to midday, your last entry, or now
+  const hours = entries.map((e) => hourOf(e.eaten_time));
+  const isToday = day === todayYmd();
+  const first = Math.min(7, ...hours);
+  const last = Math.min(23, Math.max(12, ...hours, isToday ? new Date().getHours() : 0));
+  const byHour = new Map<number, LogEntry[]>();
+  for (const e of entries) byHour.set(hourOf(e.eaten_time), [...(byHour.get(hourOf(e.eaten_time)) ?? []), e]);
+
+  const goDay = (d: string) => { setOpen(null); setSel(new Set()); setSheet(null); setDay(d); };
+  const toggle = (ids: string[], on?: boolean) => {
+    setOpen(null);
+    setConfirmRemove(false);
+    setSel((s) => {
+      const n = new Set(s);
+      const turnOn = on ?? ids.some((id) => !n.has(id));
+      for (const id of ids) turnOn ? n.add(id) : n.delete(id);
+      return n;
+    });
+  };
+  const clearSel = () => { setSel(new Set()); setSheet(null); setConfirmRemove(false); };
+
+  async function run(fn: () => Promise<void>, done?: string) {
     setBusy(true);
     setError(null);
     try {
-      const added = await addEntries(from.map((e) => ({ eaten_on: day, eaten_time: e.eaten_time, kind: e.kind, food_id: e.food_id, recipe_id: e.recipe_id, name: e.name, amount: e.amount, unit: e.unit, kcal: e.kcal, protein: e.protein, carbs: e.carbs, fat: e.fat })));
-      setNutri((n) => ({ ...n, log: [...n.log, ...added] }));
+      await fn();
+      clearSel();
+      if (done) { setNote(done); window.setTimeout(() => setNote(null), 2500); }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't copy.");
+      setError(e instanceof Error ? e.message : "Couldn't do that.");
     } finally {
       setBusy(false);
     }
+  }
+
+  const copyDay = () => run(async () => {
+    const added = await addEntries(yesterday.map((e) => copyOf(e, day, e.eaten_time)));
+    setNutri((n) => ({ ...n, log: [...n.log, ...added] }));
+  });
+
+  const applySheet = () => sheet && run(async () => {
+    if (sheet.mode === "copy") {
+      const added = await addEntries(selected.map((e) => copyOf(e, sheet.day, sheet.time)));
+      setNutri((n) => ({ ...n, log: [...n.log, ...added] }));
+    } else {
+      const moved = await moveEntries(selected.map((e) => e.id), sheet.day, sheet.time);
+      const m = new Map(moved.map((e) => [e.id, e]));
+      setNutri((n) => ({ ...n, log: n.log.map((e) => m.get(e.id) ?? e) }));
+    }
+  }, `${sheet.mode === "copy" ? "Copied" : "Moved"} ${selected.length} to ${dayTitle(sheet.day).toLowerCase()} at ${sheet.time}`);
+
+  const removeSel = () => run(async () => {
+    const ids = selected.map((e) => e.id);
+    await deleteEntries(ids);
+    setNutri((n) => ({ ...n, log: n.log.filter((e) => !ids.includes(e.id)) }));
+  });
+
+  const makeRecipe = () => {
+    const { items, skipped } = ingredientsFrom(selected, nutri.foods, nutri.recipes);
+    if (!items.length) { setError("Quick adds can't go in a recipe. Select foods you've logged from the database or your foods."); return; }
+    if (skipped) setNote(`${skipped} quick add${skipped === 1 ? "" : "s"} left out: a recipe needs foods.`);
+    clearSel();
+    onMakeRecipe(items);
+  };
+
+  const rows: JSX.Element[] = [];
+  for (let h = first; h <= last; h++) {
+    const t = hourTime(h);
+    const list = byHour.get(h) ?? [];
+    const allOn = list.length > 0 && list.every((e) => sel.has(e.id));
+    const sub = sumMacros(list);
+    rows.push(
+      <section key={t} className={`hour${list.length ? "" : " empty-hour"}`}>
+        <div className="hour-head">
+          {list.length > 0 ? (
+            <span className="macro-sub big">
+              <span className="num">{fmtKcal(sub.kcal)} kcal</span>
+              <span className="num">{fmtG(sub.protein)}<b className="p">P</b> {fmtG(sub.fat)}<b className="f">F</b> {fmtG(sub.carbs)}<b className="c">C</b></span>
+            </span>
+          ) : <span />}
+          <span className="hour-tools">
+            <button className="hour-add" onClick={() => onAdd(t)} aria-label={`Log food at ${t}`}>+</button>
+            <button className={`time-pill num${allOn ? " on" : ""}`} disabled={!list.length} onClick={() => toggle(list.map((e) => e.id))} aria-label={list.length ? `Select everything at ${t}` : t}>{t}</button>
+          </span>
+        </div>
+        {list.length > 0 && (
+          <div className="hour-items">
+            {list.map((e) => open === e.id ? (
+              <div key={e.id} className="panel list-panel"><EntryEditor entry={e} nutri={nutri} setNutri={setNutri} onClose={() => setOpen(null)} /></div>
+            ) : (
+              <div key={e.id} className={`food-row${sel.has(e.id) ? " on" : ""}`}>
+                <button className="food-row-main" onClick={() => toggle([e.id])} aria-pressed={sel.has(e.id)}>
+                  <span className="food-row-name">{e.name}</span>
+                  <MacroSub m={e} amount={amountText(e)} />
+                </button>
+                <button className="pencil" aria-label={`Edit ${e.name}`} onClick={() => { clearSel(); setOpen(e.id); }}><PencilIcon /></button>
+                {sel.size > 0 && <button className="sel-btn" aria-label={sel.has(e.id) ? "Deselect" : "Select"} onClick={() => toggle([e.id])}><Check on={sel.has(e.id)} /></button>}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>,
+    );
   }
 
   return (
@@ -57,9 +164,9 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
       <div className="page-head food-head">
         <h1>Food</h1>
         <div className="day-nav">
-          <button className="icon-btn" aria-label="Previous day" onClick={() => { setOpen(null); setDay(addDays(day, -1)); }}>‹</button>
-          <button className="link day-label" onClick={() => setDay(todayYmd())} title="Back to today">{dayTitle(day)}</button>
-          <button className="icon-btn" aria-label="Next day" onClick={() => { setOpen(null); setDay(addDays(day, 1)); }}>›</button>
+          <button className="icon-btn" aria-label="Previous day" onClick={() => goDay(addDays(day, -1))}>‹</button>
+          <button className="link day-label" onClick={() => goDay(todayYmd())} title="Back to today">{dayTitle(day)}</button>
+          <button className="icon-btn" aria-label="Next day" onClick={() => goDay(addDays(day, 1))}>›</button>
         </div>
       </div>
 
@@ -81,8 +188,8 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
             {target && <div className="tbar-track big"><div className={`tbar-fill k${left! < -target.kcal * 0.05 ? " over" : ""}`} style={{ width: `${Math.min(100, (total.kcal / target.kcal) * 100)}%` }} /></div>}
             <div className="fs-macros">
               <TargetBar label="Protein" eaten={total.protein} target={target?.protein ?? null} unit="g" cls="p" />
-              <TargetBar label="Carbs" eaten={total.carbs} target={target?.carbs ?? null} unit="g" cls="c" />
               <TargetBar label="Fat" eaten={total.fat} target={target?.fat ?? null} unit="g" cls="f" />
+              <TargetBar label="Carbs" eaten={total.carbs} target={target?.carbs ?? null} unit="g" cls="c" />
             </div>
             <button className="link small" style={{ marginTop: 10 }} onClick={onTargets}>{target ? "Edit targets" : "Set your targets from your coach"}</button>
           </section>
@@ -92,47 +199,46 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
 
         <div className="col">
           {error && <p className="error">{error}</p>}
+          {note && <p className="ok">{note}</p>}
+          <button className="btn primary block log-btn" onClick={() => onAdd()}>+ Log food</button>
           {entries.length === 0 && yesterday.length > 0 && (
-            <button className="btn ghost block" disabled={busy} onClick={() => copy(yesterday)} style={{ marginBottom: 10 }}>
-              Copy everything from {day === todayYmd() ? "yesterday" : "the day before"} ({fmtKcal(sumMacros(yesterday).kcal)} kcal)
+            <button className="btn ghost block" disabled={busy} onClick={copyDay} style={{ marginBottom: 10 }}>
+              Copy everything from {isToday ? "yesterday" : "the day before"} ({fmtKcal(sumMacros(yesterday).kcal)} kcal)
             </button>
           )}
-          <button className="btn primary block log-btn" onClick={() => onAdd()}>+ Log food</button>
-          {entries.length === 0 && <div className="empty" style={{ marginTop: 10 }}><p>Nothing logged {day === todayYmd() ? "yet today" : "this day"}.</p></div>}
-          {groups.map(([t, list]) => {
-            const sub = sumMacros(list);
-            return (
-              <section key={t} className="tgroup">
-                <div className="tgroup-head">
-                  <span className="macro-line small">
-                    <strong>{fmtKcal(sub.kcal)} kcal</strong>
-                    <span><i className="mk p" />P {fmtG(sub.protein)}</span>
-                    <span><i className="mk c" />C {fmtG(sub.carbs)}</span>
-                    <span><i className="mk f" />F {fmtG(sub.fat)}</span>
-                  </span>
-                  <span className="time-pill num">{t}</span>
-                </div>
-                <div className="panel list-panel">
-                  {list.map((e) => open === e.id ? (
-                    <EntryEditor key={e.id} entry={e} nutri={nutri} setNutri={setNutri} onClose={() => setOpen(null)} />
-                  ) : (
-                    <button key={e.id} className="list-row entry-row" onClick={() => setOpen(e.id)}>
-                      <span style={{ minWidth: 0 }}>
-                        <span className="entry-name">{e.name}</span>
-                        <span className="small muted" style={{ display: "block" }}>{amountText(e)} · P {fmtG(e.protein)} · C {fmtG(e.carbs)} · F {fmtG(e.fat)}</span>
-                      </span>
-                      <span className="num entry-k">{fmtKcal(e.kcal)}</span>
-                    </button>
-                  ))}
-                  <div className="meal-foot">
-                    <button className="link small" onClick={() => onAdd(t)}>+ Add at {t}</button>
-                  </div>
-                </div>
-              </section>
-            );
-          })}
+          {entries.length > 0 && sel.size === 0 && <p className="muted small hint">Tap foods to select them: copy, move, remove or make a recipe. The pencil edits one.</p>}
+          <div className="timeline">{rows}</div>
         </div>
       </div>
+
+      {sel.size > 0 && (
+        <div className="sel-bar" role="toolbar" aria-label="Selected foods">
+          {sheet ? (
+            <div className="sel-sheet">
+              <strong>{sheet.mode === "copy" ? "Copy" : "Move"} {selected.length} to</strong>
+              <div className="sel-sheet-row">
+                <input className="input" type="date" value={sheet.day} onChange={(e) => setSheet({ ...sheet, day: e.target.value })} aria-label="Day" />
+                <HourPicker value={sheet.time} onChange={(t) => setSheet({ ...sheet, time: t })} />
+              </div>
+              <div className="sel-sheet-row">
+                <button className="btn ghost" onClick={() => setSheet(null)}>Back</button>
+                <button className="btn primary" style={{ flex: 1 }} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(sheet.day)} onClick={applySheet}>{busy ? "…" : sheet.mode === "copy" ? "Copy here" : "Move here"}</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button className="sel-x" onClick={clearSel} aria-label="Clear selection">✕</button>
+              <span className="sel-count"><strong>{selected.length}</strong> selected<span className="small muted" style={{ display: "block" }}>{fmtKcal(sumMacros(selected).kcal)} kcal</span></span>
+              <div className="sel-actions">
+                <button className="fchip" onClick={() => setSheet({ mode: "copy", day: isToday ? day : todayYmd(), time: selected[0]?.eaten_time.slice(0, 2) + ":00" })}>Copy</button>
+                <button className="fchip" onClick={() => setSheet({ mode: "move", day, time: selected[0]?.eaten_time.slice(0, 2) + ":00" })}>Move</button>
+                <button className="fchip" onClick={makeRecipe}>Make recipe</button>
+                <button className={`fchip danger${confirmRemove ? " on" : ""}`} disabled={busy} onClick={() => (confirmRemove ? removeSel() : setConfirmRemove(true))}>{confirmRemove ? "Tap to confirm" : "Remove"}</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -142,7 +248,7 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
   const recipe = e.recipe_id ? nutri.recipes.find((r) => r.id === e.recipe_id) : undefined;
   const [amount, setAmount] = useState(String(e.amount));
   const [unit, setUnit] = useState(e.unit);
-  const [time, setTime] = useState(e.eaten_time);
+  const [time, setTime] = useState(hourTime(hourOf(e.eaten_time)));
   const [q, setQ] = useState<MacroForm>(() => macroForm(e));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -198,10 +304,10 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
           )}
         </div>
       )}
-      <label className="field" style={{ marginTop: 10, maxWidth: 180 }}>
-        <span>Time</span>
-        <input className="input" type="time" value={time} step={300} onChange={(ev) => setTime(ev.target.value)} />
-      </label>
+      <div className="field" style={{ marginTop: 10 }}>
+        <span className="small muted" style={{ display: "block", marginBottom: 4 }}>Time</span>
+        <HourPicker value={time} onChange={setTime} />
+      </div>
       {macros && <p className="small" style={{ marginTop: 8 }}><MacroLine m={macros} /></p>}
       {error && <p className="error">{error}</p>}
       <div className="tpl-foot">

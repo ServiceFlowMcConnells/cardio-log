@@ -2,13 +2,14 @@ import { useState } from "react";
 import type { Food, NutritionData, Recipe, RecipeItem } from "../../lib/nutrition";
 import { adoptFood, deleteRecipe, loadNutrition, recipeTotals, saveRecipe, scaleMacros } from "../../lib/nutrition";
 import FoodSearch, { type Picked } from "./FoodSearch";
-import { MacroLine, fmtG, fmtKcal, num } from "./bits";
+import { MacroLine, MacroSub, fmtG, fmtKcal, num } from "./bits";
 
 type Row = { food_id: string; grams: string };
 
 /** Build a recipe from your foods: total it up and split it into servings. */
-export default function RecipeEditor({ recipe, nutri, setNutri, onClose, onSaved }: {
+export default function RecipeEditor({ recipe, initialItems, nutri, setNutri, onClose, onSaved }: {
   recipe: Recipe | null;
+  initialItems?: { food_id: string; grams: number }[]; // e.g. foods selected in the log
   nutri: NutritionData;
   setNutri: (f: (n: NutritionData) => NutritionData) => void;
   onClose: () => void;
@@ -17,8 +18,8 @@ export default function RecipeEditor({ recipe, nutri, setNutri, onClose, onSaved
   const [name, setName] = useState(recipe?.name ?? "");
   const [servings, setServings] = useState(String(recipe?.servings ?? 1));
   const [notes, setNotes] = useState(recipe?.notes ?? "");
-  const [rows, setRows] = useState<Row[]>(recipe?.items.map((i) => ({ food_id: i.food_id, grams: fmtG(i.grams) })) ?? []);
-  const [adding, setAdding] = useState(!recipe);
+  const [rows, setRows] = useState<Row[]>((recipe?.items ?? initialItems ?? []).map((i) => ({ food_id: i.food_id, grams: fmtG(i.grams) })));
+  const [adding, setAdding] = useState(!recipe && !initialItems?.length);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +107,7 @@ export default function RecipeEditor({ recipe, nutri, setNutri, onClose, onSaved
                 <div key={i} className="list-row ing-row">
                   <span style={{ minWidth: 0 }}>
                     <strong>{f?.name ?? "Removed food"}</strong>{f?.brand && <span className="muted"> · {f.brand}</span>}
-                    {f && <span className="small muted" style={{ display: "block" }}>{fmtKcal((f.kcal * g) / 100)} kcal · P {fmtG((f.protein * g) / 100)}</span>}
+                    {f && <span style={{ display: "block" }}><MacroSub m={scaleMacros(f, g / 100)} /></span>}
                   </span>
                   <span className="ing-g">
                     <input className="cell" inputMode="decimal" value={r.grams} aria-label={`Grams of ${f?.name ?? "ingredient"}`} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, grams: e.target.value } : x)))} />

@@ -689,3 +689,49 @@ select.input { appearance: auto; }
 .tgroup { margin-top: 16px; }
 .tgroup-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; padding: 0 2px; }
 .time-pill { flex: none; background: var(--panel); border-radius: 999px; padding: 4px 12px; font-family: var(--display); font-weight: 700; font-size: 1.05rem; }
+
+/* ---------- Hourly food timeline ---------- */
+.macro-sub { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font-size: 0.84rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.macro-sub b { font-weight: 600; margin-left: 1px; }
+.macro-sub b.p { color: var(--m-p); } .macro-sub b.f { color: var(--m-f); } .macro-sub b.c { color: var(--m-c); }
+.macro-sub.big { font-size: 0.95rem; color: var(--ink); }
+.macro-sub.big > .num:first-child { font-weight: 700; }
+.hint { margin: 2px 2px 10px; }
+.timeline { position: relative; }
+.timeline::before { content: ""; position: absolute; right: 34px; top: 14px; bottom: 14px; width: 2px; background: var(--line); }
+.hour { position: relative; margin-top: 6px; }
+.hour-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 36px; }
+.hour-tools { display: flex; align-items: center; gap: 6px; position: relative; z-index: 1; }
+.hour-add { width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 1.3rem; line-height: 1; display: grid; place-items: center; }
+.hour-add:hover { background: var(--panel); color: var(--ink); }
+.time-pill { border: 0; color: var(--ink); min-width: 70px; text-align: center; }
+.time-pill.on { background: var(--ink); color: var(--panel); }
+.time-pill:disabled { opacity: 1; cursor: default; }
+.empty-hour .time-pill { color: var(--muted); }
+.hour-items { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 4px 82px 10px 0; }
+.food-row { display: flex; align-items: center; gap: 4px; background: var(--panel); border-radius: 12px; position: relative; min-width: 0; }
+.food-row.on { box-shadow: inset 0 0 0 2px var(--ink); }
+.food-row-main { flex: 1; min-width: 0; border: 0; background: transparent; text-align: left; padding: 9px 4px 9px 14px; color: inherit; font: inherit; }
+.food-row-name { display: block; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pencil { flex: none; width: 38px; height: 38px; margin-right: 8px; border: 0; border-radius: 50%; background: var(--ground); color: var(--muted); display: grid; place-items: center; }
+.sel-btn { position: absolute; right: -58px; width: 36px; height: 36px; border: 0; background: transparent; display: grid; place-items: center; z-index: 1; }
+.sel-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ink); background: var(--ground); display: grid; place-items: center; }
+.sel-dot.on { background: var(--ink); color: var(--panel); }
+.sel-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 72px); z-index: 25; width: min(560px, calc(100vw - 16px)); background: var(--panel); border-radius: 16px; box-shadow: 0 8px 28px rgb(0 0 0 / 0.22); padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+.desk .sel-bar { bottom: 20px; left: calc(50% + 132px); }
+.sel-x { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--ink); color: var(--panel); font-size: 0.9rem; }
+.sel-count { flex: none; line-height: 1.15; }
+.sel-actions { display: flex; gap: 6px; overflow-x: auto; flex: 1; padding: 2px; scrollbar-width: none; }
+.sel-actions .fchip { background: var(--ground); flex: none; }
+.sel-actions .fchip.danger { color: var(--danger); }
+.sel-actions .fchip.danger.on { background: var(--danger); color: #fff; }
+.sel-sheet { width: 100%; display: grid; gap: 8px; }
+.sel-sheet-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sel-sheet-row .input { flex: 1; min-width: 150px; }
+.hour-picker { display: inline-flex; align-items: center; background: var(--ground); border-radius: 999px; padding: 2px; }
+.hour-picker select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; font-family: var(--display); font-weight: 700; font-size: 1.3rem; color: var(--ink); padding: 4px 6px; text-align: center; }
+.hour-picker .icon-btn { min-width: 34px; min-height: 34px; padding: 4px; font-size: 1.3rem; color: var(--ink); }
+.hour-picker .icon-btn:disabled { opacity: 0.3; }
+.hour-items > .list-panel { margin-right: -82px; }
+.hour-head .macro-sub.big { min-width: 0; }
+.timeline { padding-bottom: 72px; }

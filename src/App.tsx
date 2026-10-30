@@ -64,7 +64,7 @@ export type View =
   | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" }
   | { k: "food-add"; time?: string; preselect?: string | null }
   | { k: "food-edit"; food: Food | null; name?: string; fromAdd?: boolean }
-  | { k: "recipe"; recipe: Recipe | null }
+  | { k: "recipe"; recipe: Recipe | null; items?: { food_id: string; grams: number }[] }
   | { k: "targets" }
   | { k: "weight" };
 
@@ -322,7 +322,7 @@ export default function App() {
       />
     );
   } else if (view.k === "recipe") {
-    body = <RecipeEditor recipe={view.recipe} nutri={data.nutrition} setNutri={setNutri} onClose={() => back()} onSaved={() => back()} />;
+    body = <RecipeEditor key={view.recipe?.id ?? "new"} recipe={view.recipe} initialItems={view.items} nutri={data.nutrition} setNutri={setNutri} onClose={() => back()} onSaved={() => back()} />;
   } else if (view.k === "targets") {
     body = <TargetsEditor nutri={data.nutrition} setNutri={setNutri} onClose={() => home("food")} />;
   } else if (view.k === "weight") {
@@ -394,6 +394,7 @@ export default function App() {
         onAdd={(time) => go({ k: "food-add", time })}
         onTargets={() => go({ k: "targets" })}
         onWeight={() => go({ k: "weight" })}
+        onMakeRecipe={(items) => go({ k: "recipe", recipe: null, items })}
       />
     );
   } else if (tab === "exercises") {

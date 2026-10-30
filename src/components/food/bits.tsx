@@ -3,14 +3,40 @@ import type { Macros } from "../../lib/nutrition";
 export const fmtG = (g: number) => (g >= 100 ? String(Math.round(g)) : String(Math.round(g * 10) / 10));
 export const fmtKcal = (k: number) => Math.round(k).toLocaleString("en-IE");
 
-/** "320 kcal · P 24 · C 30 · F 9" */
+/** "320 kcal · P 24 · F 9 · C 30" (MacroFactor's order: calories, protein, fat, carbs) */
 export function MacroLine({ m, big }: { m: Macros; big?: boolean }) {
   return (
     <span className={`macro-line${big ? " big" : ""}`}>
       <strong>{fmtKcal(m.kcal)} kcal</strong>
       <span><i className="mk p" />P {fmtG(m.protein)}</span>
-      <span><i className="mk c" />C {fmtG(m.carbs)}</span>
       <span><i className="mk f" />F {fmtG(m.fat)}</span>
+      <span><i className="mk c" />C {fmtG(m.carbs)}</span>
+    </span>
+  );
+}
+
+/** Compact line under a food: "108 kcal  21P 0F 6C · 200 g" */
+export function MacroSub({ m, amount }: { m: Macros; amount?: string }) {
+  return (
+    <span className="macro-sub">
+      <span className="num">{fmtKcal(m.kcal)} kcal</span>
+      <span className="num">{fmtG(m.protein)}<b className="p">P</b> {fmtG(m.fat)}<b className="f">F</b> {fmtG(m.carbs)}<b className="c">C</b></span>
+      {amount && <span>· {amount}</span>}
+    </span>
+  );
+}
+
+/** Pick an hour: ‹ 13:00 › */
+export function HourPicker({ value, onChange }: { value: string; onChange: (t: string) => void }) {
+  const h = Number(value.slice(0, 2));
+  const set = (n: number) => onChange(`${String(Math.max(0, Math.min(23, n))).padStart(2, "0")}:00`);
+  return (
+    <span className="hour-picker">
+      <button type="button" className="icon-btn" aria-label="An hour earlier" disabled={h <= 0} onClick={() => set(h - 1)}>‹</button>
+      <select value={`${String(h).padStart(2, "0")}:00`} onChange={(e) => onChange(e.target.value)} aria-label="Hour">
+        {Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`).map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <button type="button" className="icon-btn" aria-label="An hour later" disabled={h >= 23} onClick={() => set(h + 1)}>›</button>
     </span>
   );
 }

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DbFood, Food, Macros, NewEntry, NutritionData, Recipe, RecentItem } from "../../lib/nutrition";
-import { addEntries, adoptFood, fromYmd, isTime, macrosFor, nowTime, perServing, recentItems, scaleMacros, setFoodFlags, setRecipeFavorite, sumMacros, targetFor, todayYmd } from "../../lib/nutrition";
+import { addEntries, adoptFood, fromYmd, isTime, hourTime, macrosFor, nowHour, perServing, recentItems, scaleMacros, setFoodFlags, setRecipeFavorite, sumMacros, targetFor, todayYmd } from "../../lib/nutrition";
 import { useDesktop } from "../../lib/desktop";
 import FoodSearch, { type Picked } from "./FoodSearch";
 import AmountPanel, { defaultAmount, type Loggable } from "./AmountPanel";
-import { MacroInputs, MacroLine, PlusIcon, Star, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
+import { HourPicker, MacroInputs, MacroLine, MacroSub, PlusIcon, Star, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 
 type Tab = "recent" | "saved" | "recipes";
 
@@ -44,7 +44,7 @@ const dayName = (d: string) => (d === todayYmd() ? "Today" : fromYmd(d).toLocale
 export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onNewFood, onEditFood, onNewRecipe, onEditRecipe, preselect }: Props) {
   const desktop = useDesktop();
   const resume = saved && saved.day === day ? saved : null;
-  const [time, setTime] = useState(resume?.time ?? time0 ?? (day === todayYmd() ? nowTime() : "12:00"));
+  const [time, setTime] = useState(hourTime(Number((resume?.time ?? time0 ?? (day === todayYmd() ? nowHour() : "12:00")).slice(0, 2))));
   const [items, setItems] = useState<PlateItem[]>(resume?.items ?? []);
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("recent");
@@ -160,20 +160,17 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
   const plate = (
     <section className="panel plate">
       <div className="plate-top">
-        <label className="time-chip" title="Time eaten">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Time eaten" step={300} />
-        </label>
+        <HourPicker value={time} onChange={setTime} />
         <div className="chip-row time-quick">
-          {day === todayYmd() && <button className={`fchip${time === nowTime() ? " on" : ""}`} onClick={() => setTime(nowTime())}>Now</button>}
+          {day === todayYmd() && <button className={`fchip${time === nowHour() ? " on" : ""}`} onClick={() => setTime(nowHour())}>Now</button>}
           {["08:00", "13:00", "16:00", "19:00"].map((t) => <button key={t} className={`fchip${time === t ? " on" : ""}`} onClick={() => setTime(t)}>{t}</button>)}
         </div>
       </div>
       <div className="plate-bars" aria-label="Day so far including this plate">
         <MiniBar label="kcal" v={total.kcal} t={target?.kcal ?? null} cls="k" />
         <MiniBar label="P" v={total.protein} t={target?.protein ?? null} cls="p" />
-        <MiniBar label="C" v={total.carbs} t={target?.carbs ?? null} cls="c" />
         <MiniBar label="F" v={total.fat} t={target?.fat ?? null} cls="f" />
+        <MiniBar label="C" v={total.carbs} t={target?.carbs ?? null} cls="c" />
       </div>
 
       <h2 className="plate-h">Your plate <span className="muted small">{dayName(day)} at {time}</span></h2>
@@ -189,7 +186,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
                 <div key={it.key} className="plate-row">
                   <span style={{ minWidth: 0, flex: 1 }}>
                     <span className="entry-name">{it.name}</span>
-                    <span className="small muted" style={{ display: "block" }}>{m ? <>{fmtKcal(m.kcal)} kcal · P {fmtG(m.protein)} · C {fmtG(m.carbs)} · F {fmtG(m.fat)}</> : "Enter an amount"}</span>
+                    <span className="small muted" style={{ display: "block" }}>{m ? <MacroSub m={m} /> : "Enter an amount"}</span>
                   </span>
                   {it.kind !== "quick" && (
                     <span className="plate-amt">
@@ -262,9 +259,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
                 <div key={r.key} className="list-row rec-row">
                   <button className="rec-main" onClick={() => openRecent(r)}>
                     <strong>{r.name}</strong>
-                    <span className="small muted" style={{ display: "block" }}>
-                      {r.kind === "quick" ? "Quick add" : r.unit === "g" ? `${fmtG(r.amount)} g` : `${fmtG(r.amount)} serving${r.amount === 1 ? "" : "s"}`} · {fmtKcal(r.macros.kcal)} kcal · P {fmtG(r.macros.protein)}
-                    </span>
+                    <span className="small muted" style={{ display: "block" }}><MacroSub m={r.macros} amount={r.kind === "quick" ? "quick add" : r.unit === "g" ? `${fmtG(r.amount)} g` : `${fmtG(r.amount)} serving${r.amount === 1 ? "" : "s"}`} /></span>
                   </button>
                   <button className="add-btn" onClick={() => pushRecent(r)} aria-label={`Add ${r.name} to the plate`}><PlusIcon /></button>
                 </div>

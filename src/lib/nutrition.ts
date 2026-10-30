@@ -64,10 +64,10 @@ export function mealForTime(t: string): MealIndex {
   return h < 11 ? 0 : h < 15 ? 1 : h < 21 ? 2 : 3;
 }
 const pad = (n: number) => String(n).padStart(2, "0");
-/** Now, rounded down to the quarter hour: "20:30". */
-export function nowTime(d = new Date()): string {
-  return `${pad(d.getHours())}:${pad(Math.floor(d.getMinutes() / 15) * 15)}`;
-}
+/** Food is logged to the hour, like MacroFactor: "20:00". */
+export const hourTime = (h: number) => `${pad(Math.max(0, Math.min(23, h)))}:00`;
+export const nowHour = (d = new Date()) => hourTime(d.getHours());
+export const hourOf = (t: string) => Number(t.slice(0, 2));
 export const isTime = (t: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
 
 // ---------- maths ----------
@@ -244,6 +244,38 @@ export async function updateEntry(id: string, e: NewEntry): Promise<LogEntry> {
   if (error) throw error;
   return toEntry(data);
 }
+/** Move entries to another day and hour. */
+export async function moveEntries(ids: string[], day: string, time: string): Promise<LogEntry[]> {
+  const { data, error } = await supabase.from("food_log").update({ eaten_on: day, eaten_time: time, meal: mealForTime(time) }).in("id", ids).select("*");
+  if (error) throw error;
+  return (data ?? []).map(toEntry);
+}
+export async function deleteEntries(ids: string[]): Promise<void> {
+  const { error } = await supabase.from("food_log").delete().in("id", ids);
+  if (error) throw error;
+}
+/** Copies of entries at another day and hour. */
+export const copyOf = (e: LogEntry, day: string, time: string): NewEntry => ({ eaten_on: day, eaten_time: time, kind: e.kind, food_id: e.food_id, recipe_id: e.recipe_id, name: e.name, amount: e.amount, unit: e.unit, kcal: e.kcal, protein: e.protein, carbs: e.carbs, fat: e.fat });
+
+/** Logged foods (and recipes, broken into their ingredients) as recipe ingredients in grams. Quick adds can't be. */
+export function ingredientsFrom(entries: LogEntry[], foods: Food[], recipes: Recipe[]): { items: { food_id: string; grams: number }[]; skipped: number } {
+  const fs = new Map(foods.map((f) => [f.id, f]));
+  const rs = new Map(recipes.map((r) => [r.id, r]));
+  const items: { food_id: string; grams: number }[] = [];
+  let skipped = 0;
+  for (const e of entries) {
+    const f = e.food_id ? fs.get(e.food_id) : undefined;
+    const r = e.recipe_id ? rs.get(e.recipe_id) : undefined;
+    if (e.kind === "food" && f) items.push({ food_id: f.id, grams: Math.round(gramsOf(f, e.amount, e.unit) * 10) / 10 });
+    else if (e.kind === "recipe" && r) for (const it of r.items) items.push({ food_id: it.food_id, grams: Math.round(((it.grams * e.amount) / r.servings) * 10) / 10 });
+    else skipped++;
+  }
+  // Same food twice: one line
+  const merged = new Map<string, number>();
+  for (const it of items) merged.set(it.food_id, (merged.get(it.food_id) ?? 0) + it.grams);
+  return { items: [...merged].map(([food_id, grams]) => ({ food_id, grams })), skipped };
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const { error } = await supabase.from("food_log").delete().eq("id", id);
   if (error) throw error;
