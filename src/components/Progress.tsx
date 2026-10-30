@@ -231,10 +231,12 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, o
         <button className={mode === "cardio" ? "on" : ""} aria-pressed={mode === "cardio"} onClick={() => pick("cardio")}>Cardio</button>
         <button className={mode === "body" ? "on" : ""} aria-pressed={mode === "body"} onClick={() => pick("body")}>Recovery</button>
       </div>
+      <div className="progress-body">
       {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}
       {mode === "strength" && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
       {mode === "body" && <BodyProgress data={data} onScan={onOpenCheckin} />}
       {mode === "body" && <MobilityProgress data={data} onOpen={onMobility} />}
+      </div>
     </>
   );
 }

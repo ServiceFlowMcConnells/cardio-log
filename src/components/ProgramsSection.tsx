@@ -4,6 +4,7 @@ import type { Template } from "../lib/strength";
 import type { Program } from "../lib/programs";
 import { advance, liveSteps, nextInProgram, setActiveProgram, setNextStep } from "../lib/programs";
 import { formatDay } from "../lib/dates";
+import { useDesktop } from "../lib/desktop";
 
 interface Props {
   data: AppData;
@@ -18,6 +19,7 @@ const letter = (i: number) => String.fromCharCode(65 + (i % 26));
 
 export default function ProgramsSection({ data, busyDraft, onStart, onWarmup, onEdit, onChanged }: Props) {
   const { programs, templates, workouts, exercises } = data;
+  const desktop = useDesktop();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const active = programs.find((p) => p.id === data.activeProgramId) ?? null;
@@ -70,10 +72,12 @@ export default function ProgramsSection({ data, busyDraft, onStart, onWarmup, on
                 </ul>
                 <div className="tpl-foot">
                   <span className="muted small">{done.length ? `${done.length} done · last ${formatDay(new Date(done[0].started_at))}` : "Not started yet"}</span>
+                  {!desktop && (
                   <span className="tpl-btns">
                     <button className="btn ghost" onClick={() => onWarmup(next.template)} disabled={busyDraft}>Warm-up</button>
                     <button className="btn primary" onClick={() => onStart(next.template)} disabled={busyDraft} title={busyDraft ? "Finish or discard the workout in progress first" : undefined}>Start</button>
                   </span>
+                  )}
                 </div>
                 <div className="prog-links">
                   <button className="link small" disabled={busy} onClick={() => run(() => setNextStep(active.id, advance(active, next.index)))}>Skip to {steps.find((s) => s.index === advance(active, next.index))?.template.name ?? "next"}</button>

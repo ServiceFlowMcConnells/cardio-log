@@ -12,6 +12,7 @@ import type { Checkin } from "../lib/readiness";
 import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, weeklyLossPct } from "../lib/readiness";
 import { AREA_LABEL, daysThisWeek, doneToday, fmtMin, needsRetest } from "../lib/mobility";
 import { buildRoutine } from "./MobilityPlayer";
+import { useDesktop } from "../lib/desktop";
 import { nextUp } from "../lib/programs";
 import { addDaysYmd, nextDays, planAdvice, plannedStatus, shortName, ymd } from "../lib/schedule";
 
@@ -72,10 +73,13 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
         </button>
       </div>
 
+      <div className="cols">
+      <div className="col">
       <ReadinessCard checkins={data.checkins} onScan={onScan} />
 
       <StrengthWeek data={data} start={start} onOpen={onOpenWorkout} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} onPlan={onPlan} />
-
+      </div>
+      <div className="col">
       <MobilityCard data={data} onOpen={onMobility} onPlay={onDailyMobility} />
 
       <h2 className="section" style={{ marginBottom: 10 }}>Cardio</h2>
@@ -179,11 +183,14 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
         {w.calories > 0 && <p className="muted small" style={{ marginTop: 10 }}>Machine-reported calories this week: {Math.round(w.calories)}. Treat these as rough.</p>}
         {w.minutes > 0 && <p className="muted small" style={{ marginTop: 4 }}>Total time this week: {formatMinutes(w.minutes)}.</p>}
       </section>
+      </div>
+      </div>
     </>
   );
 }
 
 function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Template) => void; onWarmup: (t: Template) => void }) {
+  const desktop = useDesktop();
   const { templates, workouts, exercises, settings, checkins } = data;
   // The active program's next workout, else the template you've gone longest without
   const up = nextUp(data);
@@ -220,11 +227,17 @@ function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Templ
         })}
       </ul>
       <div className="tpl-foot">
-        <span className="muted small">{today ? "Adjusted for today's readiness" : "A readiness scan runs first"}</span>
-        <span className="tpl-btns">
-          <button className="btn ghost" onClick={() => onWarmup(t)} title="5-minute mobility warm-up, then start">Warm-up</button>
-          <button className="btn primary" onClick={() => onStart(t)}>Start</button>
-        </span>
+        {desktop ? (
+          <span className="muted small">Start it from your phone. {today ? "Loads adjusted for today's readiness." : "A readiness scan runs first."}</span>
+        ) : (
+          <>
+            <span className="muted small">{today ? "Adjusted for today's readiness" : "A readiness scan runs first"}</span>
+            <span className="tpl-btns">
+              <button className="btn ghost" onClick={() => onWarmup(t)} title="5-minute mobility warm-up, then start">Warm-up</button>
+              <button className="btn primary" onClick={() => onStart(t)}>Start</button>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

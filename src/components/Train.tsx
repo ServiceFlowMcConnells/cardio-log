@@ -5,6 +5,7 @@ import { readWorkoutDraft } from "./WorkoutLogger";
 import CoachPanel from "./CoachPanel";
 import { daysThisWeek, doneToday } from "../lib/mobility";
 import ProgramsSection from "./ProgramsSection";
+import { useDesktop } from "../lib/desktop";
 import type { Program } from "../lib/programs";
 
 interface Props {
@@ -25,12 +26,15 @@ interface Props {
 export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise, onWarmup, onMobility, onDailyMobility, onEditProgram, onPlan }: Props) {
   const { templates, exercises, workouts } = data;
   const exMap = new Map(exercises.map((e) => [e.id, e]));
-  const draft = readWorkoutDraft();
+  const desktop = useDesktop();
+  const draft = desktop ? null : readWorkoutDraft();
 
   return (
     <>
-      <div className="page-head"><h1>Train</h1></div>
+      <div className="page-head"><h1>{desktop ? "Programs & templates" : "Train"}</h1></div>
 
+      <div className="cols">
+      <div className="col">
       {draft && (
         <button className="resume" onClick={onResume}>
           <span>
@@ -46,7 +50,7 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
       <ProgramsSection data={data} busyDraft={Boolean(draft)} onStart={onStart} onWarmup={onWarmup} onEdit={onEditProgram} onChanged={onChanged} />
       {data.templates.length > 0 && <button className="btn block" style={{ marginTop: 10 }} onClick={onPlan}>Plan my week</button>}
 
-      <button className="btn ghost block" style={{ marginTop: 14 }} onClick={() => (draft ? onResume() : onStart(null))}>Start an empty workout</button>
+      {!desktop && <button className="btn ghost block" style={{ marginTop: 14 }} onClick={() => (draft ? onResume() : onStart(null))}>Start an empty workout</button>}
 
       <section className="section">
         <div className="page-head" style={{ marginBottom: 10 }}>
@@ -59,7 +63,7 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
             <button className="btn primary" onClick={() => onEditTemplate(null)}>Create a template</button>
           </div>
         ) : (
-          templates.map((t) => {
+          <div className="tpl-grid">{templates.map((t) => {
             const last = workouts.find((w) => w.template_id === t.id);
             return (
               <div className="tpl" key={t.id}>
@@ -77,19 +81,23 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
                 </ul>
                 <div className="tpl-foot">
                   <span className="muted small">{last ? `Last done ${formatDay(new Date(last.started_at))}` : "Not done yet"}</span>
+                  {desktop ? null : (
                   <span className="tpl-btns">
                     <button className="btn ghost" onClick={() => onWarmup(t)} disabled={Boolean(draft)} title="5-minute mobility warm-up, then start">Warm-up</button>
                     <button className="btn dark" onClick={() => onStart(t)} disabled={Boolean(draft)} title={draft ? "Finish or discard the workout in progress first" : undefined}>
                       Start
                     </button>
                   </span>
+                  )}
                 </div>
               </div>
             );
-          })
+          })}</div>
         )}
       </section>
 
+      </div>
+      <div className="col">
       <CoachPanel data={data} onOpenExercise={onOpenExercise} onChanged={onChanged} />
 
       <section className="section">
@@ -108,6 +116,8 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
         <h2 style={{ marginBottom: 10 }}>Cardio</h2>
         <button className="btn block" onClick={onLogCardio}><i className="dot treadmill" /> Log a cardio session</button>
       </section>
+      </div>
+      </div>
     </>
   );
 }

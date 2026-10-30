@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHistoryTrap } from "./lib/backNav";
+import { DesktopContext, useDesktopMedia } from "./lib/desktop";
+import Sidebar, { type DeskNav } from "./components/Sidebar";
 import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { loadSessions, loadSettings } from "./lib/data";
@@ -54,7 +56,8 @@ export type View =
   | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" };
 
 function initialView(): View {
-  if (hasWorkoutDraft()) return { k: "workout", workout: null, template: null };
+  const desktop = window.matchMedia?.("(min-width: 1024px)").matches && !(window as unknown as { Capacitor?: unknown }).Capacitor;
+  if (hasWorkoutDraft() && !desktop) return { k: "workout", workout: null, template: null };
   if (hasCardioDraft()) return { k: "cardio", session: null };
   return { k: "tabs" };
 }
@@ -90,6 +93,7 @@ export default function App() {
 
   const userId = auth?.user.id;
   useRestAlerts(data.exercises);
+  const desktop = useDesktopMedia();
 
   // Back button: previous screen, then the Week tab, then leave the app
   const stack = useRef<View[]>([]);
@@ -143,8 +147,10 @@ export default function App() {
   const { sessions, settings, exercises, templates, workouts, checkins } = data;
   const today = todaysCheckin(checkins);
   // Starting a workout: scan first if there's no scan today
-  const startWorkout = (template: Template | null) =>
+  const startWorkout = (template: Template | null) => {
+    if (desktop) return; // live recording is phone-only
     go(today ? { k: "workout", workout: null, template } : { k: "readiness", checkin: null, next: { template } });
+  };
 
   const warmup = (t: Template, next: "start" | "resume" = "start") => go({ k: "mobility-play", kind: "prewarm", template: t, next });
 
@@ -328,15 +334,40 @@ export default function App() {
 
   const activeTab: Tab = view.k === "tabs" ? tab : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k === "program" || view.k === "plan" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
 
+  const banner = loadError && (
+    <div className="banner">
+      <p>{loadError}</p>
+      <button className="link small" onClick={refresh}>Try again</button>
+    </div>
+  );
+
+  if (desktop) {
+    const deskActive: DeskNav = view.k === "plan" ? "plan" : view.k === "settings" ? "settings" : view.k.startsWith("mobility") || view.k === "niggles" ? "mobility" : activeTab;
+    const onNav = (n: DeskNav) => {
+      if (n === "plan") { stack.current = []; setView({ k: "plan" }); }
+      else if (n === "settings") { stack.current = []; setView({ k: "settings" }); }
+      else if (n === "mobility") { stack.current = []; setView({ k: "mobility" }); }
+      else home(n);
+    };
+    // Editors and forms read best at a comfortable width; overview pages use the full width
+    const narrow = ["cardio", "template", "program", "settings", "readiness", "workout", "mobility-test", "niggles", "mobility-play"].includes(view.k);
+    return (
+      <DesktopContext.Provider value={true}>
+        <div className="desk-shell">
+          <Sidebar active={deskActive} onNav={onNav} onLogCardio={() => go({ k: "cardio", session: null })} email={auth.user.email ?? ""} />
+          <main className={`app desk${narrow ? " narrow" : ""}`}>
+            {banner}
+            {body}
+          </main>
+        </div>
+      </DesktopContext.Provider>
+    );
+  }
+
   return (
     <>
       <main className="app">
-        {loadError && (
-          <div className="banner">
-            <p>{loadError}</p>
-            <button className="link small" onClick={refresh}>Try again</button>
-          </div>
-        )}
+        {banner}
         {body}
       </main>
       <TabBar tab={activeTab} onTab={(t) => home(t)} />

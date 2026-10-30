@@ -69,11 +69,13 @@ export default function History({ data, onOpenSession, onOpenWorkout, onTrain }:
               <h2>{weekLabel(w.start)}</h2>
               <span className={`tally${hit && filter !== "lift" ? " hit" : ""}`}>{parts.join(", ")}</span>
             </div>
+            <div className="week-items">
             {w.items.map((it) =>
               it.kind === "cardio"
                 ? <SessionCard key={it.s.id} session={it.s} settings={settings} onOpen={onOpenSession} />
                 : <WorkoutCard key={it.w.id} workout={it.w} exercises={exercises} onOpen={onOpenWorkout} />
             )}
+            </div>
           </section>
         );
       })}

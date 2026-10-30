@@ -138,6 +138,8 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
         <button className="btn ghost" onClick={onClose}>Cancel</button>
       </div>
 
+      <div className="cols plan-cols">
+      <div className="col">
       <div className="plan-quick" role="group" aria-label="Quick plans">
         <span className="small muted">Best spacing for</span>
         {[2, 3, 4].map((n) => <button key={n} className="fchip" onClick={() => quick(n)}>{n} days</button>)}
@@ -165,6 +167,8 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
         })}
       </div>
 
+      </div>
+      <div className="col">
       <section className="section">
         <h2 style={{ marginBottom: 8 }}>{advice.sessions} session{advice.sessions === 1 ? "" : "s"} · coach check</h2>
         <div className="stack">
@@ -236,6 +240,9 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
           )}
         </section>
       )}
+
+      </div>
+      </div>
 
       {error && <p className="error">{error}</p>}
       <div className="save-bar">
