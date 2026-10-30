@@ -55,6 +55,15 @@ export function hasWorkoutDraft(): boolean {
 export function readWorkoutDraft(): Draft | null {
   try { const r = localStorage.getItem(DRAFT_KEY); return r ? (JSON.parse(r) as Draft) : null; } catch { return null; }
 }
+/** Change the saved in-progress workout from outside the logger (e.g. rest changed on the notification). */
+export const REST_SYNC_EVENT = "trainingLog:restSync";
+export function patchRestFromPhone(endAt: number | null, addedMs: number) {
+  const d = readWorkoutDraft();
+  if (!d) return;
+  const restEnd = endAt && endAt > Date.now() ? endAt : null;
+  writeDraft({ ...d, restEnd, restTotal: restEnd ? d.restTotal + Math.max(0, Math.round(addedMs / 1000)) : d.restTotal });
+  window.dispatchEvent(new CustomEvent(REST_SYNC_EVENT, { detail: { restEnd, addedMs } }));
+}
 function writeDraft(d: Draft | null) {
   try { if (d) localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); else localStorage.removeItem(DRAFT_KEY); } catch { /* no storage */ }
 }
@@ -186,6 +195,17 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     if (isEdit) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
+  }, [isEdit]);
+
+  // −15 / +15 / Skip pressed on the phone's rest notification
+  useEffect(() => {
+    if (isEdit) return;
+    const on = (e: Event) => {
+      const { restEnd, addedMs } = (e as CustomEvent<{ restEnd: number | null; addedMs: number }>).detail;
+      setDraft((d) => ({ ...d, restEnd, restTotal: restEnd ? d.restTotal + Math.max(0, Math.round(addedMs / 1000)) : d.restTotal }));
+    };
+    window.addEventListener(REST_SYNC_EVENT, on);
+    return () => window.removeEventListener(REST_SYNC_EVENT, on);
   }, [isEdit]);
 
   // Rest timer: the beep, buzz and minimised push live in useRestAlerts (App level).

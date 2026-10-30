@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Exercise } from "./strength";
-import { readWorkoutDraft } from "../components/WorkoutLogger";
+import { patchRestFromPhone, readWorkoutDraft } from "../components/WorkoutLogger";
 import { playRestEnd, soundOn } from "./restAlert";
 import { nativeRestTimer } from "./nativeTimer";
 
@@ -29,7 +29,35 @@ export function useRestAlerts(exercises: Exercise[]) {
       return "Time for your next set";
     };
 
+    // Pick up −15 / +15 / Skip pressed on the phone's notification (APK 1.0.4+)
+    let lastApplied = 0;
+    let polling = false;
+    const syncFromPhone = async () => {
+      if (!native?.getState || polling) return;
+      polling = true;
+      try {
+        const s = await native.getState();
+        if (s.source === "notification" && s.changedAt > lastApplied) {
+          lastApplied = s.changedAt;
+          const d = readWorkoutDraft();
+          if (d && (d.restEnd ?? 0) !== s.endAt) {
+            const end = s.endAt > Date.now() ? Math.floor(s.endAt) : null;
+            const added = end && d.restEnd ? end - d.restEnd : 0;
+            sentToPhone.current = end; // the phone already has this
+            patchRestFromPhone(end, added);
+          }
+        } else if (s.changedAt > lastApplied) {
+          lastApplied = s.changedAt;
+        }
+      } catch { /* older app build without getState */ }
+      polling = false;
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") syncFromPhone(); };
+    if (native?.getState) { document.addEventListener("visibilitychange", onVisible); syncFromPhone(); }
+    let n = 0;
+
     const tick = setInterval(() => {
+      if (native?.getState && document.visibilityState === "visible" && ++n % 8 === 0) syncFromPhone(); // every ~2 s
       const end = readWorkoutDraft()?.restEnd ?? null;
       if (native) {
         // Mirror the rest to the phone whenever it starts, changes (±15 s) or stops
@@ -48,6 +76,6 @@ export function useRestAlerts(exercises: Exercise[]) {
       }
     }, 250);
 
-    return () => clearInterval(tick);
+    return () => { clearInterval(tick); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
 }

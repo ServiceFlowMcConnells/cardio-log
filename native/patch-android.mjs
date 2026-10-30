@@ -6,8 +6,10 @@ const root = path.resolve("android/app/src/main");
 const pkgDir = path.join(root, "java/ie/traininglog/app");
 fs.mkdirSync(pkgDir, { recursive: true });
 for (const f of fs.readdirSync("overlay/java")) fs.copyFileSync(path.join("overlay/java", f), path.join(pkgDir, f));
-fs.mkdirSync(path.join(root, "res/drawable"), { recursive: true });
-for (const f of fs.readdirSync("overlay/res/drawable")) fs.copyFileSync(path.join("overlay/res/drawable", f), path.join(root, "res/drawable", f));
+for (const dir of fs.readdirSync("overlay/res")) {
+  fs.mkdirSync(path.join(root, "res", dir), { recursive: true });
+  for (const f of fs.readdirSync(path.join("overlay/res", dir))) fs.copyFileSync(path.join("overlay/res", dir, f), path.join(root, "res", dir, f));
+}
 
 const mf = path.join(root, "AndroidManifest.xml");
 let xml = fs.readFileSync(mf, "utf8");
@@ -19,6 +21,7 @@ const perms = [
 ];
 for (const p of perms) if (!xml.includes(p.split('"')[1])) xml = xml.replace("</manifest>", `    ${p}\n</manifest>`);
 if (!xml.includes("RestAlarmReceiver")) xml = xml.replace("</application>", '        <receiver android:name=".RestAlarmReceiver" android:exported="false" />\n    </application>');
+if (!xml.includes("RestActionReceiver")) xml = xml.replace("</application>", '        <receiver android:name=".RestActionReceiver" android:exported="false" />\n    </application>');
 fs.writeFileSync(mf, xml);
 
 // Version code from the CI run number so each APK installs over the last (same signing key permitting)

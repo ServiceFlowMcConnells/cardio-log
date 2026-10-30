@@ -9,6 +9,8 @@ export interface NativeRestTimer {
   start(o: { endAt: number; title: string; body: string; sound: boolean }): Promise<{ granted: boolean; exact?: boolean }>;
   cancel(): Promise<void>;
   requestPermission(): Promise<{ granted: boolean }>;
+  /** The rest as the phone sees it (APK 1.0.4+): −15/+15/Skip on the notification change it. */
+  getState?(): Promise<{ endAt: number; changedAt: number; source: string }>;
 }
 
 interface CapacitorBridge {
@@ -30,6 +32,7 @@ export function nativeRestTimer(): NativeRestTimer | null {
     start: (o) => call("start", { ...o, endAt: Math.floor(o.endAt) + 0.5 }),
     cancel: () => call<void>("cancel"),
     requestPermission: () => call("requestPermission"),
+    getState: () => call("getState"),
   };
   return cached;
 }
