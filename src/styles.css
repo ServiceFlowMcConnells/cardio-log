@@ -772,7 +772,9 @@ select.input { appearance: auto; }
 .ntr-range { display: flex; align-items: center; gap: 4px; }
 .ntr-range .icon-btn { font-size: 1.4rem; color: var(--ink); min-width: 32px; }
 .ntr-range > span { flex: 1; text-align: center; }
-.ntr-chart { margin-top: 6px; touch-action: manipulation; }
+.ntr-chart { margin-top: 6px; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.ntr-chart:active { cursor: grabbing; }
+.ntr-hint { margin: 4px 0 0; }
 .ntr-chart text { font-size: 10px; }
 .seg-p { fill: var(--m-p); } .seg-f { fill: var(--m-f); } .seg-c { fill: var(--m-c); } .seg-o { fill: var(--under); }
 .mk.o { background: var(--under); }

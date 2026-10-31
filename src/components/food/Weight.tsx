@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Checkin } from "../../lib/readiness";
 import { PHASE_LABEL, PHASE_RATE, latestPhase } from "../../lib/readiness";
 import type { NutritionData, TrendPoint } from "../../lib/nutrition";
 import { addDays, deleteWeight, fromYmd, loadNutrition, saveWeight, todayYmd, trendWeights, weeklyRate } from "../../lib/nutrition";
 import { startOfWeek } from "../../lib/dates";
 import { useDesktop } from "../../lib/desktop";
+import type { Pinch } from "../../lib/chartGestures";
+import { daysApart, pinchWindow, useChartGestures } from "../../lib/chartGestures";
 import { num } from "./bits";
 
 const short = (d: string) => fromYmd(d).toLocaleDateString("en-IE", { day: "numeric", month: "short" });
@@ -39,40 +41,21 @@ function niceStep(span: number) {
   return 10 * p;
 }
 
-/** Scale weight as a light line, trend weight as the strong line (like MacroFactor, and the sleep chart). Tap or
- *  drag across it to read a day. */
-export type Pinch = { phase: "start" | "move" | "end"; scale: number; center: number; shift: number }; // center/shift as fractions of the plot width
+export type { Pinch } from "../../lib/chartGestures";
 
+/** Scale weight as a light line, trend weight as the strong line (like MacroFactor, and the sleep chart). */
 export function WeightChart({ points, compact, agg = "D", show = { scale: true, trend: true }, onPinch }: { points: TrendPoint[]; compact?: boolean; agg?: Agg; show?: { scale: boolean; trend: boolean }; onPinch?: (p: Pinch) => void }) {
   const wide = useDesktop();
   const [hover, setHover] = useState<number | null>(null);
-  const ref = useRef<SVGSVGElement>(null);
-  // Two-finger pinch zooms the time axis (the weight axis rescales to what's visible)
-  const touches = useRef(new Map<number, number>());
-  const pinch0 = useRef<{ d: number; c: number } | null>(null);
-  const drag = useRef<{ x0: number; mode: "pending" | "pan" | "read" } | null>(null);
-  const holdTimer = useRef<number>();
-  const frac = (clientX: number) => { const r = ref.current?.getBoundingClientRect(); return r ? (clientX - r.left) / r.width : 0.5; };
-  const twoX = () => { const xs = [...touches.current.values()]; return xs.length >= 2 ? [xs[0], xs[1]] : null; };
-  // Trackpad pinch (or ctrl + scroll) on a laptop; needs a non-passive listener to stop the page zooming
-  const pinchRef = useRef(onPinch);
-  pinchRef.current = onPinch;
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || compact) return;
-    const onWheel = (e: WheelEvent) => {
-      const f = pinchRef.current;
-      if (!f || !e.ctrlKey) return;
-      e.preventDefault();
-      const c = frac(e.clientX);
-      f({ phase: "start", scale: 1, center: c, shift: 0 });
-      f({ phase: "move", scale: Math.exp(-e.deltaY / 150), center: c, shift: 0 });
-      f({ phase: "end", scale: 1, center: c, shift: 0 });
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compact, points.length > 1]);
+  // Drag along the timeline, hold to read a day, pinch to zoom (the weight axis rescales to what's visible)
+  const pickRef = useRef<(x: number) => void>(() => {});
+  const { bind, rect } = useChartGestures({
+    disabled: compact,
+    onPinch,
+    read: (x) => pickRef.current(x),
+    clear: () => setHover(null),
+    tap: (x, mouse) => (mouse ? pickRef.current(x) : setHover(null)), // a quick tap clears the reading
+  });
   const pts = aggregate(points, agg);
   if (pts.length < 2) return null;
   const W = wide && !compact ? 760 : 340, H = compact ? 130 : wide ? 260 : 200, padL = 6, padR = 34, padB = 22, padT = 12;
@@ -91,8 +74,8 @@ export function WeightChart({ points, compact, agg = "D", show = { scale: true, 
   const nLabels = wide && !compact ? 8 : compact ? 3 : 5;
   const xt = Array.from(new Set(Array.from({ length: nLabels }, (_, k) => Math.round((k / (nLabels - 1)) * n))));
   const fmtX = (d: string) => fromYmd(d).toLocaleDateString("en-IE", agg === "M" || n > 400 ? { month: "short", year: "2-digit" } : { day: "numeric", month: "short" });
-  const pick = (clientX: number) => {
-    const r = ref.current?.getBoundingClientRect();
+  pickRef.current = (clientX: number) => {
+    const r = rect();
     if (!r) return;
     const vx = ((clientX - r.left) / r.width) * W;
     setHover(Math.max(0, Math.min(n, Math.round(((vx - padL) / (W - padL - padR)) * n))));
@@ -113,82 +96,11 @@ export function WeightChart({ points, compact, agg = "D", show = { scale: true, 
         </div>
       )}
       <svg
-        ref={ref}
         className="chart wchart-svg"
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label={`Bodyweight: trend ${kg(pts[n].trend)} kg`}
-        onPointerDown={(e) => {
-          if (compact) return;
-          const isTouch = e.pointerType !== "mouse";
-          touches.current.set(e.pointerId, e.clientX);
-          const t = twoX();
-          if (t && onPinch) {
-            // Second finger down: pinch to zoom (ends any pan or reading)
-            window.clearTimeout(holdTimer.current);
-            if (drag.current?.mode === "pan") onPinch({ phase: "end", scale: 1, center: 0.5, shift: 0 });
-            drag.current = null;
-            pinch0.current = { d: Math.max(12, Math.abs(t[0] - t[1])), c: frac((t[0] + t[1]) / 2) };
-            setHover(null);
-            onPinch({ phase: "start", scale: 1, center: pinch0.current.c, shift: 0 });
-            return;
-          }
-          if (!isTouch && e.button !== 0) return;
-          drag.current = { x0: e.clientX, mode: "pending" };
-          if (isTouch) {
-            // Hold still to read a day; drag to move along the timeline
-            window.clearTimeout(holdTimer.current);
-            const x = e.clientX;
-            holdTimer.current = window.setTimeout(() => {
-              if (drag.current?.mode !== "pending") return;
-              drag.current = { ...drag.current, mode: "read" };
-              navigator.vibrate?.(8);
-              pick(x);
-            }, 320);
-          }
-        }}
-        onPointerMove={(e) => {
-          if (compact) return;
-          if (touches.current.has(e.pointerId)) touches.current.set(e.pointerId, e.clientX);
-          const t = twoX();
-          if (t && pinch0.current && onPinch) {
-            const c = frac((t[0] + t[1]) / 2);
-            onPinch({ phase: "move", scale: Math.max(12, Math.abs(t[0] - t[1])) / pinch0.current.d, center: pinch0.current.c, shift: c - pinch0.current.c });
-            return;
-          }
-          const d = drag.current;
-          if (!d) { if (e.pointerType === "mouse") pick(e.clientX); return; } // mouse hover reads a day
-          if (d.mode === "read") { pick(e.clientX); return; }
-          if (d.mode === "pending" && Math.abs(e.clientX - d.x0) > 6 && onPinch) {
-            window.clearTimeout(holdTimer.current);
-            setHover(null);
-            drag.current = { x0: d.x0, mode: "pan" };
-            onPinch({ phase: "start", scale: 1, center: frac(d.x0), shift: 0 });
-          }
-          if (drag.current?.mode === "pan" && onPinch) onPinch({ phase: "move", scale: 1, center: frac(d.x0), shift: frac(e.clientX) - frac(d.x0) });
-        }}
-        onPointerUp={(e) => {
-          touches.current.delete(e.pointerId);
-          window.clearTimeout(holdTimer.current);
-          if (pinch0.current) {
-            if (touches.current.size < 2) { pinch0.current = null; onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 }); }
-            drag.current = null;
-            return;
-          }
-          const d = drag.current;
-          drag.current = null;
-          if (d?.mode === "pan") onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 });
-          else if (d?.mode === "pending") { if (e.pointerType === "mouse") pick(e.clientX); else setHover(null); } // a quick tap clears the reading
-        }}
-        onContextMenu={(e) => e.preventDefault()}
-        onPointerCancel={(e) => {
-          touches.current.delete(e.pointerId);
-          window.clearTimeout(holdTimer.current);
-          if (pinch0.current || drag.current?.mode === "pan") onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 });
-          pinch0.current = null;
-          drag.current = null;
-        }}
-        onPointerLeave={(e) => e.pointerType === "mouse" && setHover(null)}
+        {...bind}
       >
         {ticks.map((v) => (
           <g key={v}>
@@ -221,7 +133,6 @@ function rateVerdict(ratePct: number, checkins: Checkin[]) {
 }
 
 type Range = 7 | 30 | 91 | 182 | 365 | 0;
-const daysApart = (a: string, b: string) => Math.round((fromYmd(b).getTime() - fromYmd(a).getTime()) / 86400000);
 const RANGES: { r: Range; l: string }[] = [{ r: 7, l: "1W" }, { r: 30, l: "1M" }, { r: 91, l: "3M" }, { r: 182, l: "6M" }, { r: 365, l: "1Y" }, { r: 0, l: "All" }];
 
 /** Weight page: weigh in, scale vs trend with ranges and granularity, insights, weigh-ins. */
@@ -253,14 +164,7 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
     if (p.phase === "end") { gesture.current = null; return; }
     const g = gesture.current;
     if (!g) return;
-    const total = Math.max(7, daysApart(first, today));
-    const span0 = Math.max(1, daysApart(g.start, g.end));
-    const span1 = Math.round(Math.max(6, Math.min(total, span0 / p.scale)));
-    // Keep the day under the fingers' starting midpoint under their midpoint now
-    const anchor = daysApart(first, g.start) + p.center * span0;
-    let s = Math.round(anchor - (p.center + p.shift) * span1);
-    s = Math.max(0, Math.min(total - span1, s));
-    setCustom({ start: addDays(first, s), end: addDays(first, s + span1) });
+    setCustom(pinchWindow(g, p, first, today));
     setAggPick(null);
   }
   const spanDays = shown.length;

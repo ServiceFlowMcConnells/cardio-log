@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { DayTotal, NutritionData } from "../../lib/nutrition";
 import { addDays, dayTotals, fromYmd, targetFor, todayYmd, ymd } from "../../lib/nutrition";
 import { WEEKDAY_NAMES, getWeekStart, startOfWeek } from "../../lib/dates";
 import { fmtG, fmtKcal } from "./bits";
 import { useDesktop } from "../../lib/desktop";
+import type { Pinch } from "../../lib/chartGestures";
+import { pinchWindow, useChartGestures } from "../../lib/chartGestures";
 
 type Range = 7 | 30 | 91 | 182 | 365 | 0;
 type Agg = "D" | "W" | "M";
@@ -33,20 +35,38 @@ const fmtDay = (d: string, o: Intl.DateTimeFormatOptions) => fromYmd(d).toLocale
 const kcalOther = (d: { kcal: number; protein: number; carbs: number; fat: number }) => Math.max(0, d.kcal - d.protein * 4 - d.carbs * 4 - d.fat * 9);
 
 export default function NutritionTrends({ nutri, onOpenDay }: { nutri: NutritionData; onOpenDay: (day: string) => void }) {
+  const wide = useDesktop();
   const today = todayYmd();
   const [range, setRange] = useState<Range>(7);
   const [aggPick, setAggPick] = useState<Agg | null>(null);
   const [anchor, setEnd] = useState(today);
   const [on, setOn] = useState<Set<Series>>(new Set(["p", "f", "c", "o"]));
   const [sel, setSel] = useState<number | null>(null);
+  const [hover, setHover] = useState<number | null>(null); // held finger or mouse over a bar
+  const [custom, setCustom] = useState<{ start: string; end: string } | null>(null); // set by pinching or dragging the chart
+  const gesture = useRef<{ start: string; end: string } | null>(null);
 
   const totals = useMemo(() => dayTotals(nutri), [nutri]);
   const allDays = useMemo(() => [...totals.keys()].sort(), [totals]);
   const first = allDays[0] ?? today;
   // 1W is a calendar week from your week start day; longer ranges run back from the anchor day
-  const end = range === 7 ? addDays(weekStartOf(anchor), 6) : anchor;
-  const start = range === 7 ? weekStartOf(anchor) : range ? addDays(end, -(range - 1)) : first;
-  const agg: Agg = aggPick ?? (range === 0 ? (daysBetween(first, end) > 200 ? "M" : "W") : range >= 182 ? "W" : "D");
+  const presetEnd = range === 7 ? addDays(weekStartOf(anchor), 6) : anchor;
+  const presetStart = range === 7 ? weekStartOf(anchor) : range ? addDays(presetEnd, -(range - 1)) : first;
+  const start = custom?.start ?? presetStart;
+  const end = custom?.end ?? presetEnd;
+  const span = daysBetween(start, end);
+  const zoomed = custom != null && (!range || span !== range - 1); // dragging along keeps the preset; pinching doesn't
+  const lastDay = addDays(today, 7); // you can log a week ahead
+  const agg: Agg = aggPick ?? (custom ? (span > 400 ? "M" : span > 120 ? "W" : "D") : range === 0 ? (daysBetween(first, end) > 200 ? "M" : "W") : range >= 182 ? "W" : "D");
+
+  function onPinch(p: Pinch) {
+    if (p.phase === "start") { gesture.current = { start, end }; setSel(null); return; }
+    if (p.phase === "end") { gesture.current = null; return; }
+    const g = gesture.current;
+    if (!g) return;
+    setCustom(pinchWindow(g, p, first < lastDay ? first : addDays(lastDay, -6), lastDay));
+    if (p.scale !== 1) setAggPick(null);
+  }
 
   const tgt = (d: string) => targetFor(nutri.targets, d);
 
@@ -81,10 +101,24 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
   const only = on.size === 1 && !on.has("o") ? ([...on][0] as "p" | "f" | "c") : null; // one macro: chart it in grams
   const gramKey = only === "p" ? "protein" : only === "f" ? "fat" : only === "c" ? "carbs" : null;
   const toggle = (s: Series) => { setOn((cur) => { const n = new Set(cur); if (n.has(s)) { if (n.size > 1) n.delete(s); } else n.add(s); return n; }); };
-  const shift = (dir: -1 | 1) => { if (!range) return; const n = addDays(anchor, dir * range); setEnd(n > addDays(today, 7) ? addDays(today, 7) : n); setSel(null); };
-  const selB = sel != null ? buckets[sel] : null;
+  const shift = (dir: -1 | 1) => {
+    setSel(null);
+    if (custom) {
+      const len = span + 1;
+      let s = addDays(custom.start, dir * len);
+      if (addDays(s, span) > lastDay) s = addDays(lastDay, -span);
+      if (s < first) s = first;
+      setCustom({ start: s, end: addDays(s, span) });
+      return;
+    }
+    if (!range) return;
+    const n = addDays(anchor, dir * range);
+    setEnd(n > lastDay ? lastDay : n);
+  };
+  const shown = hover ?? sel;
+  const selB = shown != null ? buckets[shown] : null;
 
-  const label = range ? `${fmtDay(start, { day: "numeric", month: "short" })} – ${fmtDay(end, { day: "numeric", month: "short", year: "numeric" })}` : `${fmtDay(start, { month: "short", year: "numeric" })} – now`;
+  const label = range || custom ? `${fmtDay(start, { day: "numeric", month: "short" })} – ${fmtDay(end, { day: "numeric", month: "short", year: "numeric" })}` : `${fmtDay(start, { month: "short", year: "numeric" })} – now`;
 
   return (
     <div className="ntr">
@@ -105,17 +139,23 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
             </div>
           </div>
           <div className="ntr-range">
-            {range ? <button className="icon-btn" aria-label="Earlier" onClick={() => shift(-1)}>‹</button> : null}
-            <span className="small">{label}<span className="muted"> · daily average of {past.length} logged day{past.length === 1 ? "" : "s"}{past.length < spanDays ? ` (of ${spanDays})` : ""}</span></span>
-            {range ? <button className="icon-btn" aria-label="Later" disabled={end >= addDays(today, 7)} onClick={() => shift(1)}>›</button> : null}
+            {range || custom ? <button className="icon-btn" aria-label="Earlier" disabled={start <= first} onClick={() => shift(-1)}>‹</button> : null}
+            <span className="small">{label}{zoomed && <span className="muted"> · zoomed</span>}<span className="muted"> · daily average of {past.length} logged day{past.length === 1 ? "" : "s"}{past.length < spanDays ? ` (of ${spanDays})` : ""}</span></span>
+            {range || custom ? <button className="icon-btn" aria-label="Later" disabled={end >= lastDay} onClick={() => shift(1)}>›</button> : null}
           </div>
         </div>
 
-        <MacroChart buckets={buckets} on={on} gramKey={gramKey} agg={agg} today={today} sel={sel} onSel={setSel} />
+        <MacroChart
+          buckets={buckets} on={on} gramKey={gramKey} agg={agg} today={today} active={shown}
+          onPinch={onPinch}
+          onHover={setHover}
+          onTap={(i) => { setHover(null); setSel((cur) => (cur === i ? null : i)); }}
+          onHoldEnd={(i) => { setHover(null); setSel(i); }}
+        />
 
         <div className="ntr-controls">
           <div className="seg ntr-ranges" role="group" aria-label="Range">
-            {RANGES.map(({ r, label: l }) => <button key={l} className={range === r ? "on" : ""} aria-pressed={range === r} onClick={() => { setRange(r); setEnd(today); setSel(null); setAggPick(null); }}>{l}</button>)}
+            {RANGES.map(({ r, label: l }) => <button key={l} className={range === r && !zoomed ? "on" : ""} aria-pressed={range === r && !zoomed} onClick={() => { setRange(r); setEnd(today); setCustom(null); setSel(null); setAggPick(null); }}>{l}</button>)}
           </div>
           <select className="input ntr-agg" value={agg} onChange={(e) => { setAggPick(e.target.value as Agg); setSel(null); }} aria-label="Group by">
             <option value="D">Days</option>
@@ -130,6 +170,7 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
         </div>
         {gramKey && <p className="muted small" style={{ marginTop: 6 }}>Showing {gramKey} in grams. Tap more macros to go back to calories.</p>}
 
+        {!selB && <p className="muted small ntr-hint">{wide ? "Hover or click a bar to read it; drag to move, pinch or ctrl + scroll to zoom" : "Tap a bar to read it · hold and slide · drag to move · pinch to zoom"}</p>}
         {selB && (
           <div className="ntr-sel">
             <strong>{agg === "D" ? fmtDay(selB.start, { weekday: "short", day: "numeric", month: "short" }) : agg === "W" ? `Week of ${fmtDay(selB.start, { day: "numeric", month: "short" })}` : fmtDay(selB.start, { month: "long", year: "numeric" })}</strong>
@@ -157,10 +198,29 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
 function daysBetween(a: string, b: string) { return Math.round((fromYmd(b).getTime() - fromYmd(a).getTime()) / 86400000); }
 const diff = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : "±"}${fmtKcal(Math.abs(v))}`;
 
-function MacroChart({ buckets, on, gramKey, agg, today, sel, onSel }: { buckets: Bucket[]; on: Set<Series>; gramKey: "protein" | "fat" | "carbs" | null; agg: Agg; today: string; sel: number | null; onSel: (i: number | null) => void }) {
+function MacroChart({ buckets, on, gramKey, agg, today, active, onPinch, onHover, onTap, onHoldEnd }: {
+  buckets: Bucket[]; on: Set<Series>; gramKey: "protein" | "fat" | "carbs" | null; agg: Agg; today: string; active: number | null;
+  onPinch: (p: Pinch) => void; onHover: (i: number | null) => void; onTap: (i: number) => void; onHoldEnd: (i: number) => void;
+}) {
   const wide = useDesktop();
   const W = wide ? 900 : 340, H = wide ? 260 : 190, padL = 8, padR = 36, padT = 8, padB = 22;
   const n = buckets.length;
+  const slot = (W - padL - padR) / Math.max(1, n);
+  // Which bar is under this x
+  const at = (clientX: number) => {
+    const r = rect();
+    if (!r || !n) return 0;
+    const vx = ((clientX - r.left) / r.width) * W;
+    return Math.max(0, Math.min(n - 1, Math.floor((vx - padL) / slot)));
+  };
+  // Same gestures as the weight chart: drag along, hold to read, pinch to zoom; the axis rescales to what's shown
+  const { bind, rect } = useChartGestures({
+    onPinch,
+    read: (x) => onHover(at(x)),
+    clear: () => onHover(null),
+    tap: (x) => onTap(at(x)),
+    readDone: (x) => onHoldEnd(at(x)),
+  });
   const segs = (b: Bucket) => {
     const a = b.avg;
     if (!a) return [] as { s: Series; v: number }[];
@@ -171,7 +231,6 @@ function MacroChart({ buckets, on, gramKey, agg, today, sel, onSel }: { buckets:
   const maxV = Math.max(1, ...buckets.map((b) => segs(b).reduce((a, x) => a + x.v, 0)), ...buckets.map((b) => tval(b) ?? 0));
   const step = gramKey ? niceStep(maxV / 3) : niceStep(maxV / 3);
   const top = Math.ceil((maxV * 1.05) / step) * step;
-  const slot = (W - padL - padR) / Math.max(1, n);
   const bw = Math.max(1.5, Math.min(26, slot * (n > 60 ? 0.85 : 0.68)));
   const y = (v: number) => padT + (H - padT - padB) * (1 - v / top);
   const x = (i: number) => padL + slot * i + slot / 2;
@@ -183,7 +242,7 @@ function MacroChart({ buckets, on, gramKey, agg, today, sel, onSel }: { buckets:
     return (n - 1 - i) % every === 0 ? fromYmd(b.start).toLocaleDateString("en-IE", { day: "numeric", month: "short" }) : "";
   };
   return (
-    <svg className="chart ntr-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={gramKey ? `${gramKey} by ${agg === "D" ? "day" : agg === "W" ? "week" : "month"}` : "Calories from protein, fat and carbs"}>
+    <svg className="chart ntr-chart" viewBox={`0 0 ${W} ${H}`} {...bind} role="img" aria-label={gramKey ? `${gramKey} by ${agg === "D" ? "day" : agg === "W" ? "week" : "month"}` : "Calories from protein, fat and carbs"}>
       {ticks.map((t) => (
         <g key={t}>
           <line className="axis" x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} opacity={t === 0 ? 1 : 0.5} strokeDasharray={t === 0 ? undefined : "3 3"} />
@@ -196,7 +255,7 @@ function MacroChart({ buckets, on, gramKey, agg, today, sel, onSel }: { buckets:
         const t = tval(b);
         const future = b.start > today;
         return (
-          <g key={b.key} onClick={() => onSel(sel === i ? null : i)} style={{ cursor: "pointer" }} opacity={sel != null && sel !== i ? 0.45 : future ? 0.5 : 1}>
+          <g key={b.key} opacity={active != null && active !== i ? 0.45 : future ? 0.5 : 1}>
             <rect x={padL + slot * i} y={padT} width={slot} height={H - padT - padB} fill="transparent" />
             {ss.map((sg) => {
               const y1 = y(acc + sg.v), y0 = y(acc);
