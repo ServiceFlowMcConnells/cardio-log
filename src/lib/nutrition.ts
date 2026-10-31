@@ -227,9 +227,9 @@ export async function loadNutrition(days = 120): Promise<NutritionData> {
     pageAll((a, b) => supabase.from("food_log").select("*").gte("eaten_on", since).order("eaten_on").order("eaten_time").order("created_at").order("id").range(a, b)),
     pageAll((a, b) => supabase.from("food_log_daily").select("eaten_on, entries, kcal, protein, carbs, fat").lt("eaten_on", since).order("eaten_on").range(a, b)),
     supabase.from("nutrition_targets").select("id, effective_from, kcal, protein, carbs, fat").order("effective_from"),
-    supabase.from("body_weights").select("id, measured_on, weight_kg").order("measured_on"),
+    pageAll((a, b) => supabase.from("body_weights").select("id, measured_on, weight_kg").order("measured_on").range(a, b)),
   ]);
-  for (const x of [f, r, t, w]) if (x.error) throw x.error;
+  for (const x of [f, r, t]) if (x.error) throw x.error;
   const l = { data: logRows };
   return {
     logSince: since,
@@ -241,7 +241,7 @@ export async function loadNutrition(days = 120): Promise<NutritionData> {
     })),
     log: (l.data ?? []).map(toEntry),
     targets: (t.data ?? []).map((x: Row) => ({ id: x.id as string, effective_from: x.effective_from as string, kcal: n(x.kcal), protein: nn(x.protein), carbs: nn(x.carbs), fat: nn(x.fat) })),
-    weights: (w.data ?? []).map((x: Row) => ({ id: x.id as string, measured_on: x.measured_on as string, weight_kg: n(x.weight_kg) })),
+    weights: w.map((x: Row) => ({ id: x.id as string, measured_on: x.measured_on as string, weight_kg: n(x.weight_kg) })),
   };
 }
 
