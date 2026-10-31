@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Checkin } from "../../lib/readiness";
 import { PHASE_LABEL, PHASE_RATE, latestPhase } from "../../lib/readiness";
 import type { NutritionData, TrendPoint } from "../../lib/nutrition";
@@ -41,10 +41,36 @@ function niceStep(span: number) {
 
 /** Scale weight as a light line, trend weight as the strong line (like MacroFactor, and the sleep chart). Tap or
  *  drag across it to read a day. */
-export function WeightChart({ points, compact, agg = "D", show = { scale: true, trend: true } }: { points: TrendPoint[]; compact?: boolean; agg?: Agg; show?: { scale: boolean; trend: boolean } }) {
+export type Pinch = { phase: "start" | "move" | "end"; scale: number; center: number; shift: number }; // center/shift as fractions of the plot width
+
+export function WeightChart({ points, compact, agg = "D", show = { scale: true, trend: true }, onPinch }: { points: TrendPoint[]; compact?: boolean; agg?: Agg; show?: { scale: boolean; trend: boolean }; onPinch?: (p: Pinch) => void }) {
   const wide = useDesktop();
   const [hover, setHover] = useState<number | null>(null);
   const ref = useRef<SVGSVGElement>(null);
+  // Two-finger pinch zooms the time axis (the weight axis rescales to what's visible)
+  const touches = useRef(new Map<number, number>());
+  const pinch0 = useRef<{ d: number; c: number } | null>(null);
+  const frac = (clientX: number) => { const r = ref.current?.getBoundingClientRect(); return r ? (clientX - r.left) / r.width : 0.5; };
+  const twoX = () => { const xs = [...touches.current.values()]; return xs.length >= 2 ? [xs[0], xs[1]] : null; };
+  // Trackpad pinch (or ctrl + scroll) on a laptop; needs a non-passive listener to stop the page zooming
+  const pinchRef = useRef(onPinch);
+  pinchRef.current = onPinch;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || compact) return;
+    const onWheel = (e: WheelEvent) => {
+      const f = pinchRef.current;
+      if (!f || !e.ctrlKey) return;
+      e.preventDefault();
+      const c = frac(e.clientX);
+      f({ phase: "start", scale: 1, center: c, shift: 0 });
+      f({ phase: "move", scale: Math.exp(-e.deltaY / 150), center: c, shift: 0 });
+      f({ phase: "end", scale: 1, center: c, shift: 0 });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compact, points.length > 1]);
   const pts = aggregate(points, agg);
   if (pts.length < 2) return null;
   const W = wide && !compact ? 760 : 340, H = compact ? 130 : wide ? 260 : 200, padL = 6, padR = 34, padB = 22, padT = 12;
@@ -90,8 +116,38 @@ export function WeightChart({ points, compact, agg = "D", show = { scale: true, 
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label={`Bodyweight: trend ${kg(pts[n].trend)} kg`}
-        onPointerDown={(e) => !compact && pick(e.clientX)}
-        onPointerMove={(e) => !compact && (e.buttons || e.pointerType === "mouse") && pick(e.clientX)}
+        onPointerDown={(e) => {
+          if (compact) return;
+          if (e.pointerType === "touch") {
+            touches.current.set(e.pointerId, e.clientX);
+            const t = twoX();
+            if (t && onPinch) {
+              pinch0.current = { d: Math.max(12, Math.abs(t[0] - t[1])), c: frac((t[0] + t[1]) / 2) };
+              setHover(null);
+              onPinch({ phase: "start", scale: 1, center: pinch0.current.c, shift: 0 });
+              return;
+            }
+          }
+          pick(e.clientX);
+        }}
+        onPointerMove={(e) => {
+          if (compact) return;
+          if (e.pointerType === "touch" && touches.current.has(e.pointerId)) {
+            touches.current.set(e.pointerId, e.clientX);
+            const t = twoX();
+            if (t && pinch0.current && onPinch) {
+              const c = frac((t[0] + t[1]) / 2);
+              onPinch({ phase: "move", scale: Math.max(12, Math.abs(t[0] - t[1])) / pinch0.current.d, center: pinch0.current.c, shift: c - pinch0.current.c });
+              return;
+            }
+          }
+          if (e.buttons || e.pointerType === "mouse") pick(e.clientX);
+        }}
+        onPointerUp={(e) => {
+          touches.current.delete(e.pointerId);
+          if (pinch0.current && touches.current.size < 2) { pinch0.current = null; onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 }); }
+        }}
+        onPointerCancel={(e) => { touches.current.delete(e.pointerId); if (pinch0.current) { pinch0.current = null; onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 }); } }}
         onPointerLeave={(e) => e.pointerType === "mouse" && setHover(null)}
       >
         {ticks.map((v) => (
@@ -125,6 +181,7 @@ function rateVerdict(ratePct: number, checkins: Checkin[]) {
 }
 
 type Range = 7 | 30 | 91 | 182 | 365 | 0;
+const daysApart = (a: string, b: string) => Math.round((fromYmd(b).getTime() - fromYmd(a).getTime()) / 86400000);
 const RANGES: { r: Range; l: string }[] = [{ r: 7, l: "1W" }, { r: 30, l: "1M" }, { r: 91, l: "3M" }, { r: 182, l: "6M" }, { r: 365, l: "1Y" }, { r: 0, l: "All" }];
 
 /** Weight page: weigh in, scale vs trend with ranges and granularity, insights, weigh-ins. */
@@ -136,14 +193,35 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
   const [range, setRange] = useState<Range>(91);
   const [aggPick, setAggPick] = useState<Agg | null>(null);
   const [end, setEnd] = useState(today);
+  const [custom, setCustom] = useState<{ start: string; end: string } | null>(null); // set by pinching
+  const gesture = useRef<{ start: string; end: string } | null>(null);
   const [show, setShow] = useState({ scale: true, trend: true });
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pts = useMemo(() => trendWeights(nutri.weights), [nutri.weights]);
   const first = pts[0]?.day ?? today;
-  const start = range ? (addDays(end, -(range - 1)) < first ? first : addDays(end, -(range - 1))) : first;
-  const shown = pts.filter((p) => p.day >= start && p.day <= end);
+  const rangeStart = range ? (addDays(end, -(range - 1)) < first ? first : addDays(end, -(range - 1))) : first;
+  const start = custom?.start ?? rangeStart;
+  const winEnd = custom?.end ?? end;
+  const shown = pts.filter((p) => p.day >= start && p.day <= winEnd);
+  const span = Math.max(1, daysApart(start, winEnd));
+
+  function onPinch(p: Pinch) {
+    if (p.phase === "start") { gesture.current = { start, end: winEnd }; return; }
+    if (p.phase === "end") { gesture.current = null; return; }
+    const g = gesture.current;
+    if (!g) return;
+    const total = Math.max(7, daysApart(first, today));
+    const span0 = Math.max(1, daysApart(g.start, g.end));
+    const span1 = Math.round(Math.max(6, Math.min(total, span0 / p.scale)));
+    // Keep the day under the fingers' starting midpoint under their midpoint now
+    const anchor = daysApart(first, g.start) + p.center * span0;
+    let s = Math.round(anchor - (p.center + p.shift) * span1);
+    s = Math.max(0, Math.min(total - span1, s));
+    setCustom({ start: addDays(first, s), end: addDays(first, s + span1) });
+    setAggPick(null);
+  }
   const spanDays = shown.length;
   const agg: Agg = aggPick ?? (spanDays > 500 ? "M" : spanDays > 120 ? "W" : "D");
   const last = pts[pts.length - 1];
@@ -173,6 +251,13 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
     setVal(w ? String(w.weight_kg) : "");
   };
   const shift = (dir: -1 | 1) => {
+    if (custom) {
+      const total = daysApart(first, today);
+      let s = daysApart(first, custom.start) + dir * span;
+      s = Math.max(0, Math.min(total - span, s));
+      setCustom({ start: addDays(first, s), end: addDays(first, s + span) });
+      return;
+    }
     if (!range) return;
     let n = addDays(end, dir * range);
     if (n > today) n = today;
@@ -211,14 +296,14 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
             <div><span className="small muted">Difference</span><span className="w-big num">{diff != null ? signed(diff) : "–"}<small> kg</small></span></div>
           </div>
           <div className="ntr-range">
-            <button className="icon-btn" aria-label="Earlier" disabled={!range || start <= first} onClick={() => shift(-1)}>‹</button>
-            <span className="small">{fmtD(start)} – {fmtD(end)}</span>
-            <button className="icon-btn" aria-label="Later" disabled={!range || end >= today} onClick={() => shift(1)}>›</button>
+            <button className="icon-btn" aria-label="Earlier" disabled={(!range && !custom) || start <= first} onClick={() => shift(-1)}>‹</button>
+            <span className="small">{fmtD(start)} – {fmtD(winEnd)}{custom && <span className="muted"> · zoomed</span>}</span>
+            <button className="icon-btn" aria-label="Later" disabled={(!range && !custom) || winEnd >= today} onClick={() => shift(1)}>›</button>
           </div>
-          <WeightChart points={shown} agg={agg} show={show} />
+          <WeightChart points={shown} agg={agg} show={show} onPinch={onPinch} />
           <div className="ntr-controls">
             <div className="seg ntr-ranges" role="group" aria-label="Range">
-              {RANGES.map(({ r, l }) => <button key={l} className={range === r ? "on" : ""} aria-pressed={range === r} onClick={() => { setRange(r); setEnd(today); setAggPick(null); }}>{l}</button>)}
+              {RANGES.map(({ r, l }) => <button key={l} className={range === r && !custom ? "on" : ""} aria-pressed={range === r && !custom} onClick={() => { setRange(r); setEnd(today); setCustom(null); setAggPick(null); }}>{l}</button>)}
             </div>
             <select className="input ntr-agg" value={agg} onChange={(e) => setAggPick(e.target.value as Agg)} aria-label="Granularity">
               <option value="D">Days</option>

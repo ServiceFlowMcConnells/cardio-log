@@ -1,16 +1,12 @@
 import type { AppData } from "../App";
 import type { Checkin } from "../lib/readiness";
-import { BAND_LABEL, PHASE_LABEL, PHASE_RATE, bandFor, latestPhase } from "../lib/readiness";
-import { trendWeights, weeklyRate } from "../lib/nutrition";
-import { WeightChart } from "./food/Weight";
+import { BAND_LABEL, PHASE_LABEL, bandFor } from "../lib/readiness";
 import { formatShort } from "../lib/dates";
 import { TrendChart, type Point } from "./Charts";
 
 const DAY = 86400000;
 export default function BodyProgress({ data, onScan }: { data: AppData; onScan: (c: Checkin | null) => void }) {
   const { checkins } = data;
-  const wPts = trendWeights(data.nutrition.weights);
-  const wRate = weeklyRate(wPts);
   if (!checkins.length) {
     return (
       <div className="empty">
@@ -48,27 +44,6 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
           </div>
           <TrendChart points={sleep} color="var(--bike)" unit="hours" band={[7, 9]} />
           <p className="chart-note">7–9 hours is the recommended range for adults. Under 6 hours cuts into strength and recovery.</p>
-        </section>
-      )}
-
-      {wPts.length > 1 && (
-        <section className="section panel">
-          <div className="page-head" style={{ marginBottom: 4 }}>
-            <h2>Bodyweight</h2>
-            <span className="muted small">Trend {wPts[wPts.length - 1].trend.toFixed(1)} kg</span>
-          </div>
-          <WeightChart points={wPts.slice(-90)} />
-          <p className="chart-note">
-            Dots are scale weights; the line is your trend weight, which smooths out water swings.
-            {wRate && (() => {
-              const phase = latestPhase(checkins);
-              const band = phase ? PHASE_RATE[phase] : null;
-              const change = wRate.pct; // + = gaining
-              const verdict = !band ? "" : change < band.lo ? `, ${phase === "surplus" ? "slower" : "faster"} than the ${PHASE_LABEL[phase!].toLowerCase()} target (${band.text})`
-                : change > band.hi ? `, ${phase === "deficit" ? "slower" : "faster"} than the ${PHASE_LABEL[phase!].toLowerCase()} target (${band.text})` : `, on target for ${PHASE_LABEL[phase!].toLowerCase()} (${band.text})`;
-              return ` You're ${change <= 0 ? "losing" : "gaining"} about ${Math.abs(change).toFixed(1)}% a week${verdict}.`;
-            })()}
-          </p>
         </section>
       )}
 
