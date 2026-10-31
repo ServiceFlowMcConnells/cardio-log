@@ -30,7 +30,7 @@ export interface LogEntry extends Macros {
   eaten_on: string; // YYYY-MM-DD
   eaten_time: string; // HH:MM
   meal: MealIndex; // derived from the time (kept for older screens)
-  kind: "food" | "recipe" | "quick";
+  kind: "food" | "recipe" | "quick" | "import";
   food_id: string | null;
   recipe_id: string | null;
   name: string;
@@ -129,7 +129,7 @@ export function recentItems(log: LogEntry[], foods: Food[], recipes: Recipe[], l
     if (!key) continue;
     const had = seen.get(key);
     if (had) { had.uses++; continue; }
-    seen.set(key, { key, kind: e.kind, id: e.kind === "food" ? e.food_id : e.kind === "recipe" ? e.recipe_id : null, name: e.name, amount: e.amount, unit: e.unit, macros: { kcal: e.kcal, protein: e.protein, carbs: e.carbs, fat: e.fat }, lastUsed: e.eaten_on, uses: 1 });
+    seen.set(key, { key, kind: e.kind as RecentItem["kind"], id: e.kind === "food" ? e.food_id : e.kind === "recipe" ? e.recipe_id : null, name: e.name, amount: e.amount, unit: e.unit, macros: { kcal: e.kcal, protein: e.protein, carbs: e.carbs, fat: e.fat }, lastUsed: e.eaten_on, uses: 1 });
   }
   return [...seen.values()].slice(0, limit);
 }

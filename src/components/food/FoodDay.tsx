@@ -22,7 +22,7 @@ function dayTitle(d: string) {
   return fromYmd(d).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" });
 }
 
-const amountText = (e: LogEntry) => (e.kind === "quick" ? "quick add" : e.unit === "g" ? `${fmtG(e.amount)} g` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
+const amountText = (e: LogEntry) => (e.kind === "quick" ? "quick add" : e.kind === "import" ? "imported day total" : e.unit === "g" ? `${fmtG(e.amount)} g` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
 
 function PencilIcon() {
   return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M4 17.2V20h2.8l8.3-8.3-2.8-2.8L4 17.2zm13.7-7.6a1 1 0 0 0 0-1.4l-1.9-1.9a1 1 0 0 0-1.4 0l-1.5 1.5 2.8 2.8 2-1z" /></svg>;
@@ -332,7 +332,8 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
   const a = num(amount);
 
   let macros = null as null | { kcal: number; protein: number; carbs: number; fat: number };
-  if (e.kind === "quick") {
+  const macroOnly = e.kind === "quick" || e.kind === "import";
+  if (macroOnly) {
     const k = formKcal(q);
     macros = k != null && k > 0 ? { kcal: k, protein: num(q.protein) ?? 0, carbs: num(q.carbs) ?? 0, fat: num(q.fat) ?? 0 } : null;
   } else if (a != null && a > 0) {
@@ -350,7 +351,7 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
   const save = () => run(async () => {
     if (!macros) return;
     if (!isTime(time)) return;
-    const next: NewEntry = { eaten_on: e.eaten_on, eaten_time: time, kind: e.kind, food_id: e.food_id, recipe_id: e.recipe_id, name: e.name, amount: e.kind === "quick" ? 1 : a!, unit: e.kind === "quick" ? "serving" : unit, ...macros };
+    const next: NewEntry = { eaten_on: e.eaten_on, eaten_time: time, kind: e.kind, food_id: e.food_id, recipe_id: e.recipe_id, name: e.name, amount: macroOnly ? 1 : a!, unit: macroOnly ? "serving" : unit, ...macros };
     const saved = await updateEntry(e.id, next);
     setNutri((n) => ({ ...n, log: n.log.map((x) => (x.id === e.id ? saved : x)) }));
   });
@@ -365,7 +366,7 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
         <strong>{e.name}</strong>
         <button className="link small" onClick={onClose}>Close</button>
       </div>
-      {e.kind === "quick" ? (
+      {macroOnly ? (
         <MacroInputs v={q} set={setQ} />
       ) : (
         <div className="amount-row">
