@@ -41,6 +41,7 @@ export interface LogEntry extends Macros {
 
 export interface Target { id: string; effective_from: string; kcal: number; protein: number | null; carbs: number | null; fat: number | null }
 export interface BodyWeight { id: string; measured_on: string; weight_kg: number }
+export interface BodyFat { id: string; measured_on: string; body_fat_pct: number }
 
 /** A reference food from the database or Open Food Facts, not yet in your foods. */
 export interface DbFood extends Macros { ref: string; source: "cofid" | "off"; name: string; brand: string | null; fibre: number | null; serving_g: number | null; serving_label: string | null; barcode: string | null }
@@ -48,8 +49,8 @@ export interface DbFood extends Macros { ref: string; source: "cofid" | "off"; n
 /** One day's totals (from the food_log_daily view, for history older than the loaded log). */
 export interface DayTotal extends Macros { day: string; entries: number }
 
-export interface NutritionData { foods: Food[]; recipes: Recipe[]; log: LogEntry[]; logSince: string; daily: DayTotal[]; targets: Target[]; weights: BodyWeight[] }
-export const EMPTY_NUTRITION: NutritionData = { foods: [], recipes: [], log: [], logSince: "9999-12-31", daily: [], targets: [], weights: [] };
+export interface NutritionData { foods: Food[]; recipes: Recipe[]; log: LogEntry[]; logSince: string; daily: DayTotal[]; targets: Target[]; weights: BodyWeight[]; bodyFats: BodyFat[] }
+export const EMPTY_NUTRITION: NutritionData = { foods: [], recipes: [], log: [], logSince: "9999-12-31", daily: [], targets: [], weights: [], bodyFats: [] };
 
 // ---------- dates ----------
 export const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -183,6 +184,27 @@ export function trendWeights(weights: BodyWeight[], until = todayYmd(), alpha = 
   });
 }
 
+/** Body fat readings are weeks or months apart, so there's no smoothing: a straight line between readings, ending
+ *  at the last one. scale is the reading on days you measured. */
+export function bodyFatSeries(readings: BodyFat[]): TrendPoint[] {
+  const rs = [...readings].sort((a, b) => a.measured_on.localeCompare(b.measured_on));
+  if (!rs.length) return [];
+  const last = rs[rs.length - 1].measured_on;
+  const out: TrendPoint[] = [];
+  let i = 0;
+  for (let day = rs[0].measured_on; day <= last; day = addDays(day, 1)) {
+    while (i < rs.length - 1 && rs[i + 1].measured_on <= day) i++;
+    const cur = rs[i];
+    if (cur.measured_on === day) { out.push({ day, scale: cur.body_fat_pct, trend: cur.body_fat_pct }); continue; }
+    if (i < rs.length - 1) {
+      const nxt = rs[i + 1];
+      const k = (fromYmd(day).getTime() - fromYmd(cur.measured_on).getTime()) / (fromYmd(nxt.measured_on).getTime() - fromYmd(cur.measured_on).getTime());
+      out.push({ day, scale: null, trend: cur.body_fat_pct + (nxt.body_fat_pct - cur.body_fat_pct) * k });
+    } else out.push({ day, scale: null, trend: cur.body_fat_pct });
+  }
+  return out;
+}
+
 /** Trend change per week over the last `days` (default 21, as MacroFactor), as kg and % of bodyweight. */
 export function weeklyRate(points: TrendPoint[], days = 21): { kg: number; pct: number; over: number } | null {
   if (points.length < 8) return null;
@@ -223,13 +245,14 @@ async function pageAll(q: (from: number, to: number) => PromiseLike<{ data: unkn
 
 export async function loadNutrition(days = 120): Promise<NutritionData> {
   const since = addDays(todayYmd(), -days);
-  const [f, r, logRows, dailyRows, t, w] = await Promise.all([
+  const [f, r, logRows, dailyRows, t, w, bf] = await Promise.all([
     supabase.from("foods").select(FOOD_COLS).order("name"),
     supabase.from("recipes").select("id, name, servings, notes, favorite, recipe_items(id, food_id, grams, position)").order("name"),
     pageAll((a, b) => supabase.from("food_log").select("*").gte("eaten_on", since).order("eaten_on").order("eaten_time").order("created_at").order("id").range(a, b)),
     pageAll((a, b) => supabase.from("food_log_daily").select("eaten_on, entries, kcal, protein, carbs, fat").lt("eaten_on", since).order("eaten_on").range(a, b)),
     supabase.from("nutrition_targets").select("id, effective_from, kcal, protein, carbs, fat").order("effective_from"),
     pageAll((a, b) => supabase.from("body_weights").select("id, measured_on, weight_kg").order("measured_on").range(a, b)),
+    supabase.from("body_fats").select("id, measured_on, body_fat_pct").order("measured_on"),
   ]);
   for (const x of [f, r, t]) if (x.error) throw x.error;
   const l = { data: logRows };
@@ -244,6 +267,8 @@ export async function loadNutrition(days = 120): Promise<NutritionData> {
     log: (l.data ?? []).map(toEntry),
     targets: (t.data ?? []).map((x: Row) => ({ id: x.id as string, effective_from: x.effective_from as string, kcal: n(x.kcal), protein: nn(x.protein), carbs: nn(x.carbs), fat: nn(x.fat) })),
     weights: w.map((x: Row) => ({ id: x.id as string, measured_on: x.measured_on as string, weight_kg: n(x.weight_kg) })),
+    // Body fat is optional extra: if it can't load, the rest of nutrition still works
+    bodyFats: (bf.error ? [] : bf.data ?? []).map((x: Row) => ({ id: x.id as string, measured_on: x.measured_on as string, body_fat_pct: n(x.body_fat_pct) })),
   };
 }
 
@@ -377,6 +402,17 @@ export async function saveWeight(day: string, kg: number): Promise<void> {
 }
 export async function deleteWeight(id: string): Promise<void> {
   const { error } = await supabase.from("body_weights").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function saveBodyFat(day: string, pct: number): Promise<void> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) throw new Error("You're signed out. Sign in again.");
+  const { error } = await supabase.from("body_fats").upsert({ user_id: u.user.id, measured_on: day, body_fat_pct: pct }, { onConflict: "user_id,measured_on" });
+  if (error) throw error;
+}
+export async function deleteBodyFat(id: string): Promise<void> {
+  const { error } = await supabase.from("body_fats").delete().eq("id", id);
   if (error) throw error;
 }
 

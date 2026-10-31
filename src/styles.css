@@ -809,14 +809,18 @@ select.input { appearance: auto; }
 /* ---------- Weight chart ---------- */
 .wchart-svg { touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .wchart-svg:active { cursor: grabbing; }
-.w-scale { stroke: var(--bike); opacity: 0.38; }
-.w-scale-dot { fill: var(--bike); opacity: 0.45; }
+.wpanel { --wc: var(--bike); }
+.wpanel.bf { --wc: var(--mob); }
+.w-scale { stroke: var(--wc, var(--bike)); opacity: 0.38; }
+.w-scale-dot { fill: var(--wc, var(--bike)); opacity: 0.45; }
+.w-scale-dot.solid { opacity: 1; stroke: var(--panel); stroke-width: 1.5; }
 .w-scale-dot.on { opacity: 0.9; }
-.w-trend { stroke: var(--bike); }
-.w-trend-dot { fill: var(--bike); stroke: var(--panel); stroke-width: 2; }
+.w-trend { stroke: var(--wc, var(--bike)); }
+.w-trend-dot { fill: var(--wc, var(--bike)); stroke: var(--panel); stroke-width: 2; }
 .w-guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
 .wchart-read { display: flex; gap: 12px; flex-wrap: wrap; align-items: baseline; min-height: 1.5em; margin: 2px 0 2px; }
-.leg-line { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: 3px; margin-right: 5px; background: var(--bike); }
+.leg-line { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: 3px; margin-right: 5px; background: var(--wc, var(--bike)); }
+.leg-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; background: var(--wc, var(--bike)); }
 .leg-line.scale { opacity: 0.4; height: 2px; }
 .weigh-form { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
 .wpanel .w-head { display: flex; gap: 28px; }
