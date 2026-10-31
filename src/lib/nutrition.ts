@@ -45,8 +45,11 @@ export interface BodyWeight { id: string; measured_on: string; weight_kg: number
 /** A reference food from the database or Open Food Facts, not yet in your foods. */
 export interface DbFood extends Macros { ref: string; source: "cofid" | "off"; name: string; brand: string | null; fibre: number | null; serving_g: number | null; serving_label: string | null; barcode: string | null }
 
-export interface NutritionData { foods: Food[]; recipes: Recipe[]; log: LogEntry[]; targets: Target[]; weights: BodyWeight[] }
-export const EMPTY_NUTRITION: NutritionData = { foods: [], recipes: [], log: [], targets: [], weights: [] };
+/** One day's totals (from the food_log_daily view, for history older than the loaded log). */
+export interface DayTotal extends Macros { day: string; entries: number }
+
+export interface NutritionData { foods: Food[]; recipes: Recipe[]; log: LogEntry[]; logSince: string; daily: DayTotal[]; targets: Target[]; weights: BodyWeight[] }
+export const EMPTY_NUTRITION: NutritionData = { foods: [], recipes: [], log: [], logSince: "9999-12-31", daily: [], targets: [], weights: [] };
 
 // ---------- dates ----------
 export const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -205,17 +208,32 @@ const toEntry = (r: Row): LogEntry => ({
   kcal: n(r.kcal), protein: n(r.protein), carbs: n(r.carbs), fat: n(r.fat), created_at: r.created_at as string,
 });
 
-export async function loadNutrition(days = 180): Promise<NutritionData> {
+/** Every row of a query, 1,000 at a time (the API's page limit). */
+async function pageAll(q: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>): Promise<Row[]> {
+  const out: Row[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await q(from, from + 999);
+    if (error) throw error;
+    out.push(...((data ?? []) as Row[]));
+    if ((data ?? []).length < 1000) return out;
+  }
+}
+
+export async function loadNutrition(days = 120): Promise<NutritionData> {
   const since = addDays(todayYmd(), -days);
-  const [f, r, l, t, w] = await Promise.all([
+  const [f, r, logRows, dailyRows, t, w] = await Promise.all([
     supabase.from("foods").select(FOOD_COLS).order("name"),
     supabase.from("recipes").select("id, name, servings, notes, favorite, recipe_items(id, food_id, grams, position)").order("name"),
-    supabase.from("food_log").select("*").gte("eaten_on", since).order("eaten_on").order("eaten_time").order("created_at"),
+    pageAll((a, b) => supabase.from("food_log").select("*").gte("eaten_on", since).order("eaten_on").order("eaten_time").order("created_at").order("id").range(a, b)),
+    pageAll((a, b) => supabase.from("food_log_daily").select("eaten_on, entries, kcal, protein, carbs, fat").lt("eaten_on", since).order("eaten_on").range(a, b)),
     supabase.from("nutrition_targets").select("id, effective_from, kcal, protein, carbs, fat").order("effective_from"),
     supabase.from("body_weights").select("id, measured_on, weight_kg").order("measured_on"),
   ]);
-  for (const x of [f, r, l, t, w]) if (x.error) throw x.error;
+  for (const x of [f, r, t, w]) if (x.error) throw x.error;
+  const l = { data: logRows };
   return {
+    logSince: since,
+    daily: dailyRows.map((x) => ({ day: x.eaten_on as string, entries: n(x.entries), kcal: n(x.kcal), protein: n(x.protein), carbs: n(x.carbs), fat: n(x.fat) })),
     foods: (f.data ?? []).map(toFood),
     recipes: (r.data ?? []).map((x: Row) => ({
       id: x.id as string, name: x.name as string, servings: n(x.servings) || 1, notes: (x.notes as string) ?? null, favorite: Boolean(x.favorite),
@@ -399,3 +417,14 @@ export async function lookupBarcode(code: string): Promise<DbFood | null> {
 
 /** Your food with this barcode, if you've saved one. */
 export const foodByBarcode = (foods: Food[], code: string) => foods.find((f) => !f.archived && (f.barcode === code || (f.source === "off" && f.source_ref === code)));
+
+/** Day totals for a span: computed live from the loaded log where we have it, older days from the daily view. */
+export function dayTotals(n: NutritionData): Map<string, DayTotal> {
+  const m = new Map<string, DayTotal>();
+  for (const d of n.daily) if (d.day < n.logSince) m.set(d.day, d);
+  for (const e of n.log) {
+    const t = m.get(e.eaten_on) ?? { day: e.eaten_on, entries: 0, kcal: 0, protein: 0, carbs: 0, fat: 0 };
+    m.set(e.eaten_on, { ...t, entries: t.entries + 1, kcal: t.kcal + e.kcal, protein: t.protein + e.protein, carbs: t.carbs + e.carbs, fat: t.fat + e.fat });
+  }
+  return m;
+}

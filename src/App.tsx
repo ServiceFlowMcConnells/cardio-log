@@ -46,6 +46,7 @@ import FoodEditor from "./components/food/FoodEditor";
 import RecipeEditor from "./components/food/RecipeEditor";
 import TargetsEditor from "./components/food/TargetsEditor";
 import WeightView from "./components/food/Weight";
+import NutritionTrends from "./components/food/NutritionTrends";
 
 export type View =
   | { k: "tabs" }
@@ -66,6 +67,7 @@ export type View =
   | { k: "food-edit"; food: Food | null; name?: string; barcode?: string; fromAdd?: boolean }
   | { k: "recipe"; recipe: Recipe | null; items?: { food_id: string; grams: number }[] }
   | { k: "targets" }
+  | { k: "nutrition" }
   | { k: "weight" };
 
 function initialView(): View {
@@ -324,6 +326,16 @@ export default function App() {
     );
   } else if (view.k === "recipe") {
     body = <RecipeEditor key={view.recipe?.id ?? "new"} recipe={view.recipe} initialItems={view.items} nutri={data.nutrition} setNutri={setNutri} onClose={() => back()} onSaved={() => back()} />;
+  } else if (view.k === "nutrition") {
+    body = (
+      <>
+        <div className="editor-bar">
+          <div><h1>Nutrition trends</h1><p className="muted small">Daily averages, against your targets</p></div>
+          <button className="btn ghost" onClick={() => back()}>Done</button>
+        </div>
+        <NutritionTrends nutri={data.nutrition} onOpenDay={(d) => { setFoodDay(d); home("food"); }} />
+      </>
+    );
   } else if (view.k === "targets") {
     body = <TargetsEditor nutri={data.nutrition} setNutri={setNutri} onClose={() => home("food")} />;
   } else if (view.k === "weight") {
@@ -396,15 +408,16 @@ export default function App() {
         onTargets={() => go({ k: "targets" })}
         onWeight={() => go({ k: "weight" })}
         onMakeRecipe={(items) => go({ k: "recipe", recipe: null, items })}
+        onTrends={() => go({ k: "nutrition" })}
       />
     );
   } else if (tab === "exercises") {
     body = <ExerciseLibrary data={data} onOpen={(id) => go({ k: "exercise", id })} onChanged={refresh} />;
   } else {
-    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} />;
+    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} />;
   }
 
-  const FOOD_VIEWS = new Set<View["k"]>(["food-add", "food-edit", "recipe", "targets", "weight"]);
+  const FOOD_VIEWS = new Set<View["k"]>(["food-add", "food-edit", "recipe", "targets", "weight", "nutrition"]);
   const activeTab: Tab = view.k === "tabs" ? (tab === "exercises" && !desktop ? "train" : tab) : FOOD_VIEWS.has(view.k) ? "food" : view.k === "exercise" && !desktop ? "train" : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k === "program" || view.k === "plan" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
 
   const banner = loadError && (

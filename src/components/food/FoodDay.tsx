@@ -15,6 +15,7 @@ interface Props {
   onTargets: () => void;
   onWeight: () => void;
   onMakeRecipe: (items: { food_id: string; grams: number }[]) => void;
+  onTrends: () => void;
 }
 
 function dayTitle(d: string) {
@@ -41,7 +42,7 @@ function Check({ on }: { on: boolean }) {
   );
 }
 
-export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd, onTargets, onWeight, onMakeRecipe }: Props) {
+export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd, onTargets, onWeight, onMakeRecipe, onTrends }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [sheet, setSheet] = useState<null | { mode: "copy" | "move"; day: string; time: string }>(null);
@@ -263,7 +264,10 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
               <TargetBar label="Fat" eaten={total.fat} target={target?.fat ?? null} unit="g" cls="f" />
               <TargetBar label="Carbs" eaten={total.carbs} target={target?.carbs ?? null} unit="g" cls="c" />
             </div>
-            <button className="link small" style={{ marginTop: 10 }} onClick={onTargets}>{target ? "Edit targets" : "Set your targets from your coach"}</button>
+            <div className="fs-links">
+              <button className="link small" onClick={onTargets}>{target ? "Edit targets" : "Set your targets from your coach"}</button>
+              <button className="link small" onClick={onTrends}>Trends and averages ›</button>
+            </div>
           </section>
 
           <WeightCard nutri={nutri} checkins={checkins} setNutri={setNutri} onOpen={onWeight} />

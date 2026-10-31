@@ -4,6 +4,7 @@ import type { Block, Machine, Session, Settings } from "../lib/types";
 import StrengthProgress from "./StrengthProgress";
 import MobilityProgress from "./MobilityProgress";
 import BodyProgress from "./BodyProgress";
+import NutritionTrends from "./food/NutritionTrends";
 import type { Checkin } from "../lib/readiness";
 import { MACHINE_LABEL } from "../lib/types";
 import { formatShort, weekLabel } from "../lib/dates";
@@ -212,10 +213,10 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
   );
 }
 
-type Mode = "cardio" | "strength" | "body";
+type Mode = "cardio" | "strength" | "body" | "nutrition";
 const MODE_KEY = "cardio-log:progress-mode";
 
-export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onMobility }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onMobility: () => void }) {
+export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onMobility, onOpenFoodDay }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onMobility: () => void; onOpenFoodDay: (day: string) => void }) {
   const [mode, setMode] = useState<Mode>(() => {
     try { return (localStorage.getItem(MODE_KEY) as Mode) || "strength"; } catch { return "strength"; }
   });
@@ -229,8 +230,10 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, o
       <div className="seg" role="group" aria-label="Progress type" style={{ marginBottom: 14 }}>
         <button className={mode === "strength" ? "on" : ""} aria-pressed={mode === "strength"} onClick={() => pick("strength")}>Strength</button>
         <button className={mode === "cardio" ? "on" : ""} aria-pressed={mode === "cardio"} onClick={() => pick("cardio")}>Cardio</button>
+        <button className={mode === "nutrition" ? "on" : ""} aria-pressed={mode === "nutrition"} onClick={() => pick("nutrition")}>Nutrition</button>
         <button className={mode === "body" ? "on" : ""} aria-pressed={mode === "body"} onClick={() => pick("body")}>Recovery</button>
       </div>
+      {mode === "nutrition" && <NutritionTrends nutri={data.nutrition} onOpenDay={onOpenFoodDay} />}
       <div className="progress-body">
       {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}
       {mode === "strength" && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}

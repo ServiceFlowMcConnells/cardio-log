@@ -761,3 +761,44 @@ select.input { appearance: auto; }
 .portion-link { display: block; margin-top: 10px; }
 .portion-form { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-top: 12px; padding: 10px; border-radius: 12px; background: var(--ground); }
 .portion-form .input { background: var(--panel); }
+
+/* ---------- Nutrition trends ---------- */
+.fs-links { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.ntr-head { display: grid; gap: 8px; }
+.ntr-avgs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.ntr-avgs > div { display: flex; flex-direction: column; min-width: 0; }
+.ntr-big { font-family: var(--display); font-weight: 700; font-size: 1.7rem; line-height: 1.1; }
+.ntr-big small { font-size: 0.9rem; font-weight: 600; color: var(--muted); }
+.ntr-range { display: flex; align-items: center; gap: 4px; }
+.ntr-range .icon-btn { font-size: 1.4rem; color: var(--ink); min-width: 32px; }
+.ntr-range > span { flex: 1; text-align: center; }
+.ntr-chart { margin-top: 6px; touch-action: manipulation; }
+.ntr-chart text { font-size: 10px; }
+.seg-p { fill: var(--m-p); } .seg-f { fill: var(--m-f); } .seg-c { fill: var(--m-c); } .seg-o { fill: var(--under); }
+.mk.o { background: var(--under); }
+.ntr-target { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 3; opacity: 0.8; }
+.ntr-controls { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.ntr-ranges { flex: 1; }
+.ntr-ranges button { font-size: 0.82rem; min-height: 36px; }
+.ntr-agg { width: auto; min-height: 44px; padding: 6px 8px; font-size: 0.9rem; flex: none; }
+.ntr-legend { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.ntr-leg { border: 0; border-radius: 999px; padding: 6px 12px; background: var(--ground); color: var(--muted); font-weight: 600; font-size: 0.85rem; opacity: 0.6; }
+.ntr-leg.on { opacity: 1; color: var(--ink); }
+.ntr-sel { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--ground); display: grid; gap: 2px; }
+.ntr-sel .link { justify-self: start; margin-top: 4px; }
+.ntr-budget { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ntr-budget > div { display: flex; flex-direction: column; }
+.ntr-mid { font-family: var(--display); font-weight: 700; font-size: 1.45rem; }
+.ntr-mid.warn { color: var(--over); }
+.habit { margin-top: 10px; }
+.habit-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.habit-grid { display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: 4px; }
+.habit-grid i { aspect-ratio: 1; border-radius: 4px; background: var(--ground); }
+.habit-grid i.on-food { background: var(--m-p); }
+.habit-grid i.on-weigh { background: var(--in); }
+.ntr-day { display: grid; gap: 4px; width: 100%; text-align: left; border: 0; color: inherit; font: inherit; margin-top: 6px; padding: 12px 14px; }
+.ntr-day-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ntr-mini { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 2px; }
+.ntr-mini .tbar-track { margin-top: 2px; height: 4px; display: block; }
+.ntr-mini .tbar-fill { display: block; }
+@media (max-width: 380px) { .ntr-big { font-size: 1.4rem; } .ntr-avgs { gap: 4px; } }
