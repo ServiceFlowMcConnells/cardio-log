@@ -591,7 +591,47 @@ select.input { appearance: auto; }
 .food-head { align-items: center; }
 .day-nav { display: flex; align-items: center; gap: 2px; }
 .day-nav .icon-btn { font-size: 1.5rem; line-height: 1; color: var(--ink); }
-.day-label { text-decoration: none; font-weight: 600; min-width: 92px; text-align: center; }
+.day-nav { position: relative; }
+.day-label { font: inherit; font-weight: 600; min-width: 92px; text-align: center; background: none; border: 0; color: var(--ink); padding: 6px 8px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.day-label:hover, .day-label.on { background: var(--ground); }
+.day-caret { font-size: 0.7rem; color: var(--muted); }
+/* Condensed day summary (MacroFactor-style) */
+.fs2 { padding: 12px 14px 10px; }
+.fs2-row { display: grid; grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.fs2-item { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fs2-val { display: flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 0.98rem; }
+.fs2-val .num { font-weight: 700; }
+.fs2-tag { display: inline-flex; align-items: center; font-weight: 800; font-size: 0.9rem; }
+.fs2-tag.k { color: var(--ink); } .fs2-tag.p { color: var(--m-p); } .fs2-tag.f { color: var(--m-f); } .fs2-tag.c { color: var(--m-c); }
+.fs2-unit { font-size: 0.8rem; color: var(--muted); }
+.fs2-unit.over { color: var(--over); font-weight: 600; }
+.fs2-track { display: block; height: 5px; border-radius: 3px; background: var(--ground); overflow: hidden; }
+.fs2-fill { display: block; height: 100%; border-radius: inherit; transition: width 0.3s; }
+.fs2-fill.k { background: var(--in); } .fs2-fill.p { background: var(--m-p); } .fs2-fill.f { background: var(--m-f); } .fs2-fill.c { background: var(--m-c); }
+.fs2-fill.over { background: var(--over); }
+.fs2 .fs-links { margin-top: 10px; }
+@media (max-width: 380px) { .fs2-row { gap: 6px; } .fs2-val { font-size: 0.9rem; } .fs2-unit { font-size: 0.72rem; } }
+/* Calendar for picking a day */
+.cal-backdrop { position: fixed; inset: 0; background: transparent; border: 0; z-index: 40; cursor: default; }
+.cal-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 41; width: 300px; max-width: calc(100vw - 32px); padding: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18); }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cal-head .icon-btn { font-size: 1.4rem; color: var(--ink); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.cal-wd { text-align: center; font-size: 0.72rem; color: var(--muted); padding: 2px 0 4px; }
+.cal-day { position: relative; aspect-ratio: 1; display: grid; place-items: center; background: none; border: 0; padding: 0; color: var(--ink); cursor: pointer; border-radius: 50%; font: inherit; }
+.cal-day svg { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); }
+.cal-track { fill: none; stroke: var(--ground); stroke-width: 3; }
+.cal-arc { fill: none; stroke: var(--in); stroke-width: 3; stroke-linecap: round; }
+.cal-arc.over { stroke: var(--over); }
+.cal-num { position: relative; font-size: 0.85rem; }
+.cal-day.future .cal-num { color: var(--muted); }
+.cal-day.today .cal-num { font-weight: 800; }
+.cal-day.today::after { content: ""; position: absolute; bottom: 1px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+.cal-day.on { background: var(--ink); }
+.cal-day.on .cal-num { color: var(--panel); font-weight: 700; }
+.cal-day.on .cal-track { stroke: transparent; }
+.cal-day.on.today::after { background: var(--panel); }
+.cal-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
 .food-sum .fs-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
 .fs-big { font-family: var(--display); font-weight: 700; font-size: 2.6rem; line-height: 1; }
 .fs-left { text-align: right; display: flex; flex-direction: column; align-items: flex-end; color: var(--in); }

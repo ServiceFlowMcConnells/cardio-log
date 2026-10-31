@@ -1,7 +1,8 @@
 import { useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import type { LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
 import { addDays, addEntries, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
-import { HourPicker, MacroInputs, MacroLine, MacroSub, TargetBar, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
+import { HourPicker, MacroInputs, MacroLine, MacroSub, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
+import { DayCalendar, DaySummary } from "./DayHeader";
 
 interface Props {
   nutri: NutritionData;
@@ -46,6 +47,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [cal, setCal] = useState(false);
   // Swipe a row left to swap its pencil for a bin
   const [swiped, setSwiped] = useState<string | null>(null);
   const [dragX, setDragX] = useState<{ id: string; dx: number } | null>(null);
@@ -107,7 +109,6 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
   const entries = nutri.log.filter((e) => e.eaten_on === day);
   const total = sumMacros(entries);
   const target = targetFor(nutri.targets, day);
-  const left = target ? target.kcal - total.kcal : null;
   const yesterday = nutri.log.filter((e) => e.eaten_on === addDays(day, -1));
   const selected = entries.filter((e) => sel.has(e.id));
 
@@ -119,7 +120,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
   const byHour = new Map<number, LogEntry[]>();
   for (const e of entries) byHour.set(hourOf(e.eaten_time), [...(byHour.get(hourOf(e.eaten_time)) ?? []), e]);
 
-  const goDay = (d: string) => { setOpen(null); setSel(new Set()); setSheet(null); setDay(d); };
+  const goDay = (d: string) => { setOpen(null); setSel(new Set()); setSheet(null); setCal(false); setDay(d); };
   const toggle = (ids: string[], on?: boolean) => {
     setOpen(null);
     setSwiped(null);
@@ -234,37 +235,15 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
         <h1>Food</h1>
         <div className="day-nav">
           <button className="icon-btn" aria-label="Previous day" onClick={() => goDay(addDays(day, -1))}>‹</button>
-          <button className="link day-label" onClick={() => goDay(todayYmd())} title="Back to today">{dayTitle(day)}</button>
+          <button className={`day-label${cal ? " on" : ""}`} onClick={() => setCal((c) => !c)} aria-expanded={cal} aria-haspopup="dialog">{dayTitle(day)}<span className="day-caret" aria-hidden="true">▾</span></button>
           <button className="icon-btn" aria-label="Next day" onClick={() => goDay(addDays(day, 1))}>›</button>
+          {cal && <DayCalendar nutri={nutri} day={day} onPick={goDay} onClose={() => setCal(false)} />}
         </div>
       </div>
 
       <div className="cols">
         <div className="col">
-          <section className="panel food-sum">
-            <div className="fs-top">
-              <div>
-                <span className="fs-big num">{fmtKcal(total.kcal)}</span>
-                <span className="muted"> {target ? `of ${fmtKcal(target.kcal)} kcal` : "kcal"}</span>
-              </div>
-              {left != null && (
-                <div className={`fs-left${left < 0 ? " over" : ""}`}>
-                  <span className="num">{fmtKcal(Math.abs(left))}</span>
-                  <span className="small">{left < 0 ? "over" : "left"}</span>
-                </div>
-              )}
-            </div>
-            {target && <div className="tbar-track big"><div className={`tbar-fill k${left! < -target.kcal * 0.05 ? " over" : ""}`} style={{ width: `${Math.min(100, (total.kcal / target.kcal) * 100)}%` }} /></div>}
-            <div className="fs-macros">
-              <TargetBar label="Protein" eaten={total.protein} target={target?.protein ?? null} unit="g" cls="p" />
-              <TargetBar label="Fat" eaten={total.fat} target={target?.fat ?? null} unit="g" cls="f" />
-              <TargetBar label="Carbs" eaten={total.carbs} target={target?.carbs ?? null} unit="g" cls="c" />
-            </div>
-            <div className="fs-links">
-              <button className="link small" onClick={onTargets}>{target ? "Edit targets" : "Set your targets from your coach"}</button>
-              <button className="link small" onClick={onTrends}>Trends and averages ›</button>
-            </div>
-          </section>
+          <DaySummary total={total} target={target} onTargets={onTargets} onTrends={onTrends} />
 
         </div>
 
