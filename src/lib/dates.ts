@@ -1,8 +1,17 @@
-// Weeks run Monday to Sunday.
+// Weeks start on the day chosen in Settings (Monday unless changed). 0 = Sunday … 6 = Saturday.
+let weekStartDay = 1;
+export const setWeekStart = (d: number) => { weekStartDay = ((Math.round(d) % 7) + 7) % 7; };
+export const getWeekStart = () => weekStartDay;
+/** Position of a date in its week: 0 = the first day of the week. */
+export const dayIndex = (d: Date) => (d.getDay() - weekStartDay + 7) % 7;
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** Short day names in week order, e.g. Mon … Sun. */
+export const weekdayLabels = () => Array.from({ length: 7 }, (_, i) => WEEKDAYS[(weekStartDay + i) % 7]);
+export const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 export function startOfWeek(d: Date): Date {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const day = (x.getDay() + 6) % 7; // Monday = 0
-  x.setDate(x.getDate() - day);
+  x.setDate(x.getDate() - dayIndex(x));
   return x;
 }
 

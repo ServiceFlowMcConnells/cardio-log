@@ -1,3 +1,4 @@
+import { WEEKDAY_NAMES } from "../lib/dates";
 import RestAlertSettings from "./RestAlertSettings";
 import { useState } from "react";
 import type { Session, Settings } from "../lib/types";
@@ -25,6 +26,7 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
   const [inc, setInc] = useState(String(settings.weight_increment));
   const [rest, setRest] = useState(String(settings.default_rest_sec));
   const [formula, setFormula] = useState<Settings["e1rm_formula"]>(settings.e1rm_formula);
+  const [weekStart, setWeekStartPick] = useState(settings.week_start);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -43,7 +45,7 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
     if (!(incN > 0 && incN <= 20)) return setMsg({ ok: false, text: "Weight increment should be between 0.25 and 20 kg." });
     const restN = Number(rest);
     if (!Number.isInteger(restN) || restN < 0 || restN > 900) return setMsg({ ok: false, text: "Rest should be 0 to 900 seconds." });
-    const next: Settings = { weekly_target_min: t, max_hr: maxHr ? mh : null, zone_low_pct: lo, zone_high_pct: hi, weight_increment: incN, default_rest_sec: restN, e1rm_formula: formula, deload_until: settings.deload_until };
+    const next: Settings = { weekly_target_min: t, max_hr: maxHr ? mh : null, zone_low_pct: lo, zone_high_pct: hi, weight_increment: incN, default_rest_sec: restN, e1rm_formula: formula, deload_until: settings.deload_until, week_start: weekStart };
     setBusy(true);
     setMsg(null);
     try {
@@ -139,6 +141,14 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
         <p className="muted small">
           All three use your logged RPE as reps in reserve: 100 kg × 5 at RPE 8 counts like 7 reps to failure. Sets without an RPE are treated as close to failure. The RPE chart is the most accurate if you log RPE; Brzycki is the most conservative.
         </p>
+
+        <label className="field">
+          <span>Week starts on</span>
+          <select className="input" value={weekStart} onChange={(e) => setWeekStartPick(Number(e.target.value))}>
+            {[1, 0, 6, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{WEEKDAY_NAMES[d]}</option>)}
+          </select>
+        </label>
+        <p className="muted small">Sets where every week begins: this week's cardio and strength, history, weekly averages and the nutrition weekly budget.</p>
 
         {msg && <p className={msg.ok ? "ok" : "error"} role="status">{msg.text}</p>}
         <button className="btn dark block" disabled={busy}>{busy ? "Saving…" : "Save settings"}</button>

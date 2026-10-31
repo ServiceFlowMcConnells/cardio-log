@@ -1,5 +1,5 @@
 import type { Block, Session, Settings } from "./types";
-import { startOfWeek, weekKey, addDays } from "./dates";
+import { startOfWeek, weekKey, addDays, dayIndex } from "./dates";
 
 export interface Zone { low: number; high: number }
 
@@ -62,7 +62,7 @@ export function groupByWeek(sessions: Session[], z: Zone | null): Map<string, We
       map.set(key, w);
     }
     w.sessions.push(s);
-    const dayIdx = (d.getDay() + 6) % 7;
+    const dayIdx = dayIndex(d);
     for (const b of s.blocks) {
       w.minutes += b.duration_min;
       w.byDay[dayIdx] += b.duration_min;

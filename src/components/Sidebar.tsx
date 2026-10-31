@@ -4,7 +4,7 @@ export type DeskNav = Tab | "plan" | "mobility" | "settings";
 
 const ITEMS: { id: DeskNav; label: string; icon: JSX.Element }[] = [
   { id: "week", label: "This week", icon: <path d="M3 13h18v6H3zM3 9h11" /> },
-  { id: "food", label: "Food & weight", icon: <><path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10" /><path d="M17 21V3c-2.2 1.2-3.5 3.7-3.5 7v3H17" /></> },
+  { id: "food", label: "Food", icon: <><path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10" /><path d="M17 21V3c-2.2 1.2-3.5 3.7-3.5 7v3H17" /></> },
   { id: "plan", label: "Plan my week", icon: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></> },
   { id: "train", label: "Programs & templates", icon: <path d="M4 6h16M4 12h10M4 18h7M17 15l3 3-3 3" /> },
   { id: "exercises", label: "Exercises", icon: <path d="M7 7v10M17 7v10M4 9.5v5M20 9.5v5M7 12h10" /> },

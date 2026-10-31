@@ -3,7 +3,7 @@ import type { Session } from "../lib/types";
 import type { Template, Workout } from "../lib/strength";
 import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/coach";
 import { fmtTonnage, isWorking, pctChange, volume } from "../lib/strength";
-import { addDays, formatMinutes, formatShort, startOfWeek, weekKey } from "../lib/dates";
+import { addDays, dayIndex, formatMinutes, formatShort, startOfWeek, weekKey, weekdayLabels } from "../lib/dates";
 import { emptyWeek, groupByWeek, zoneFor } from "../lib/calc";
 import SessionCard from "./SessionCard";
 import WorkoutCard from "./WorkoutCard";
@@ -16,7 +16,6 @@ import { useDesktop } from "../lib/desktop";
 import { nextUp } from "../lib/programs";
 import { addDaysYmd, nextDays, planAdvice, plannedStatus, shortName, ymd } from "../lib/schedule";
 
-const DAY_LETTERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 interface Props {
   data: AppData;
@@ -42,7 +41,8 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
   const last = weeks.get(weekKey(addDays(start, -7)));
   const target = settings.weekly_target_min;
   const scaleMax = Math.max(target, w.minutes, 30);
-  const todayIdx = (new Date().getDay() + 6) % 7;
+  const todayIdx = dayIndex(new Date());
+  const DAY_LETTERS = weekdayLabels();
   const daysLeft = 7 - todayIdx;
   const remaining = Math.max(0, target - w.minutes);
   const done = w.minutes >= target;
@@ -290,7 +290,7 @@ function StrengthWeek({ data, start, onOpen, onTrain, onStart, onWarmup, onPlan 
   );
 }
 
-/** Mon–Sun with what's planned and what got done, plus the coach's spacing check for the next 7 days. */
+/** This week (from your week start day) with what's planned and what got done, plus the coach's spacing check for the next 7 days. */
 function PlanStrip({ data, start, onPlan }: { data: AppData; start: Date; onPlan: () => void }) {
   const { planned, templates, workouts, exercises } = data;
   const today = ymd(new Date());

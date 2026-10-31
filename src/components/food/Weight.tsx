@@ -109,7 +109,7 @@ export function WeightCard({ nutri, checkins, setNutri, onOpen }: { nutri: Nutri
 type Range = 30 | 90 | 0;
 
 /** Full weight page: log any day, scale vs trend over time, entries. */
-export default function WeightView({ nutri, checkins, setNutri, onClose }: { nutri: NutritionData; checkins: Checkin[]; setNutri: (f: (n: NutritionData) => NutritionData) => void; onClose: () => void }) {
+export default function WeightView({ nutri, checkins, setNutri, onClose, embedded }: { nutri: NutritionData; checkins: Checkin[]; setNutri: (f: (n: NutritionData) => NutritionData) => void; onClose?: () => void; embedded?: boolean }) {
   const [day, setDay] = useState(todayYmd());
   const existing = nutri.weights.find((w) => w.measured_on === day);
   const [val, setVal] = useState(existing ? String(existing.weight_kg) : "");
@@ -145,13 +145,15 @@ export default function WeightView({ nutri, checkins, setNutri, onClose }: { nut
 
   return (
     <>
-      <div className="editor-bar">
-        <div>
-          <h1>Weight</h1>
-          <p className="muted small">Dots are scale weights; the line is your trend.</p>
+      {!embedded && (
+        <div className="editor-bar">
+          <div>
+            <h1>Weight</h1>
+            <p className="muted small">Dots are scale weights; the line is your trend.</p>
+          </div>
+          {onClose && <button className="btn ghost" onClick={onClose}>Done</button>}
         </div>
-        <button className="btn ghost" onClick={onClose}>Done</button>
-      </div>
+      )}
 
       <div className="cols">
         <div className="col">

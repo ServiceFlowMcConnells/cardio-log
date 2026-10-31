@@ -802,3 +802,4 @@ select.input { appearance: auto; }
 .ntr-mini .tbar-track { margin-top: 2px; height: 4px; display: block; }
 .ntr-mini .tbar-fill { display: block; }
 @media (max-width: 380px) { .ntr-big { font-size: 1.4rem; } .ntr-avgs { gap: 4px; } }
+.progress-seg button { font-size: 0.84rem; padding: 0 2px; }

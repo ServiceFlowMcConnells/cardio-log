@@ -35,6 +35,7 @@ export interface Settings {
   default_rest_sec: number;
   e1rm_formula: "rpe" | "epley" | "brzycki";
   deload_until: string | null; // YYYY-MM-DD, last day of a deload week
+  week_start: number; // 0 = Sunday, 1 = Monday …
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -46,6 +47,7 @@ export const DEFAULT_SETTINGS: Settings = {
   default_rest_sec: 120,
   e1rm_formula: "rpe",
   deload_until: null,
+  week_start: 1,
 };
 
 export const MACHINE_LABEL: Record<Machine, string> = {

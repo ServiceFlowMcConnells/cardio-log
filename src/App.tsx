@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHistoryTrap } from "./lib/backNav";
 import { DesktopContext, useDesktopMedia } from "./lib/desktop";
+import { setWeekStart } from "./lib/dates";
 import Sidebar, { type DeskNav } from "./components/Sidebar";
 import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
@@ -130,6 +131,7 @@ export default function App() {
         loadMobilityTests(), loadNiggles(), loadMobilitySessions(), loadPrograms(), loadPlanned(),
         loadNutrition().catch((e) => { console.warn("loadNutrition failed", e); return null; }),
       ]);
+      setWeekStart(settings.week_start);
       setData((d) => ({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, programs: prog.programs, activeProgramId: prog.activeId, planned, nutrition: nutrition ?? d.nutrition }));
       setLoadError(null);
     } catch (e) {
@@ -348,7 +350,7 @@ export default function App() {
         workouts={workouts}
         exercises={exercises}
         email={auth.user.email ?? ""}
-        onSaved={(s) => setData((d) => ({ ...d, settings: s }))}
+        onSaved={(s) => { setWeekStart(s.week_start); setData((d) => ({ ...d, settings: s })); }}
         onBack={() => home()}
       />
     );
@@ -400,13 +402,11 @@ export default function App() {
     body = (
       <FoodDay
         nutri={data.nutrition}
-        checkins={checkins}
         day={foodDay}
         setDay={setFoodDay}
         setNutri={setNutri}
         onAdd={(time) => go({ k: "food-add", time })}
         onTargets={() => go({ k: "targets" })}
-        onWeight={() => go({ k: "weight" })}
         onMakeRecipe={(items) => go({ k: "recipe", recipe: null, items })}
         onTrends={() => go({ k: "nutrition" })}
       />
@@ -414,7 +414,7 @@ export default function App() {
   } else if (tab === "exercises") {
     body = <ExerciseLibrary data={data} onOpen={(id) => go({ k: "exercise", id })} onChanged={refresh} />;
   } else {
-    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} />;
+    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} setNutri={setNutri} />;
   }
 
   const FOOD_VIEWS = new Set<View["k"]>(["food-add", "food-edit", "recipe", "targets", "weight", "nutrition"]);

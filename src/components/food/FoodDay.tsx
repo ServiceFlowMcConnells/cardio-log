@@ -1,19 +1,15 @@
 import { useRef, useState, type PointerEvent as RPointerEvent } from "react";
-import type { Checkin } from "../../lib/readiness";
 import type { LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
 import { addDays, addEntries, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, TargetBar, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
-import { WeightCard } from "./Weight";
 
 interface Props {
   nutri: NutritionData;
-  checkins: Checkin[];
   day: string;
   setDay: (d: string) => void;
   setNutri: (f: (n: NutritionData) => NutritionData) => void;
   onAdd: (time?: string) => void;
   onTargets: () => void;
-  onWeight: () => void;
   onMakeRecipe: (items: { food_id: string; grams: number }[]) => void;
   onTrends: () => void;
 }
@@ -42,7 +38,7 @@ function Check({ on }: { on: boolean }) {
   );
 }
 
-export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd, onTargets, onWeight, onMakeRecipe, onTrends }: Props) {
+export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets, onMakeRecipe, onTrends }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [sheet, setSheet] = useState<null | { mode: "copy" | "move"; day: string; time: string }>(null);
@@ -270,7 +266,6 @@ export default function FoodDay({ nutri, checkins, day, setDay, setNutri, onAdd,
             </div>
           </section>
 
-          <WeightCard nutri={nutri} checkins={checkins} setNutri={setNutri} onOpen={onWeight} />
         </div>
 
         <div className="col">

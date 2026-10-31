@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { DayTotal, NutritionData } from "../../lib/nutrition";
-import { addDays, dayTotals, fromYmd, targetFor, todayYmd } from "../../lib/nutrition";
+import { addDays, dayTotals, fromYmd, targetFor, todayYmd, ymd } from "../../lib/nutrition";
+import { WEEKDAY_NAMES, getWeekStart, startOfWeek } from "../../lib/dates";
 import { fmtG, fmtKcal } from "./bits";
 import { useDesktop } from "../../lib/desktop";
 
@@ -25,7 +26,9 @@ const avgOf = (ds: DayTotal[]): DayTotal | null => {
   const s = ds.reduce((a, d) => ({ kcal: a.kcal + d.kcal, protein: a.protein + d.protein, carbs: a.carbs + d.carbs, fat: a.fat + d.fat }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
   return { day: ds[0].day, entries: 0, kcal: s.kcal / ds.length, protein: s.protein / ds.length, carbs: s.carbs / ds.length, fat: s.fat / ds.length };
 };
-const mondayOf = (d: string) => { const x = fromYmd(d); return addDays(d, -((x.getDay() + 6) % 7)); };
+/** First day of the week containing d, per the week start in Settings. */
+const weekStartOf = (d: string) => ymd(startOfWeek(fromYmd(d)));
+const lastDayName = () => WEEKDAY_NAMES[(getWeekStart() + 6) % 7];
 const fmtDay = (d: string, o: Intl.DateTimeFormatOptions) => fromYmd(d).toLocaleDateString("en-IE", o);
 const kcalOther = (d: { kcal: number; protein: number; carbs: number; fat: number }) => Math.max(0, d.kcal - d.protein * 4 - d.carbs * 4 - d.fat * 9);
 
@@ -33,21 +36,23 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
   const today = todayYmd();
   const [range, setRange] = useState<Range>(7);
   const [aggPick, setAggPick] = useState<Agg | null>(null);
-  const [end, setEnd] = useState(today);
+  const [anchor, setEnd] = useState(today);
   const [on, setOn] = useState<Set<Series>>(new Set(["p", "f", "c", "o"]));
   const [sel, setSel] = useState<number | null>(null);
 
   const totals = useMemo(() => dayTotals(nutri), [nutri]);
   const allDays = useMemo(() => [...totals.keys()].sort(), [totals]);
   const first = allDays[0] ?? today;
-  const start = range ? addDays(end, -(range - 1)) : first;
+  // 1W is a calendar week from your week start day; longer ranges run back from the anchor day
+  const end = range === 7 ? addDays(weekStartOf(anchor), 6) : anchor;
+  const start = range === 7 ? weekStartOf(anchor) : range ? addDays(end, -(range - 1)) : first;
   const agg: Agg = aggPick ?? (range === 0 ? (daysBetween(first, end) > 200 ? "M" : "W") : range >= 182 ? "W" : "D");
 
   const tgt = (d: string) => targetFor(nutri.targets, d);
 
   const buckets = useMemo(() => {
     const out: Bucket[] = [];
-    const keyOf = (d: string) => (agg === "D" ? d : agg === "W" ? mondayOf(d) : d.slice(0, 7));
+    const keyOf = (d: string) => (agg === "D" ? d : agg === "W" ? weekStartOf(d) : d.slice(0, 7));
     let cur: { key: string; days: string[] } | null = null;
     const flush = () => {
       if (!cur) return;
@@ -76,7 +81,7 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
   const only = on.size === 1 && !on.has("o") ? ([...on][0] as "p" | "f" | "c") : null; // one macro: chart it in grams
   const gramKey = only === "p" ? "protein" : only === "f" ? "fat" : only === "c" ? "carbs" : null;
   const toggle = (s: Series) => { setOn((cur) => { const n = new Set(cur); if (n.has(s)) { if (n.size > 1) n.delete(s); } else n.add(s); return n; }); };
-  const shift = (dir: -1 | 1) => { if (!range) return; const n = addDays(end, dir * range); setEnd(n > addDays(today, 7) ? addDays(today, 7) : n); setSel(null); };
+  const shift = (dir: -1 | 1) => { if (!range) return; const n = addDays(anchor, dir * range); setEnd(n > addDays(today, 7) ? addDays(today, 7) : n); setSel(null); };
   const selB = sel != null ? buckets[sel] : null;
 
   const label = range ? `${fmtDay(start, { day: "numeric", month: "short" })} – ${fmtDay(end, { day: "numeric", month: "short", year: "numeric" })}` : `${fmtDay(start, { month: "short", year: "numeric" })} – now`;
@@ -214,9 +219,9 @@ function niceStep(v: number) {
   return 10 * p;
 }
 
-/** This week (Mon–Sun): what's left to average your targets. Logging tomorrow's food ahead counts as planned. */
+/** This week (from your week start day): what's left to average your targets. Logging tomorrow's food ahead counts as planned. */
 function WeekBudget({ nutri, totals, today }: { nutri: NutritionData; totals: Map<string, DayTotal>; today: string }) {
-  const mon = mondayOf(today);
+  const mon = weekStartOf(today);
   const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
   const ts = days.map((d) => targetFor(nutri.targets, d));
   if (ts.some((t) => !t)) return null;
@@ -235,8 +240,8 @@ function WeekBudget({ nutri, totals, today }: { nutri: NutritionData; totals: Ma
       <h2 style={{ marginBottom: 6 }}>This week</h2>
       <div className="ntr-budget">
         <div><span className="small muted">Weekly target</span><span className="num ntr-mid">{fmtKcal(budget)}</span></div>
-        <div><span className="small muted">Eaten Mon–yesterday</span><span className="num ntr-mid">{fmtKcal(eaten)}</span></div>
-        <div><span className="small muted">{left === 1 ? "Left for today" : `Per day, today to Sunday (${left})`}</span><span className={`num ntr-mid${perDay < t0.kcal * 0.85 ? " warn" : ""}`}>{fmtKcal(perDay)}</span></div>
+        <div><span className="small muted">{today === mon ? "Eaten so far this week" : `Eaten ${WEEKDAY_NAMES[getWeekStart()].slice(0, 3)}–yesterday`}</span><span className="num ntr-mid">{fmtKcal(eaten)}</span></div>
+        <div><span className="small muted">{left === 1 ? "Left for today" : `Per day, today to ${lastDayName()} (${left})`}</span><span className={`num ntr-mid${perDay < t0.kcal * 0.85 ? " warn" : ""}`}>{fmtKcal(perDay)}</span></div>
       </div>
       <p className="small muted" style={{ marginTop: 8 }}>
         {perDay >= t0.kcal * 0.97 && perDay <= t0.kcal * 1.03 ? "On track: keep to your daily target." : perDay > t0.kcal ? `You've room for about ${fmtKcal(perDay - t0.kcal)} kcal a day more than target and still average it this week.` : `To average your target, aim about ${fmtKcal(t0.kcal - perDay)} kcal a day under it for the rest of the week (or just let it go: one week's average isn't make or break).`}
@@ -250,7 +255,7 @@ function WeekBudget({ nutri, totals, today }: { nutri: NutritionData; totals: Ma
 function Habits({ nutri, totals, today }: { nutri: NutritionData; totals: Map<string, DayTotal>; today: string }) {
   const days = Array.from({ length: 30 }, (_, i) => addDays(today, i - 29));
   const weighed = new Set(nutri.weights.map((w) => w.measured_on));
-  const mon = mondayOf(today);
+  const mon = weekStartOf(today);
   const week = days.filter((d) => d >= mon);
   const row = (name: string, has: (d: string) => boolean, cls: string) => (
     <div className="habit">
