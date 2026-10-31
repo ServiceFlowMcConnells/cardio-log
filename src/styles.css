@@ -805,7 +805,8 @@ select.input { appearance: auto; }
 .progress-seg button { font-size: 0.84rem; padding: 0 2px; }
 
 /* ---------- Weight chart ---------- */
-.wchart-svg { touch-action: pan-y; cursor: crosshair; }
+.wchart-svg { touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.wchart-svg:active { cursor: grabbing; }
 .w-scale { stroke: var(--bike); opacity: 0.38; }
 .w-scale-dot { fill: var(--bike); opacity: 0.45; }
 .w-scale-dot.on { opacity: 0.9; }

@@ -50,6 +50,8 @@ export function WeightChart({ points, compact, agg = "D", show = { scale: true, 
   // Two-finger pinch zooms the time axis (the weight axis rescales to what's visible)
   const touches = useRef(new Map<number, number>());
   const pinch0 = useRef<{ d: number; c: number } | null>(null);
+  const drag = useRef<{ x0: number; mode: "pending" | "pan" | "read" } | null>(null);
+  const holdTimer = useRef<number>();
   const frac = (clientX: number) => { const r = ref.current?.getBoundingClientRect(); return r ? (clientX - r.left) / r.width : 0.5; };
   const twoX = () => { const xs = [...touches.current.values()]; return xs.length >= 2 ? [xs[0], xs[1]] : null; };
   // Trackpad pinch (or ctrl + scroll) on a laptop; needs a non-passive listener to stop the page zooming
@@ -107,7 +109,7 @@ export function WeightChart({ points, compact, agg = "D", show = { scale: true, 
               {hp.scale != null && <span><i className="leg-line scale" />{kg(hp.scale)} kg{agg !== "D" ? " avg" : ""}</span>}
               <span><i className="leg-line trend" />{kg(hp.trend)} kg trend</span>
             </>
-          ) : <span className="muted">Tap the chart to read a day</span>}
+          ) : <span className="muted">{wide ? "Hover to read a day; drag to move, pinch or ctrl + scroll to zoom" : "Hold to read a day · drag to move · pinch to zoom"}</span>}
         </div>
       )}
       <svg
@@ -118,36 +120,74 @@ export function WeightChart({ points, compact, agg = "D", show = { scale: true, 
         aria-label={`Bodyweight: trend ${kg(pts[n].trend)} kg`}
         onPointerDown={(e) => {
           if (compact) return;
-          if (e.pointerType === "touch") {
-            touches.current.set(e.pointerId, e.clientX);
-            const t = twoX();
-            if (t && onPinch) {
-              pinch0.current = { d: Math.max(12, Math.abs(t[0] - t[1])), c: frac((t[0] + t[1]) / 2) };
-              setHover(null);
-              onPinch({ phase: "start", scale: 1, center: pinch0.current.c, shift: 0 });
-              return;
-            }
+          const isTouch = e.pointerType !== "mouse";
+          touches.current.set(e.pointerId, e.clientX);
+          const t = twoX();
+          if (t && onPinch) {
+            // Second finger down: pinch to zoom (ends any pan or reading)
+            window.clearTimeout(holdTimer.current);
+            if (drag.current?.mode === "pan") onPinch({ phase: "end", scale: 1, center: 0.5, shift: 0 });
+            drag.current = null;
+            pinch0.current = { d: Math.max(12, Math.abs(t[0] - t[1])), c: frac((t[0] + t[1]) / 2) };
+            setHover(null);
+            onPinch({ phase: "start", scale: 1, center: pinch0.current.c, shift: 0 });
+            return;
           }
-          pick(e.clientX);
+          if (!isTouch && e.button !== 0) return;
+          drag.current = { x0: e.clientX, mode: "pending" };
+          if (isTouch) {
+            // Hold still to read a day; drag to move along the timeline
+            window.clearTimeout(holdTimer.current);
+            const x = e.clientX;
+            holdTimer.current = window.setTimeout(() => {
+              if (drag.current?.mode !== "pending") return;
+              drag.current = { ...drag.current, mode: "read" };
+              navigator.vibrate?.(8);
+              pick(x);
+            }, 320);
+          }
         }}
         onPointerMove={(e) => {
           if (compact) return;
-          if (e.pointerType === "touch" && touches.current.has(e.pointerId)) {
-            touches.current.set(e.pointerId, e.clientX);
-            const t = twoX();
-            if (t && pinch0.current && onPinch) {
-              const c = frac((t[0] + t[1]) / 2);
-              onPinch({ phase: "move", scale: Math.max(12, Math.abs(t[0] - t[1])) / pinch0.current.d, center: pinch0.current.c, shift: c - pinch0.current.c });
-              return;
-            }
+          if (touches.current.has(e.pointerId)) touches.current.set(e.pointerId, e.clientX);
+          const t = twoX();
+          if (t && pinch0.current && onPinch) {
+            const c = frac((t[0] + t[1]) / 2);
+            onPinch({ phase: "move", scale: Math.max(12, Math.abs(t[0] - t[1])) / pinch0.current.d, center: pinch0.current.c, shift: c - pinch0.current.c });
+            return;
           }
-          if (e.buttons || e.pointerType === "mouse") pick(e.clientX);
+          const d = drag.current;
+          if (!d) { if (e.pointerType === "mouse") pick(e.clientX); return; } // mouse hover reads a day
+          if (d.mode === "read") { pick(e.clientX); return; }
+          if (d.mode === "pending" && Math.abs(e.clientX - d.x0) > 6 && onPinch) {
+            window.clearTimeout(holdTimer.current);
+            setHover(null);
+            drag.current = { x0: d.x0, mode: "pan" };
+            onPinch({ phase: "start", scale: 1, center: frac(d.x0), shift: 0 });
+          }
+          if (drag.current?.mode === "pan" && onPinch) onPinch({ phase: "move", scale: 1, center: frac(d.x0), shift: frac(e.clientX) - frac(d.x0) });
         }}
         onPointerUp={(e) => {
           touches.current.delete(e.pointerId);
-          if (pinch0.current && touches.current.size < 2) { pinch0.current = null; onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 }); }
+          window.clearTimeout(holdTimer.current);
+          if (pinch0.current) {
+            if (touches.current.size < 2) { pinch0.current = null; onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 }); }
+            drag.current = null;
+            return;
+          }
+          const d = drag.current;
+          drag.current = null;
+          if (d?.mode === "pan") onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 });
+          else if (d?.mode === "pending") { if (e.pointerType === "mouse") pick(e.clientX); else setHover(null); } // a quick tap clears the reading
         }}
-        onPointerCancel={(e) => { touches.current.delete(e.pointerId); if (pinch0.current) { pinch0.current = null; onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 }); } }}
+        onContextMenu={(e) => e.preventDefault()}
+        onPointerCancel={(e) => {
+          touches.current.delete(e.pointerId);
+          window.clearTimeout(holdTimer.current);
+          if (pinch0.current || drag.current?.mode === "pan") onPinch?.({ phase: "end", scale: 1, center: 0.5, shift: 0 });
+          pinch0.current = null;
+          drag.current = null;
+        }}
         onPointerLeave={(e) => e.pointerType === "mouse" && setHover(null)}
       >
         {ticks.map((v) => (
@@ -206,6 +246,7 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
   const winEnd = custom?.end ?? end;
   const shown = pts.filter((p) => p.day >= start && p.day <= winEnd);
   const span = Math.max(1, daysApart(start, winEnd));
+  const zoomed = custom != null && (!range || span !== range - 1); // dragging along keeps the preset; pinching doesn't
 
   function onPinch(p: Pinch) {
     if (p.phase === "start") { gesture.current = { start, end: winEnd }; return; }
@@ -297,13 +338,13 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
           </div>
           <div className="ntr-range">
             <button className="icon-btn" aria-label="Earlier" disabled={(!range && !custom) || start <= first} onClick={() => shift(-1)}>‹</button>
-            <span className="small">{fmtD(start)} – {fmtD(winEnd)}{custom && <span className="muted"> · zoomed</span>}</span>
+            <span className="small">{fmtD(start)} – {fmtD(winEnd)}{zoomed && <span className="muted"> · zoomed</span>}</span>
             <button className="icon-btn" aria-label="Later" disabled={(!range && !custom) || winEnd >= today} onClick={() => shift(1)}>›</button>
           </div>
           <WeightChart points={shown} agg={agg} show={show} onPinch={onPinch} />
           <div className="ntr-controls">
             <div className="seg ntr-ranges" role="group" aria-label="Range">
-              {RANGES.map(({ r, l }) => <button key={l} className={range === r && !custom ? "on" : ""} aria-pressed={range === r && !custom} onClick={() => { setRange(r); setEnd(today); setCustom(null); setAggPick(null); }}>{l}</button>)}
+              {RANGES.map(({ r, l }) => <button key={l} className={range === r && !zoomed ? "on" : ""} aria-pressed={range === r && !zoomed} onClick={() => { setRange(r); setEnd(today); setCustom(null); setAggPick(null); }}>{l}</button>)}
             </div>
             <select className="input ntr-agg" value={agg} onChange={(e) => setAggPick(e.target.value as Agg)} aria-label="Granularity">
               <option value="D">Days</option>
