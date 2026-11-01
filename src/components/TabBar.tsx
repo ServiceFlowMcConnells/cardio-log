@@ -3,8 +3,10 @@ export type Tab = "week" | "history" | "train" | "food" | "exercises" | "progres
 const icons: Record<Exclude<Tab, "train">, JSX.Element> = {
   week: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <rect x="3" y="13" width="18" height="6" rx="1.5" />
-      <path d="M3 9h11" />
+      <rect x="4" y="4" width="7" height="9" rx="1.5" />
+      <rect x="13" y="4" width="7" height="5" rx="1.5" />
+      <rect x="13" y="11" width="7" height="9" rx="1.5" />
+      <rect x="4" y="15" width="7" height="5" rx="1.5" />
     </svg>
   ),
   history: (
@@ -31,7 +33,7 @@ const icons: Record<Exclude<Tab, "train">, JSX.Element> = {
   ),
 };
 
-const labels: Record<Tab, string> = { week: "Week", history: "History", train: "Train", food: "Food", exercises: "Exercises", progress: "Progress" };
+const labels: Record<Tab, string> = { week: "Dashboard", history: "History", train: "Train", food: "Food", exercises: "Exercises", progress: "Progress" };
 
 export default function TabBar({ tab, onTab, plusOpen }: { tab: Tab; onTab: (t: Tab) => void; plusOpen?: boolean }) {
   const order: Tab[] = ["week", "history", "train", "food", "progress"];

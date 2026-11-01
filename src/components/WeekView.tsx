@@ -1,14 +1,10 @@
 import type { AppData } from "../App";
-import { ActivityCard } from "./Activity";
 import type { Session } from "../lib/types";
 import type { Template, Workout } from "../lib/strength";
 import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/coach";
-import { fmtTonnage, isWorking, pctChange, volume } from "../lib/strength";
 import { addDays, dayIndex, formatMinutes, formatShort, startOfWeek, weekKey, weekdayLabels } from "../lib/dates";
 import { emptyWeek, groupByWeek, zoneFor } from "../lib/calc";
 import SessionCard from "./SessionCard";
-import WorkoutCard from "./WorkoutCard";
-import { Delta } from "./WorkoutLogger";
 import type { Checkin } from "../lib/readiness";
 import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, weeklyLossPct } from "../lib/readiness";
 import { AREA_LABEL, daysThisWeek, doneToday, fmtMin, needsRetest } from "../lib/mobility";
@@ -33,7 +29,7 @@ interface Props {
   onScan: (c: Checkin | null) => void;
 }
 
-export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onOpenWorkout, onTrain, onStart, onWarmup, onPlan, onMobility, onDailyMobility, goSettings, onScan }: Props) {
+export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onTrain, onStart, onWarmup, onPlan, onMobility, onDailyMobility, goSettings, onScan }: Props) {
   const { sessions, settings, workouts, exercises } = data;
   const z = zoneFor(settings);
   const start = startOfWeek(new Date());
@@ -62,7 +58,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
     <>
       <div className="page-head">
         <div>
-          <h1>This week</h1>
+          <h1>Dashboard</h1>
           <span className="muted small">
             {formatShort(start)} – {formatShort(addDays(start, 6))}
           </span>
@@ -77,9 +73,8 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
       <div className="cols">
       <div className="col">
       <ReadinessCard checkins={data.checkins} onScan={onScan} />
-      <ActivityCard activity={data.activity} target={data.settings.step_target} />
 
-      <StrengthWeek data={data} start={start} onOpen={onOpenWorkout} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} onPlan={onPlan} />
+      <StrengthWeek data={data} start={start} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} onPlan={onPlan} />
       </div>
       <div className="col">
       <MobilityCard data={data} onOpen={onMobility} onPlay={onDailyMobility} />
@@ -245,20 +240,13 @@ function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Templ
   );
 }
 
-function StrengthWeek({ data, start, onOpen, onTrain, onStart, onWarmup, onPlan }: { data: AppData; start: Date; onOpen: (w: Workout) => void; onTrain: () => void; onStart: (t: Template) => void; onWarmup: (t: Template) => void; onPlan: () => void }) {
+function StrengthWeek({ data, start, onTrain, onStart, onWarmup, onPlan }: { data: AppData; start: Date; onTrain: () => void; onStart: (t: Template) => void; onWarmup: (t: Template) => void; onPlan: () => void }) {
   const { workouts, exercises } = data;
   const end = addDays(start, 7).getTime();
   const lastStart = addDays(start, -7).getTime();
   const inRange = (w: Workout, a: number, b: number) => { const t = new Date(w.started_at).getTime(); return t >= a && t < b; };
   const thisWeek = workouts.filter((w) => inRange(w, start.getTime(), end));
   const lastWeek = workouts.filter((w) => inRange(w, lastStart, start.getTime()));
-  const vol = thisWeek.reduce((a, w) => a + volume(w.sets), 0);
-  const lastVol = lastWeek.reduce((a, w) => a + volume(w.sets), 0);
-  const sets = thisWeek.reduce((a, w) => a + w.sets.filter(isWorking).length, 0);
-  // Like-for-like: last week's volume up to the same point in the week
-  const elapsed = Date.now() - start.getTime();
-  const lastSoFar = workouts.filter((w) => inRange(w, lastStart, lastStart + elapsed)).reduce((a, w) => a + volume(w.sets), 0);
-
   return (
     <section className="section" style={{ marginTop: 6 }}>
       <div className="page-head" style={{ marginBottom: 10 }}>
@@ -273,20 +261,7 @@ function StrengthWeek({ data, start, onOpen, onTrain, onStart, onWarmup, onPlan 
           {!data.templates.length && <button className="btn primary" onClick={onTrain}>{exercises.length ? "Create a workout template" : "Set up your exercises"}</button>}
         </div>
       ) : (
-        <>
-          <div className="stats" style={{ marginTop: 10 }}>
-            <div className="stat"><div className="v">{thisWeek.length}</div><div className="l">workout{thisWeek.length === 1 ? "" : "s"}</div></div>
-            <div className="stat"><div className="v">{sets}</div><div className="l">working sets</div></div>
-            <div className="stat">
-              <div className="v" style={{ fontSize: "1.35rem", whiteSpace: "nowrap" }}>{fmtTonnage(vol)}</div>
-              <div className="l">volume {lastSoFar > 0 && <Delta v={pctChange(vol, lastSoFar)} digits={0} />}</div>
-            </div>
-          </div>
-          {lastVol > 0 && <p className="muted small" style={{ marginTop: 6 }}>Volume change is against last week up to the same day ({fmtTonnage(lastVol)} for the full week).</p>}
-          <div style={{ marginTop: 8 }}>
-            {thisWeek.map((w) => <WorkoutCard key={w.id} workout={w} exercises={exercises} workouts={workouts} formula={data.settings.e1rm_formula} onOpen={onOpen} />)}
-          </div>
-        </>
+        null
       )}
     </section>
   );
