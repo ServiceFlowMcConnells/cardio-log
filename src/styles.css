@@ -743,10 +743,13 @@ select.input { appearance: auto; }
 
 /* ---------- Hourly food timeline ---------- */
 .macro-sub { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font-size: 0.84rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.macro-sub b { font-weight: 600; margin-left: 1px; }
+.macro-sub b { font-weight: 700; }
+.macro-sub .ms { display: inline-flex; align-items: baseline; gap: 3px; }
+.macro-sub .ms-k { align-items: center; gap: 2px; }
+.macro-sub .ms-k .fire { color: var(--ink); opacity: 0.85; }
 .macro-sub b.p { color: var(--m-p-ink); } .macro-sub b.f { color: var(--m-f-ink); } .macro-sub b.c { color: var(--m-c-ink); }
 .macro-sub.big { font-size: 0.95rem; color: var(--ink); }
-.macro-sub.big > .num:first-child { font-weight: 700; }
+.macro-sub.big .ms-k .num { font-weight: 700; }
 .hint { margin: 2px 2px 10px; }
 .timeline { position: relative; }
 .timeline::before { content: ""; position: absolute; right: 28px; top: 14px; bottom: 14px; width: 2px; background: var(--line); }

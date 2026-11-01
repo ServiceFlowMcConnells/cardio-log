@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import type { DayTotal, NutritionData } from "../../lib/nutrition";
 import { addDays, dayTotals, fromYmd, targetFor, todayYmd, ymd } from "../../lib/nutrition";
 import { WEEKDAY_NAMES, getWeekStart, startOfWeek } from "../../lib/dates";
-import { fmtG, fmtKcal } from "./bits";
+import { MacroLetters, fmtG, fmtKcal } from "./bits";
 import { useDesktop } from "../../lib/desktop";
 import type { Pinch } from "../../lib/chartGestures";
 import { pinchWindow, useChartGestures } from "../../lib/chartGestures";
@@ -175,7 +175,7 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
           <div className="ntr-sel">
             <strong>{agg === "D" ? fmtDay(selB.start, { weekday: "short", day: "numeric", month: "short" }) : agg === "W" ? `Week of ${fmtDay(selB.start, { day: "numeric", month: "short" })}` : fmtDay(selB.start, { month: "long", year: "numeric" })}</strong>
             {selB.avg ? (
-              <span className="small">{agg !== "D" && "Daily average: "}{fmtKcal(selB.avg.kcal)} kcal · {fmtG(selB.avg.protein)}P {fmtG(selB.avg.fat)}F {fmtG(selB.avg.carbs)}C{selB.target ? ` · target ${fmtKcal(selB.target.kcal)}` : ""}{selB.planned ? " · planned" : ""}</span>
+              <span className="small">{agg !== "D" && "Daily average: "}{fmtKcal(selB.avg.kcal)} kcal · P {fmtG(selB.avg.protein)} F {fmtG(selB.avg.fat)} C {fmtG(selB.avg.carbs)}{selB.target ? ` · target ${fmtKcal(selB.target.kcal)}` : ""}{selB.planned ? " · planned" : ""}</span>
             ) : <span className="small muted">Nothing logged</span>}
             {agg === "D" && <button className="link small" onClick={() => onOpenDay(selB.start)}>Open day ›</button>}
           </div>
@@ -352,7 +352,7 @@ function DayList({ totals, start, end, today, tgt, onOpenDay }: { buckets: Bucke
                 <span className="num"><strong>{fmtKcal(d.kcal)}</strong> kcal{t && <span className={`small ${Math.abs(d.kcal - t.kcal) <= t.kcal * 0.05 ? "ok" : "muted"}`}> {diff(d.kcal - t.kcal)}</span>}</span>
               </span>
               <span className="macro-sub">
-                <span className="num">{fmtG(d.protein)}<b className="p">P</b> {fmtG(d.fat)}<b className="f">F</b> {fmtG(d.carbs)}<b className="c">C</b></span>
+                <MacroLetters m={d} />
                 <span>· {Math.round((d.protein * 4 / mk) * 100)}% P · {Math.round((d.fat * 9 / mk) * 100)}% F · {Math.round((d.carbs * 4 / mk) * 100)}% C</span>
               </span>
               {t && t.protein != null && (

@@ -24,12 +24,23 @@ export function FireIcon({ size = 15 }: { size?: number }) {
   );
 }
 
-/** "55🔥 5P 1F 6C · 50 g" (fire) or "55 kcal 5P 1F 6C · 50 g". */
-export function MacroSub({ m, amount, fire }: { m: Macros; amount?: string; fire?: boolean }) {
+/** P 34 · F 8.6 · C 55: the letter before the value, as in the day header. */
+export function MacroLetters({ m }: { m: Pick<Macros, "protein" | "fat" | "carbs"> }) {
   return (
-    <span className="macro-sub">
-      {fire ? <span className="num kcal-fire">{fmtKcal(m.kcal)}<FireIcon size={13} /><span className="sr-only"> kcal</span></span> : <span className="num">{fmtKcal(m.kcal)} kcal</span>}
-      <span className="num">{fmtG(m.protein)}<b className="p">P</b> {fmtG(m.fat)}<b className="f">F</b> {fmtG(m.carbs)}<b className="c">C</b></span>
+    <>
+      <span className="ms"><b className="p">P</b><span className="num">{fmtG(m.protein)}</span></span>
+      <span className="ms"><b className="f">F</b><span className="num">{fmtG(m.fat)}</span></span>
+      <span className="ms"><b className="c">C</b><span className="num">{fmtG(m.carbs)}</span></span>
+    </>
+  );
+}
+
+/** "🔥 427  P 34  F 8.6  C 55 · 1 serving", labels before values like the day header. */
+export function MacroSub({ m, amount, big }: { m: Macros; amount?: string; fire?: boolean; big?: boolean }) {
+  return (
+    <span className={`macro-sub${big ? " big" : ""}`}>
+      <span className="ms ms-k"><FireIcon size={big ? 14 : 13} /><span className="num">{fmtKcal(m.kcal)}</span><span className="sr-only"> kcal</span></span>
+      <MacroLetters m={m} />
       {amount && <span>· {amount}</span>}
     </span>
   );

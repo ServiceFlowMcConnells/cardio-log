@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
-import type { LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
+import type { Food, LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
 import { addDays, addEntries, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 import { DayCalendar, DaySummary } from "./DayHeader";
+import { amountLabel } from "./AmountPanel";
 import { useDesktop } from "../../lib/desktop";
 
 interface Props {
@@ -24,7 +25,7 @@ function dayTitle(d: string) {
   return fromYmd(d).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" });
 }
 
-const amountText = (e: LogEntry) => (e.kind === "quick" ? "quick add" : e.kind === "import" ? "imported day total" : e.unit === "g" ? `${fmtG(e.amount)} g` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
+const amountText = (e: LogEntry, foods: Food[]) => (e.kind === "quick" ? "quick add" : e.kind === "import" ? "imported day total" : e.kind === "food" ? amountLabel(foods.find((f) => f.id === e.food_id) ?? null, e.amount, e.unit) : e.unit === "g" ? `${fmtG(e.amount)} g` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
 
 function PencilIcon() {
   return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M4 17.2V20h2.8l8.3-8.3-2.8-2.8L4 17.2zm13.7-7.6a1 1 0 0 0 0-1.4l-1.9-1.9a1 1 0 0 0-1.4 0l-1.5 1.5 2.8 2.8 2-1z" /></svg>;
@@ -213,10 +214,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
       <section key={t} className={`hour${list.length ? "" : " empty-hour"}${isToday && h === new Date().getHours() ? " now-hour" : ""}`} ref={isToday && h === new Date().getHours() ? (el) => { nowRow.current = el; } : undefined}>
         <div className="hour-head">
           {list.length > 0 ? (
-            <span className="macro-sub big">
-              <span className="num">{fmtKcal(sub.kcal)} kcal</span>
-              <span className="num">{fmtG(sub.protein)}<b className="p">P</b> {fmtG(sub.fat)}<b className="f">F</b> {fmtG(sub.carbs)}<b className="c">C</b></span>
-            </span>
+            <MacroSub m={sub} big />
           ) : <span />}
           <span className="hour-tools">
             {list.length > 0
@@ -240,7 +238,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
               >
                 <button className="food-row-main" onClick={() => { if (justSwiped.current) return; if (swiped) { setSwiped(null); return; } toggle([e.id]); }} aria-pressed={sel.has(e.id)}>
                   <span className="food-row-name">{e.name}</span>
-                  <MacroSub m={e} amount={amountText(e)} />
+                  <MacroSub m={e} amount={amountText(e, nutri.foods)} />
                 </button>
                 {swiped === e.id
                   ? <button className="pencil bin" aria-label={`Delete ${e.name}`} onClick={() => quickDelete(e)}><BinIcon /></button>
