@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent as RPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import type { LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
 import { addDays, addEntries, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
@@ -112,11 +112,19 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
   const yesterday = nutri.log.filter((e) => e.eaten_on === addDays(day, -1));
   const selected = entries.filter((e) => sel.has(e.id));
 
-  // Every hour from 07:00 (or your first entry) to midday, your last entry, or now
+  // Every hour of the day from 07:00 (or your first entry, if earlier) to 23:00, like MacroFactor
   const hours = entries.map((e) => hourOf(e.eaten_time));
   const isToday = day === todayYmd();
   const first = Math.min(7, ...hours);
-  const last = Math.min(23, Math.max(12, ...hours, isToday ? new Date().getHours() : 0));
+  const last = 23;
+  // Opening today: bring the current hour into view if it's below the fold
+  const nowRow = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!isToday) return;
+    const el = nowRow.current;
+    if (el && el.getBoundingClientRect().bottom > window.innerHeight - 80) el.scrollIntoView({ block: "center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day]);
   const byHour = new Map<number, LogEntry[]>();
   for (const e of entries) byHour.set(hourOf(e.eaten_time), [...(byHour.get(hourOf(e.eaten_time)) ?? []), e]);
 
@@ -185,7 +193,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
     const allOn = list.length > 0 && list.every((e) => sel.has(e.id));
     const sub = sumMacros(list);
     rows.push(
-      <section key={t} className={`hour${list.length ? "" : " empty-hour"}`}>
+      <section key={t} className={`hour${list.length ? "" : " empty-hour"}${isToday && h === new Date().getHours() ? " now-hour" : ""}`} ref={isToday && h === new Date().getHours() ? (el) => { nowRow.current = el; } : undefined}>
         <div className="hour-head">
           {list.length > 0 ? (
             <span className="macro-sub big">
