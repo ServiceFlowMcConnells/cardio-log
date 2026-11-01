@@ -98,7 +98,12 @@ export interface Template {
   notes: string | null;
   position: number;
   exercises: TemplateExercise[];
+  /** conditioning: done as rounds (one set of each exercise back to back, then a rest); not counted in weekly sets */
+  kind?: "strength" | "conditioning";
+  rounds?: number | null;
+  round_rest_sec?: number | null;
 }
+export const isConditioning = (t: Pick<Template, "kind"> | null | undefined) => t?.kind === "conditioning";
 
 export interface WSet {
   id?: string;

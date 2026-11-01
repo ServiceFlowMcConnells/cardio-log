@@ -52,7 +52,7 @@ function teRow(r: Row): TemplateExercise {
 export async function loadTemplates(): Promise<Template[]> {
   const { data, error } = await supabase
     .from("workout_templates")
-    .select("id, name, notes, position, created_at, template_exercises(*)")
+    .select("id, name, notes, position, created_at, kind, rounds, round_rest_sec, template_exercises(*)")
     .order("position")
     .order("created_at");
   if (error) throw error;
@@ -61,12 +61,15 @@ export async function loadTemplates(): Promise<Template[]> {
     name: t.name as string,
     notes: (t.notes as string) ?? null,
     position: Number(t.position ?? 0),
+    kind: t.kind === "conditioning" ? "conditioning" : "strength",
+    rounds: num(t.rounds),
+    round_rest_sec: num(t.round_rest_sec),
     exercises: ((t.template_exercises as Row[]) ?? []).map(teRow).sort((a, b) => a.position - b.position),
   }));
 }
 
-export async function saveTemplate(t: { id?: string; name: string; notes: string; exercises: TemplateExercise[] }): Promise<string> {
-  const head = { name: t.name.trim(), notes: t.notes.trim() || null, updated_at: new Date().toISOString() };
+export async function saveTemplate(t: { id?: string; name: string; notes: string; exercises: TemplateExercise[]; kind?: "strength" | "conditioning"; rounds?: number | null; round_rest_sec?: number | null }): Promise<string> {
+  const head = { name: t.name.trim(), notes: t.notes.trim() || null, updated_at: new Date().toISOString(), ...(t.kind ? { kind: t.kind, rounds: t.rounds ?? null, round_rest_sec: t.round_rest_sec ?? null } : {}) };
   let id = t.id;
   if (id) {
     const { error } = await supabase.from("workout_templates").update(head).eq("id", id);

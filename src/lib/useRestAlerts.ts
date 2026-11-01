@@ -22,6 +22,10 @@ export function useRestAlerts(exercises: Exercise[]) {
 
     const nextUp = () => {
       const d = readWorkoutDraft();
+      if (d?.circuit && d.exercises.length) {
+        const r = Math.min(...d.exercises.map((e) => e.sets.filter((x) => x.done).length));
+        return `Next: round ${r + 1} of ${Math.max(...d.exercises.map((e) => e.sets.length))}, starting with ${names.current.get(d.exercises[0].exercise_id) ?? "the first exercise"}`;
+      }
       for (const e of d?.exercises ?? []) {
         const i = e.sets.findIndex((x) => !x.done);
         if (i >= 0) return `Next: ${names.current.get(e.exercise_id) ?? "next exercise"}, set ${i + 1}`;

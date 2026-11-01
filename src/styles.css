@@ -944,3 +944,13 @@ select.input { appearance: auto; }
 .plan-weeknav .icon-btn { font-size: 1.5rem; color: var(--ink); }
 .plan-weeknav .icon-btn:disabled { opacity: 0.3; }
 .plan-row.past { opacity: 0.55; }
+/* Conditioning rounds */
+.circuit { margin-top: 12px; }
+.circuit-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.round-dots { display: flex; gap: 5px; margin: 8px 0 12px; flex-wrap: wrap; }
+.round-dots i { width: 22px; height: 6px; border-radius: 3px; background: var(--ground); }
+.round-dots i.on { background: var(--in); } .round-dots i.now { background: var(--signal); }
+.circuit-grid { display: grid; grid-template-columns: minmax(0, 1fr) 70px 64px; gap: 8px; align-items: center; }
+.circuit-row { padding: 6px 0; border-top: 1px solid var(--line); }
+.circuit-name { font-weight: 600; min-width: 0; }
+.circuit-no { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ground); font-size: 0.78rem; margin-right: 8px; }

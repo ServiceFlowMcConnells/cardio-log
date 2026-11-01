@@ -35,6 +35,11 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
   const [name, setName] = useState(template?.name ?? "");
   const [notes, setNotes] = useState(template?.notes ?? "");
   const [rows, setRows] = useState<Row[]>(() => (template?.exercises ?? []).map(toRow));
+  // Conditioning: rounds of every exercise back to back, then a rest; counts zero towards weekly sets
+  const [kind, setKind] = useState<"strength" | "conditioning">(template?.kind ?? "strength");
+  const cond = kind === "conditioning";
+  const [rounds, setRounds] = useState(String(template?.rounds ?? Math.max(1, ...(template?.exercises ?? []).map((e) => e.sets), 6)));
+  const [roundRest, setRoundRest] = useState(String(template?.round_rest_sec ?? 90));
   const [picking, setPicking] = useState(false);
   useBackHandler(picking, () => setPicking(false));
   const [busy, setBusy] = useState(false);
@@ -49,7 +54,17 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
     if (!name.trim()) return setError("Give the template a name, e.g. Upper A or Push.");
     if (!rows.length) return setError("Add at least one exercise.");
     const out: TemplateExercise[] = [];
-    for (const [i, r] of rows.entries()) {
+    const nRounds = Number(rounds), nRest = Number(roundRest);
+    if (cond) {
+      if (!Number.isInteger(nRounds) || nRounds < 1 || nRounds > 30) return setError("Rounds should be 1 to 30.");
+      if (!Number.isInteger(nRest) || nRest < 0 || nRest > 900) return setError("Rest between rounds should be 0 to 900 seconds.");
+      for (const [i, r] of rows.entries()) {
+        const reps = Number(r.rep_min);
+        if (!Number.isInteger(reps) || reps < 1 || reps > 200) return setError(`${exMap.get(r.exercise_id)?.name ?? "Exercise"}: reps per round should be a whole number.`);
+        out.push({ exercise_id: r.exercise_id, position: i, sets: nRounds, rep_min: reps, rep_max: reps, target_rpe: null, rest_sec: 0, notes: r.notes || null, progression: "fixed", on_stall: "preserve", increment_kg: null });
+      }
+    }
+    for (const [i, r] of (cond ? [] : rows).entries()) {
       const ex = exMap.get(r.exercise_id)?.name ?? "Exercise";
       const sets = Number(r.sets), lo = Number(r.rep_min), hi = r.progression === "fixed" ? lo : Number(r.rep_max || r.rep_min);
       const rpe = r.target_rpe.trim() ? Number(r.target_rpe.replace(",", ".")) : null;
@@ -67,7 +82,7 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
     setBusy(true);
     setError(null);
     try {
-      await saveTemplate({ id: template?.id, name, notes, exercises: out });
+      await saveTemplate({ id: template?.id, name, notes, exercises: out, kind, rounds: cond ? nRounds : null, round_rest_sec: cond ? nRest : null });
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save.");
@@ -110,6 +125,19 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
           <span>Name</span>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Upper A" />
         </label>
+        <div className="seg" role="group" aria-label="Type of workout">
+          <button className={!cond ? "on" : ""} aria-pressed={!cond} onClick={() => setKind("strength")}>Strength</button>
+          <button className={cond ? "on" : ""} aria-pressed={cond} onClick={() => setKind("conditioning")}>Conditioning</button>
+        </div>
+        {cond && (
+          <>
+            <div className="grid c2">
+              <label className="field"><span>Rounds</span><input className="input" inputMode="numeric" value={rounds} onChange={(e) => setRounds(e.target.value)} /></label>
+              <label className="field"><span>Rest between rounds (seconds)</span><input className="input" inputMode="numeric" value={roundRest} onChange={(e) => setRoundRest(e.target.value)} /></label>
+            </div>
+            <p className="muted small">Each round is one set of every exercise below, back to back with no rest, then the rest before the next round. You tick off whole rounds. Conditioning counts zero towards weekly set targets; the planner notes it for fatigue instead.</p>
+          </>
+        )}
         <label className="field">
           <span>Notes (optional)</span>
           <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Focus, tempo, anything to remember" />
@@ -133,6 +161,22 @@ export default function TemplateEditor({ template, data, onClose, onSaved, onCre
           const presc = plan
             ? coachExercise(info, r.exercise_id, plan, workouts, data.templates, nowIso, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: null, deload: false, phase: latestPhase(data.checkins) })
             : null;
+          if (cond) return (
+            <div className="block-card strength" key={r.key}>
+              <div className="head">
+                <h3>{i + 1}. {info?.name ?? "Exercise"}</h3>
+                <span className="lift-tools">
+                  <button className="icon-btn" aria-label="Move up" disabled={i === 0} onClick={() => setRows((a) => { const b = [...a]; [b[i - 1], b[i]] = [b[i], b[i - 1]]; return b; })}>↑</button>
+                  <button className="icon-btn" aria-label="Move down" disabled={i === rows.length - 1} onClick={() => setRows((a) => { const b = [...a]; [b[i + 1], b[i]] = [b[i], b[i + 1]]; return b; })}>↓</button>
+                  <button className="icon-btn" aria-label={`Remove ${info?.name ?? "exercise"}`} onClick={() => setRows((a) => a.filter((x) => x.key !== r.key))}>✕</button>
+                </span>
+              </div>
+              <div className="grid c2">
+                <label className="field"><span>Reps per round</span><input className="input" inputMode="numeric" value={r.rep_min} onChange={(e) => upd(r.key, { rep_min: e.target.value, rep_max: e.target.value })} /></label>
+                <label className="field"><span>Note</span><input className="input" value={r.notes} placeholder="e.g. 16 kg bell" onChange={(e) => upd(r.key, { notes: e.target.value })} /></label>
+              </div>
+            </div>
+          );
           return (
             <div className="block-card strength" key={r.key}>
               <div className="head">

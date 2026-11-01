@@ -7,7 +7,7 @@
 //  - Recovery typically takes 2–4 days; back-to-back days aren't harmful, but long gaps turn 2x into 1x.
 import { supabase } from "./supabase";
 import type { Exercise, Muscle, Template, Workout } from "./strength";
-import { MUSCLE_LABEL, muscleCredit } from "./strength";
+import { MUSCLE_LABEL, isConditioning, muscleCredit } from "./strength";
 import type { Phase } from "./readiness";
 
 /** changes: set adjustments for that week only (the template itself stays as it is) */
@@ -65,10 +65,12 @@ export interface PlanAdvice { sessions: number; muscles: MuscleLoad[]; items: Ad
 
 export function planAdvice(days: { date: string; template: Template | null }[], exercises: Exercise[], phase: Phase | null = null): PlanAdvice {
   const exMap = new Map(exercises.map((e) => [e.id, e]));
-  const train = days.filter((d) => d.template).sort((a, b) => a.date.localeCompare(b.date));
+  // Conditioning days count zero towards weekly sets and lifting spacing; they're checked for fatigue instead
+  const cond = days.filter((d) => isConditioning(d.template)).sort((a, b) => a.date.localeCompare(b.date));
+  const train = days.filter((d) => d.template && !isConditioning(d.template)).sort((a, b) => a.date.localeCompare(b.date));
   const sessions = train.length;
-  const items: AdviceItem[] = [];
-  if (!sessions) return { sessions, muscles: [], items: [{ tone: "neutral", title: "No sessions planned", text: "Pick the days you can train and the planner will check the spread." }], verdict: "neutral" };
+  const items: AdviceItem[] = conditioningNotes(cond, train, exMap);
+  if (!sessions) return { sessions, muscles: [], items: [{ tone: "neutral", title: "No lifting sessions planned", text: "Pick the days you can lift and the planner will check the spread." }, ...items], verdict: items.some((i) => i.tone === "warn") ? "warn" : "neutral" };
 
   // Sets per muscle per session (primary muscle = full sets, helpers = half)
   const hits = new Map<Muscle, { date: string; sets: number }[]>();
@@ -150,6 +152,23 @@ export function planAdvice(days: { date: string; template: Template | null }[], 
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+const LEGS: Muscle[] = ["quads", "hamstrings", "glutes"];
+/** Conditioning isn't counted as hard sets, but it tires the same muscles (legs and grip most): flag it the day
+ *  before lower-body lifting, and on the same day suggest doing it after. */
+function conditioningNotes(cond: { date: string; template: Template | null }[], train: { date: string; template: Template | null }[], exMap: Map<string, Exercise>): AdviceItem[] {
+  if (!cond.length) return [];
+  const legSets = (t: Template) => t.exercises.reduce((a, te) => { const ex = exMap.get(te.exercise_id); return a + (ex && LEGS.includes(ex.muscle) ? te.sets : 0); }, 0);
+  const day = (d: string) => fromYmd(d).toLocaleDateString("en-IE", { weekday: "long" });
+  const items: AdviceItem[] = [{ tone: "neutral", title: `${cond.length} conditioning session${cond.length === 1 ? "" : "s"}`, text: "Not counted in weekly sets: paced work stops well short of failure, so it builds work capacity rather than muscle. It still tires your legs and grip, so its timing is checked below." }];
+  for (const c of cond) {
+    const next = train.find((t) => t.date === addDaysYmd(c.date, 1) && legSets(t.template!) >= 4);
+    const same = train.find((t) => t.date === c.date);
+    if (next) items.push({ tone: "warn", title: `Conditioning the day before ${next.template!.name}`, text: `${c.template!.name} on ${day(c.date)} leaves your legs and grip tired for ${next.template!.name}'s lower-body work on ${day(next.date)}. Move it to the day after, or to a rest day, so the lifting gets your best effort.` });
+    else if (same) items.push({ tone: "neutral", title: `Conditioning and lifting on ${day(c.date)}`, text: `Do ${c.template!.name} after ${same.template!.name}, not before, so the heavy sets aren't done tired.` });
+  }
+  return items;
+}
+
 /** Evenly spaced days in the next week for `n` sessions, starting from the first day you can train. */
 export function suggestDays(n: number, dates: string[]): string[] {
   if (n <= 0) return [];
@@ -189,8 +208,8 @@ export const SESSION_TOTAL_CAP = 24; // working sets per session, roughly 60–7
  *  under ~24 working sets and each muscle under ~10 sets per session. */
 export function volumeSuggestions(days: { date: string; template: Template | null }[], templates: Template[], exercises: Exercise[], phase: Phase | null): VolumeSuggestion[] {
   const exMap = new Map(exercises.map((e) => [e.id, e]));
-  const occ = new Map<string, number>(); // planned sessions per template this week
-  for (const d of days) if (d.template) occ.set(d.template.id, (occ.get(d.template.id) ?? 0) + 1);
+  const occ = new Map<string, number>(); // planned sessions per template this week (conditioning doesn't count)
+  for (const d of days) if (d.template && !isConditioning(d.template)) occ.set(d.template.id, (occ.get(d.template.id) ?? 0) + 1);
   if (!occ.size) return [];
   const planned = templates.filter((t) => occ.has(t.id));
   // Working copy: per template, list of { exerciseId, sets, isNew }

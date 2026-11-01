@@ -75,10 +75,11 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
                   <h3>{t.name}</h3>
                   <button className="link small" onClick={() => onEditTemplate(t)}>Edit</button>
                 </div>
+                {t.kind === "conditioning" && <p className="small muted" style={{ margin: "-2px 0 4px" }}>Conditioning · {t.rounds ?? t.exercises[0]?.sets ?? 0} rounds · {Math.floor((t.round_rest_sec ?? 0) / 60)}:{String((t.round_rest_sec ?? 0) % 60).padStart(2, "0")} rest</p>}
                 <ul className="tpl-list">
                   {t.exercises.map((e, i) => (
                     <li key={i}>
-                      {e.sets} × {e.rep_min === e.rep_max ? e.rep_min : `${e.rep_min}–${e.rep_max}`} {exMap.get(e.exercise_id)?.name ?? "Exercise"}
+                      {t.kind === "conditioning" ? `${e.rep_min} ×` : `${e.sets} × ${e.rep_min === e.rep_max ? e.rep_min : `${e.rep_min}–${e.rep_max}`}`} {exMap.get(e.exercise_id)?.name ?? "Exercise"}
                       {e.target_rpe ? <span className="muted"> @ RPE {e.target_rpe}</span> : null}
                     </li>
                   ))}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AppData } from "../App";
 import type { SetType, Template, WSet, Workout } from "../lib/strength";
 import {
-  MUSCLE_LABEL, SET_TYPE_LABEL, SET_TYPE_SHORT, bestE1rm, bestE1rmBefore, fmtKg, fmtTonnage,
+  MUSCLE_LABEL, SET_TYPE_LABEL, SET_TYPE_SHORT, bestE1rm, bestE1rmBefore, fmtKg, fmtTonnage, isConditioning,
   pctChange, previousFor, volume, warmupRamp,
 } from "../lib/strength";
 import { toLocalInput } from "../lib/dates";
@@ -44,6 +44,8 @@ interface Draft {
   checkinScore?: number | null;
   checkinSoreness?: number | null;
   useAdj?: boolean;
+  /** Conditioning: rounds of every exercise back to back, then `rest` seconds; ticked off a round at a time */
+  circuit?: { rounds: number; rest: number } | null;
 }
 
 const DRAFT_KEY = "cardio-log:workout-draft";
@@ -78,7 +80,9 @@ function parse(s: string): number | null {
 const emptySet = (type: SetType = "working"): LSet => ({ key: uid(), set_type: type, weight: "", reps: "", rpe: "", done: false });
 
 function fromTemplate(t: Template | null, checkin: Checkin | null, setsFor: (te: Template["exercises"][number]) => number): Draft {
+  const circuit = t && isConditioning(t) ? { rounds: t.rounds ?? Math.max(1, ...t.exercises.map((e) => e.sets)), rest: t.round_rest_sec ?? 90 } : null;
   return {
+    circuit,
     checkin_id: checkin?.id ?? null,
     checkinScore: checkin?.score ?? null,
     checkinSoreness: checkin?.soreness ?? null,
@@ -92,7 +96,7 @@ function fromTemplate(t: Template | null, checkin: Checkin | null, setsFor: (te:
       key: uid(),
       exercise_id: te.exercise_id,
       plan: planOf(te),
-      sets: Array.from({ length: setsFor(te) }, () => emptySet()),
+      sets: Array.from({ length: circuit ? circuit.rounds : setsFor(te) }, () => emptySet()),
     })),
     restEnd: null,
     restTotal: 0,
@@ -326,7 +330,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
       const name = exMap.get(ex.exercise_id)?.name ?? "Exercise";
       let n = 0;
       for (const s of ex.sets) {
-        if (!s.done) { if (s.weight || s.reps) skipped++; continue; }
+        if (!s.done) { if (!draft.circuit && (s.weight || s.reps)) skipped++; continue; }
         const w = parse(s.weight) ?? 0;
         const r = parse(s.reps);
         const rpe = parse(s.rpe);
@@ -361,7 +365,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     setBusy(true);
     setError(null);
     try {
-      const id = await saveWorkout({ id: draft.id, template_id: draft.template_id, checkin_id: draft.checkin_id ?? null, load_factor: isEdit ? undefined : adj ? adj.loadFactor : 1, program_id: draft.program_id ?? null, program_step: draft.program_step ?? null, name: draft.name, started_at: started, duration_min: duration, notes: draft.notes, sets: c.sets });
+      const id = await saveWorkout({ id: draft.id, template_id: draft.template_id, checkin_id: draft.checkin_id ?? null, load_factor: isEdit ? undefined : adj && !draft.circuit ? adj.loadFactor : 1, program_id: draft.program_id ?? null, program_step: draft.program_step ?? null, name: draft.name, started_at: started, duration_min: duration, notes: draft.notes, sets: c.sets });
       // Done the program's next workout: move the rotation on (A → B → A …)
       const prog = !isEdit && draft.program_id != null && draft.program_step != null ? data.programs.find((p) => p.id === draft.program_id) : null;
       if (prog) await setNextStep(prog.id, advance(prog, draft.program_step!)).catch(() => {});
@@ -390,6 +394,49 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     writeDraft(null);
     onClose();
   }
+
+  // ---- Conditioning rounds ----
+  const circuit = !isEdit ? draft.circuit ?? null : null;
+  const roundsDone = circuit ? Math.min(...draft.exercises.map((e) => e.sets.filter((x) => x.done).length)) : 0;
+  const totalRounds = circuit ? Math.max(0, ...draft.exercises.map((e) => e.sets.length)) : 0;
+  /** Weight/reps to suggest for an exercise in round r: what you did last round, else last session, else the plan. */
+  function roundHint(ex: LExercise, r: number) {
+    const before = [...ex.sets.slice(0, r)].reverse().find((x) => x.done);
+    // Last time you did this conditioning workout (not a heavy strength day with the same exercise)
+    const lastSame = workouts.find((w) => w.id !== draft.id && w.template_id === draft.template_id && w.started_at < draft.started_at && w.sets.some((x) => x.exercise_id === ex.exercise_id));
+    const prev = lastSame?.sets.find((x) => x.exercise_id === ex.exercise_id && x.set_type !== "warmup");
+    return { weight: before?.weight || (prev ? fmtKg(prev.weight_kg) : ""), reps: before?.reps || (ex.plan ? String(ex.plan.rep_min) : prev ? String(prev.reps) : "") };
+  }
+  function tickRound() {
+    if (!circuit) return;
+    const r = roundsDone;
+    unlockAudio();
+    const filled = draft.exercises.map((ex) => { const s = ex.sets[r]; const h = roundHint(ex, r); return { ex, weight: s?.weight || h.weight || "0", reps: s?.reps || h.reps }; });
+    const missing = filled.find((f) => !f.reps);
+    if (missing) { setError(`Enter the reps for ${exMap.get(missing.ex.exercise_id)?.name ?? "each exercise"} first.`); return; }
+    setError(null);
+    const last = r + 1 >= totalRounds;
+    update((d) => ({
+      ...d,
+      restEnd: !last && circuit.rest > 0 ? Date.now() + circuit.rest * 1000 : d.restEnd,
+      restTotal: !last && circuit.rest > 0 ? circuit.rest : d.restTotal,
+      exercises: d.exercises.map((e) => {
+        const f = filled.find((x) => x.ex.key === e.key)!;
+        const sets = [...e.sets];
+        while (sets.length <= r) sets.push(emptySet());
+        sets[r] = { ...sets[r], weight: f.weight, reps: f.reps, done: true };
+        return { ...e, sets };
+      }),
+    }));
+  }
+  const undoRound = () => update((d) => ({ ...d, restEnd: null, exercises: d.exercises.map((e) => ({ ...e, sets: e.sets.map((x, i) => (i === roundsDone - 1 ? { ...x, done: false } : x)) })) }));
+  const addRound = () => update((d) => ({ ...d, circuit: d.circuit ? { ...d.circuit, rounds: d.circuit.rounds + 1 } : d.circuit, exercises: d.exercises.map((e) => ({ ...e, sets: [...e.sets, emptySet()] })) }));
+  const setRoundVal = (ek: string, field: "weight" | "reps", v: string) => updEx(ek, (e) => {
+    const sets = [...e.sets];
+    while (sets.length <= roundsDone) sets.push(emptySet());
+    // Weight carries to the rounds still to come; reps are this round's
+    return { ...e, sets: sets.map((x, i) => (i === roundsDone || (field === "weight" && i > roundsDone && !x.done) ? { ...x, [field]: v } : x)) };
+  });
 
   if (picking) {
     return (
@@ -444,7 +491,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
               <span>
                 <span className="clock running">{fmtClock(now - new Date(draft.started_at).getTime())}</span>
                 <span className="small" style={{ display: "block", opacity: 0.8, marginTop: 4 }}>
-                  {doneCount} working set{doneCount === 1 ? "" : "s"}, {fmtTonnage(liveVolume)}
+                  {circuit ? `Round ${Math.min(roundsDone + 1, totalRounds)} of ${totalRounds}, ${roundsDone} done` : `${doneCount} working set${doneCount === 1 ? "" : "s"}, ${fmtTonnage(liveVolume)}`}
                 </span>
               </span>
               <button className="btn primary" onClick={finish} disabled={busy}>{busy ? "Saving…" : "Finish"}</button>
@@ -465,7 +512,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
         </div>
       )}
 
-      {!isEdit && (planAdj ? (
+      {!isEdit && !draft.circuit && (planAdj ? (
         <div className={`ready-strip band-${planAdj.band}`}>
           <span className="ready-score sm">{planAdj.score}</span>
           <span style={{ flex: 1 }}>
@@ -476,7 +523,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
             const on = !d.useAdj;
             // Restore or trim planned sets on exercises you haven't started yet
             const exercises = d.exercises.map((e) => {
-              if (!e.plan || e.sets.some((x) => x.done || x.weight || x.reps)) return e;
+              if (!e.plan || d.circuit || e.sets.some((x) => x.done || x.weight || x.reps)) return e;
               const want = prescribe(e, on ? planAdj : null)?.sets ?? e.plan.sets;
               const working = e.sets.filter((x) => x.set_type !== "warmup");
               const warm = e.sets.filter((x) => x.set_type === "warmup");
@@ -515,7 +562,46 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
         </div>
       )}
 
-      {draft.exercises.map((ex, ei) => {
+      {circuit && draft.exercises.length > 0 && (
+        <section className="circuit panel">
+          <div className="circuit-head">
+            <h2>{roundsDone >= totalRounds ? "All rounds done" : `Round ${roundsDone + 1} of ${totalRounds}`}</h2>
+            <span className="small muted">{circuit.rest > 0 ? `${fmtRest(circuit.rest)} rest between rounds` : "No rest between rounds"}</span>
+          </div>
+          <div className="round-dots" aria-hidden="true">{Array.from({ length: totalRounds }, (_, i) => <i key={i} className={i < roundsDone ? "on" : i === roundsDone ? "now" : ""} />)}</div>
+          {roundsDone < totalRounds ? (
+            <>
+              <div className="circuit-grid circuit-headrow small muted" aria-hidden="true"><span>Exercise</span><span>kg</span><span>Reps</span></div>
+              {draft.exercises.map((ex, i) => {
+                const info = exMap.get(ex.exercise_id);
+                const s = ex.sets[roundsDone];
+                const h = roundHint(ex, roundsDone);
+                return (
+                  <div key={ex.key} className="circuit-grid circuit-row">
+                    <span className="circuit-name"><span className="circuit-no">{i + 1}</span>{info?.name ?? "Exercise"}{(ex.plan?.notes || info?.notes) && <span className="small muted" style={{ display: "block" }}>{ex.plan?.notes || info?.notes}</span>}</span>
+                    <input className="cell" inputMode="decimal" placeholder={h.weight || "–"} value={s?.weight ?? ""} aria-label={`${info?.name ?? "Exercise"} weight in kg`} onChange={(e) => setRoundVal(ex.key, "weight", e.target.value)} />
+                    <input className="cell" inputMode="numeric" placeholder={h.reps} value={s?.reps ?? ""} aria-label={`${info?.name ?? "Exercise"} reps`} onChange={(e) => setRoundVal(ex.key, "reps", e.target.value)} />
+                  </div>
+                );
+              })}
+              <button className="btn primary block" style={{ marginTop: 12 }} onClick={tickRound}>✓ Round {roundsDone + 1} done</button>
+            </>
+          ) : (
+            <button className="btn dark block" style={{ marginTop: 10 }} onClick={finish} disabled={busy}>{busy ? "Saving…" : "Finish workout"}</button>
+          )}
+          <div className="lift-actions">
+            {roundsDone > 0 && <button className="link small" onClick={undoRound}>Undo round {roundsDone}</button>}
+            <button className="link small" onClick={addRound}>+ Add a round</button>
+          </div>
+          {roundsDone > 0 && (
+            <p className="small muted" style={{ marginTop: 6 }}>
+              Done: {draft.exercises.map((ex) => { const d = ex.sets.filter((x) => x.done); const reps = d.reduce((a, x) => a + (parse(x.reps) || 0), 0); return `${exMap.get(ex.exercise_id)?.name ?? "Exercise"} ${reps} reps`; }).join(" · ")}
+            </p>
+          )}
+        </section>
+      )}
+
+      {!circuit && draft.exercises.map((ex, ei) => {
         const info = exMap.get(ex.exercise_id);
         const sug = suggestions(ex);
         const doneSets: WSet[] = ex.sets.filter((s) => s.done).map((s, i) => ({ exercise_id: ex.exercise_id, exercise_position: 0, set_number: i + 1, set_type: s.set_type, weight_kg: parse(s.weight) || 0, reps: parse(s.reps) || 0, rpe: parse(s.rpe) }));
@@ -603,7 +689,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
         );
       })}
 
-      <button className="btn ghost block" style={{ marginTop: 14 }} onClick={() => setPicking({})}>+ Add exercise</button>
+      {!circuit && <button className="btn ghost block" style={{ marginTop: 14 }} onClick={() => setPicking({})}>+ Add exercise</button>}
 
       <section className="section">
         <label className="field">
