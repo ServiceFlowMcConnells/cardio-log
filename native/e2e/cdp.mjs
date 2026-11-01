@@ -20,7 +20,12 @@ for (let i = 0; i < 30; i++) {
   if (r.result?.result?.value === "function") break;
   await new Promise((r) => setTimeout(r, 1000));
 }
-if (mode === "start") {
+if (mode === "health") {
+  await show("health plugin", `String(Capacitor.isPluginAvailable?.('Health'))`);
+  await show("health available", `Capacitor.nativePromise('Health','isAvailable',{}).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message)`);
+  await show("health check", `Capacitor.nativePromise('Health','checkAuthorization',{ read: ['steps','sleep'] }).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message)`);
+  await show("insets", `JSON.stringify({ top: getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top'), h1: document.querySelector('h1')?.getBoundingClientRect().top })`);
+} else if (mode === "start") {
   await show("permission", `Capacitor.nativePromise('RestTimer','requestPermission',{}).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message)`);
   await show("start", `(window.__end = Math.floor(Date.now() + 90000) + 0.5, Capacitor.nativePromise('RestTimer','start',{ endAt: window.__end, title: 'Resting', body: 'Next: Bench Press, set 2', sound: true }).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message))`);
 } else {

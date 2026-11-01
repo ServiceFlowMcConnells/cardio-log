@@ -10,7 +10,9 @@ adb shell am start -n ie.traininglog.app/.MainActivity
 sleep 25
 SOCK=$(adb shell cat /proc/net/unix | grep -o "webview_devtools_remote_[0-9]*" | head -1)
 adb forward tcp:9222 localabstract:$SOCK
-node native/e2e/cdp.mjs 9222 start 2>&1 | tee $OUT/cdp.txt
+adb shell screencap -p /sdcard/s0.png && adb pull /sdcard/s0.png $OUT/0-app.png
+node native/e2e/cdp.mjs 9222 health 2>&1 | tee $OUT/cdp.txt
+node native/e2e/cdp.mjs 9222 start 2>&1 | tee -a $OUT/cdp.txt
 adb shell input keyevent KEYCODE_HOME
 sleep 2
 adb shell cmd statusbar expand-notifications

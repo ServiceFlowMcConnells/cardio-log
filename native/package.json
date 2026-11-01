@@ -2,11 +2,12 @@
   "name": "training-log-android",
   "private": true,
   "version": "1.0.0",
-  "description": "Android shell for Training Log: loads the live site and adds a native rest timer notification.",
+  "description": "Android shell for Training Log: loads the live site, adds a native rest timer notification and reads steps and sleep from Health Connect.",
   "dependencies": {
-    "@capacitor/android": "6.2.0",
-    "@capacitor/cli": "6.2.0",
-    "@capacitor/core": "6.2.0"
+    "@capacitor/android": "8.6.0",
+    "@capacitor/cli": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@capgo/capacitor-health": "8.11.13"
   },
   "devDependencies": {
     "@capacitor/assets": "3.0.5"

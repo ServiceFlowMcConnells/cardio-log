@@ -20,12 +20,27 @@ const perms = [
   '<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />',
   // Barcode scanning in the food log (the web view asks for the camera; Capacitor turns that into this permission)
   '<uses-permission android:name="android.permission.CAMERA" />',
+  // Health Connect: steps and sleep from before the app was connected (the plugin declares the read permissions)
+  '<uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />',
 ];
 for (const p of perms) if (!xml.includes(p.split('"')[1])) xml = xml.replace("</manifest>", `    ${p}\n</manifest>`);
 if (!xml.includes("android.hardware.camera")) xml = xml.replace("</manifest>", '    <uses-feature android:name="android.hardware.camera" android:required="false" />\n</manifest>');
 if (!xml.includes("RestAlarmReceiver")) xml = xml.replace("</application>", '        <receiver android:name=".RestAlarmReceiver" android:exported="false" />\n    </application>');
 if (!xml.includes("RestActionReceiver")) xml = xml.replace("</application>", '        <receiver android:name=".RestActionReceiver" android:exported="false" />\n    </application>');
 fs.writeFileSync(mf, xml);
+
+// Health Connect shows a privacy policy link in its permission screen; point it at the site's page
+const strings = path.join(root, "res/values/strings.xml");
+let sx = fs.readFileSync(strings, "utf8");
+if (!sx.includes("health_connect_privacy_policy_url")) sx = sx.replace("</resources>", '    <string name="health_connect_privacy_policy_url">https://training-log-coach.vercel.app/privacy.html</string>\n</resources>');
+fs.writeFileSync(strings, sx);
+
+// Health Connect needs Android 8 (API 26). Keep targeting API 34 so the app isn't forced edge-to-edge (the
+// layout already handles the status bar), while compiling against the SDK the plugins need.
+const vars = "android/variables.gradle";
+let v = fs.readFileSync(vars, "utf8");
+v = v.replace(/minSdkVersion = \d+/, "minSdkVersion = 26").replace(/targetSdkVersion = \d+/, "targetSdkVersion = 34");
+fs.writeFileSync(vars, v);
 
 // Version code from the CI run number so each APK installs over the last (same signing key permitting)
 const gradle = "android/app/build.gradle";
