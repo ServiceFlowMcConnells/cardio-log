@@ -1,5 +1,7 @@
 import { WEEKDAY_NAMES } from "../lib/dates";
 import RestAlertSettings from "./RestAlertSettings";
+import HealthConnectSettings from "./HealthConnectSettings";
+import type { DayActivity } from "../lib/health";
 import { useState } from "react";
 import type { Session, Settings } from "../lib/types";
 import type { Exercise, Workout } from "../lib/strength";
@@ -15,9 +17,11 @@ interface Props {
   email: string;
   onSaved: (s: Settings) => void;
   onBack: () => void;
+  activity: DayActivity[];
+  onSynced: () => void;
 }
 
-export default function SettingsView({ settings, sessions, workouts, exercises, email, onSaved, onBack }: Props) {
+export default function SettingsView({ settings, sessions, workouts, exercises, email, onSaved, onBack, activity, onSynced }: Props) {
   const [target, setTarget] = useState(String(settings.weekly_target_min));
   const [maxHr, setMaxHr] = useState(settings.max_hr ? String(settings.max_hr) : "");
   const [age, setAge] = useState("");
@@ -27,6 +31,7 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
   const [rest, setRest] = useState(String(settings.default_rest_sec));
   const [formula, setFormula] = useState<Settings["e1rm_formula"]>(settings.e1rm_formula);
   const [weekStart, setWeekStartPick] = useState(settings.week_start);
+  const [steps, setSteps] = useState(String(settings.step_target));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -45,7 +50,9 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
     if (!(incN > 0 && incN <= 20)) return setMsg({ ok: false, text: "Weight increment should be between 0.25 and 20 kg." });
     const restN = Number(rest);
     if (!Number.isInteger(restN) || restN < 0 || restN > 900) return setMsg({ ok: false, text: "Rest should be 0 to 900 seconds." });
-    const next: Settings = { weekly_target_min: t, max_hr: maxHr ? mh : null, zone_low_pct: lo, zone_high_pct: hi, weight_increment: incN, default_rest_sec: restN, e1rm_formula: formula, deload_until: settings.deload_until, week_start: weekStart };
+    const stepsN = Number(steps);
+    if (!Number.isInteger(stepsN) || stepsN < 1000 || stepsN > 60000) return setMsg({ ok: false, text: "Step target should be a whole number from 1,000 to 60,000." });
+    const next: Settings = { weekly_target_min: t, max_hr: maxHr ? mh : null, zone_low_pct: lo, zone_high_pct: hi, weight_increment: incN, default_rest_sec: restN, e1rm_formula: formula, deload_until: settings.deload_until, week_start: weekStart, step_target: stepsN };
     setBusy(true);
     setMsg(null);
     try {
@@ -82,6 +89,10 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
         <label className="field">
           <span>Weekly cardio target (minutes)</span>
           <input className="input" inputMode="numeric" value={target} onChange={(e) => setTarget(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Daily step target</span>
+          <input className="input" inputMode="numeric" value={steps} onChange={(e) => setSteps(e.target.value)} />
         </label>
 
         <h2 style={{ paddingTop: 10 }}>Heart rate zone</h2>
@@ -153,6 +164,8 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
         {msg && <p className={msg.ok ? "ok" : "error"} role="status">{msg.text}</p>}
         <button className="btn dark block" disabled={busy}>{busy ? "Saving…" : "Save settings"}</button>
       </form>
+
+      <HealthConnectSettings activity={activity} onSynced={onSynced} />
 
       <RestAlertSettings />
 

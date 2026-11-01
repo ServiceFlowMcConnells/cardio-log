@@ -36,6 +36,7 @@ export interface Settings {
   e1rm_formula: "rpe" | "epley" | "brzycki";
   deload_until: string | null; // YYYY-MM-DD, last day of a deload week
   week_start: number; // 0 = Sunday, 1 = Monday …
+  step_target: number; // daily steps
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -48,6 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   e1rm_formula: "rpe",
   deload_until: null,
   week_start: 1,
+  step_target: 15000,
 };
 
 export const MACHINE_LABEL: Record<Machine, string> = {

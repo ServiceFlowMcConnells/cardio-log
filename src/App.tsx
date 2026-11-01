@@ -25,6 +25,8 @@ import { todaysCheckin } from "./lib/readiness";
 import ReadinessScan from "./components/ReadinessScan";
 import type { Session, Settings } from "./lib/types";
 import { DEFAULT_SETTINGS } from "./lib/types";
+import type { DayActivity } from "./lib/health";
+import { healthConnected, healthSupported, lastSync, loadActivity, syncHealth } from "./lib/health";
 import type { Exercise, Template, Workout } from "./lib/strength";
 import Auth from "./components/Auth";
 import WeekView from "./components/WeekView";
@@ -41,7 +43,7 @@ import TemplateEditor from "./components/TemplateEditor";
 import ExerciseLibrary from "./components/ExerciseLibrary";
 import ExerciseDetail from "./components/ExerciseDetail";
 import type { Food, NutritionData, Recipe } from "./lib/nutrition";
-import { EMPTY_NUTRITION, loadNutrition, todayYmd } from "./lib/nutrition";
+import { EMPTY_NUTRITION, loadNutrition, todayYmd, ymd } from "./lib/nutrition";
 import FoodDay from "./components/food/FoodDay";
 import FoodAdd from "./components/food/FoodAdd";
 import FoodEditor from "./components/food/FoodEditor";
@@ -93,11 +95,12 @@ export interface AppData {
   activeProgramId: string | null;
   planned: PlannedWorkout[];
   nutrition: NutritionData;
+  activity: DayActivity[]; // daily steps and sleep from Health Connect
 }
 
 export default function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
-  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [], programs: [], activeProgramId: null, planned: [], nutrition: EMPTY_NUTRITION });
+  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [], programs: [], activeProgramId: null, planned: [], nutrition: EMPTY_NUTRITION, activity: [] });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("week");
@@ -128,13 +131,14 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, prog, planned, nutrition] = await Promise.all([
+      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, prog, planned, nutrition, activity] = await Promise.all([
         loadSessions(), loadSettings(), loadExercises(), loadTemplates(), loadWorkouts(), loadCheckins(),
         loadMobilityTests(), loadNiggles(), loadMobilitySessions(), loadPrograms(), loadPlanned(),
         loadNutrition().catch((e) => { console.warn("loadNutrition failed", e); return null; }),
+        loadActivity().catch((e) => { console.warn("loadActivity failed", e); return null; }),
       ]);
       setWeekStart(settings.week_start);
-      setData((d) => ({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, programs: prog.programs, activeProgramId: prog.activeId, planned, nutrition: nutrition ?? d.nutrition }));
+      setData((d) => ({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, programs: prog.programs, activeProgramId: prog.activeId, planned, nutrition: nutrition ?? d.nutrition, activity: activity ?? d.activity }));
       setLoadError(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Couldn't load your data.");
@@ -151,6 +155,21 @@ export default function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [tab, view.k]);
+
+  // Health Connect: in the Android app, once connected, pull new steps and sleep on open and when you come back to the app
+  const reloadActivity = useCallback(() => loadActivity().then((activity) => setData((d) => ({ ...d, activity }))).catch(() => {}), []);
+  useEffect(() => {
+    if (!userId || !healthSupported()) return;
+    const maybeSync = () => {
+      if (document.visibilityState !== "visible" || !healthConnected()) return;
+      const last = lastSync();
+      if (last && Date.now() - last < 10 * 60000) return;
+      syncHealth().then((n) => { if (n) reloadActivity(); }).catch((e) => console.warn("Health Connect sync failed", e));
+    };
+    maybeSync();
+    document.addEventListener("visibilitychange", maybeSync);
+    return () => document.removeEventListener("visibilitychange", maybeSync);
+  }, [userId, reloadActivity]);
 
   if (auth === undefined) return <div className="center-load">Loading…</div>;
   if (!auth) return <Auth />;
@@ -228,6 +247,7 @@ export default function App() {
       <ReadinessScan
         existing={existing}
         checkins={checkins}
+        hcSleep={data.activity.find((a) => a.day === (existing ? ymd(new Date(existing.checked_at)) : todayYmd())) ?? null}
         saveLabel={next === "home" ? "Save scan" : next === "resume" ? "Save and back to workout" : `Save and start ${next.template?.name ?? "workout"}`}
         onSaved={async (c) => {
           setData((d) => ({ ...d, checkins: [c, ...d.checkins.filter((x) => x.id !== c.id)].sort((a, b) => b.checked_at.localeCompare(a.checked_at)) }));
@@ -355,6 +375,8 @@ export default function App() {
         email={auth.user.email ?? ""}
         onSaved={(s) => { setWeekStart(s.week_start); setData((d) => ({ ...d, settings: s })); }}
         onBack={() => home()}
+        activity={data.activity}
+        onSynced={reloadActivity}
       />
     );
   } else if (tab === "week") {

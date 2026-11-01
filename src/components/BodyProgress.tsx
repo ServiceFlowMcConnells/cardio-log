@@ -3,16 +3,20 @@ import type { Checkin } from "../lib/readiness";
 import { BAND_LABEL, PHASE_LABEL, bandFor } from "../lib/readiness";
 import { formatShort } from "../lib/dates";
 import { TrendChart, type Point } from "./Charts";
+import { ActivitySections } from "./Activity";
 
 const DAY = 86400000;
 export default function BodyProgress({ data, onScan }: { data: AppData; onScan: (c: Checkin | null) => void }) {
   const { checkins } = data;
   if (!checkins.length) {
     return (
+      <>
+      <ActivitySections activity={data.activity} target={data.settings.step_target} />
       <div className="empty">
         <p>Readiness, sleep and bodyweight trends appear here after your first readiness scan.</p>
         <button className="btn primary" onClick={() => onScan(null)}>Take a readiness scan</button>
       </div>
+      </>
     );
   }
   const asc = [...checkins].sort((a, b) => a.checked_at.localeCompare(b.checked_at));
@@ -46,6 +50,8 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
           <p className="chart-note">7–9 hours is the recommended range for adults. Under 6 hours cuts into strength and recovery.</p>
         </section>
       )}
+
+      <ActivitySections activity={data.activity} target={data.settings.step_target} />
 
       <section className="section">
         <h2>Recent scans</h2>

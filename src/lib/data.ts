@@ -53,6 +53,7 @@ export async function loadSettings(): Promise<Settings> {
     e1rm_formula: data.e1rm_formula ?? DEFAULT_SETTINGS.e1rm_formula,
     deload_until: data.deload_until ?? null,
     week_start: data.week_start ?? DEFAULT_SETTINGS.week_start,
+    step_target: data.step_target ?? DEFAULT_SETTINGS.step_target,
   };
 }
 

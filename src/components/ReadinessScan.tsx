@@ -1,4 +1,6 @@
 import { useState } from "react";
+import type { DayActivity } from "../lib/health";
+import { hm } from "../lib/health";
 import type { Checkin, Phase } from "../lib/readiness";
 import {
   BAND_LABEL, ENERGY_LABELS, PHASE_LABEL, PHASE_RATE, SLEEP_LABELS, SORENESS_LABELS, adjustmentFor, bandFor, latestPhase, scoreReadiness, weeklyLossPct,
@@ -14,6 +16,8 @@ interface Props {
   onSkip?: () => void;
   onCancel: () => void;
   onDeleted?: () => void;
+  /** Last night from Health Connect (the sleep that ended this morning), if synced */
+  hcSleep?: DayActivity | null;
 }
 
 function Rating({ label, hint, labels, value, onChange }: { label: string; hint: string; labels: string[]; value: number | null; onChange: (v: number) => void }) {
@@ -43,13 +47,14 @@ const parse = (s: string) => {
   return Number.isFinite(n) ? n : NaN;
 };
 
-export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, onSkip, onCancel, onDeleted }: Props) {
+export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, onSkip, onCancel, onDeleted, hcSleep }: Props) {
+  const hcHours = hcSleep?.sleep_minutes != null ? Math.round((hcSleep.sleep_minutes / 60) * 4) / 4 : null;
   const last = checkins.find((c) => c.id !== existing?.id);
   const lastWeight = checkins.find((c) => c.id !== existing?.id && c.bodyweight_kg != null)?.bodyweight_kg ?? null;
   const [sleepQ, setSleepQ] = useState<number | null>(existing?.sleep_quality ?? null);
   const [energy, setEnergy] = useState<number | null>(existing?.energy ?? null);
   const [soreness, setSoreness] = useState<number | null>(existing?.soreness ?? null);
-  const [hours, setHours] = useState(existing?.sleep_hours != null ? String(existing.sleep_hours) : last?.sleep_hours != null ? String(last.sleep_hours) : "");
+  const [hours, setHours] = useState(existing?.sleep_hours != null ? String(existing.sleep_hours) : hcHours != null ? String(hcHours) : last?.sleep_hours != null ? String(last.sleep_hours) : "");
   const [weight, setWeight] = useState(existing?.bodyweight_kg != null ? String(existing.bodyweight_kg) : "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   // Nutrition phase and calories carry forward from your last scan
@@ -137,6 +142,12 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
               <button type="button" onClick={() => stepHours(0.5)} aria-label="Half an hour more">+</button>
             </div>
           </label>
+          {hcSleep?.sleep_minutes != null && (
+            <p className="muted small" style={{ marginTop: 6 }}>
+              Health Connect: {hm(hcSleep.sleep_minutes)} asleep{hcSleep.deep_minutes != null && hcSleep.rem_minutes != null ? ` (deep ${hm(hcSleep.deep_minutes)}, REM ${hm(hcSleep.rem_minutes)})` : ""}
+              {hcHours != null && String(hcHours) !== hours && <> · <button type="button" className="link small" onClick={() => setHours(String(hcHours))}>Use {hcHours} h</button></>}
+            </p>
+          )}
         </div>
         <div className="panel">
           <label className="field">

@@ -931,3 +931,12 @@ select.input { appearance: auto; }
 .fsb-scan { flex: none; width: 52px; height: 48px; display: grid; place-items: center; background: none; border: 0; color: var(--ink); border-radius: 0 999px 999px 0; cursor: pointer; }
 .fsb-scan:active, .fsb-main:active { opacity: 0.7; }
 @media (max-width: 1023px) { .timeline { padding-bottom: 96px; } .undo-toast.above-bar { bottom: calc(env(safe-area-inset-bottom) + 134px); } }
+/* Health Connect activity */
+.act-card { margin-top: 10px; padding: 12px 14px; }
+.act-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.act-label { font-weight: 700; }
+.fs2-fill.steps { background: var(--m-k); } .fs2-fill.steps.hit { background: var(--in); }
+.steps-bar { fill: var(--m-k); opacity: 0.75; } .steps-bar.hit { fill: var(--in); opacity: 0.9; } .steps-bar.today { opacity: 1; }
+.act-sleep { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 10px; margin: 6px 0 4px; }
+.act-sleep > div { display: flex; flex-direction: column; background: var(--ground); border-radius: 10px; padding: 8px 10px; }
+.act-sleep strong { font-family: var(--display); font-size: 1.25rem; }

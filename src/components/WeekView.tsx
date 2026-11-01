@@ -1,4 +1,5 @@
 import type { AppData } from "../App";
+import { ActivityCard } from "./Activity";
 import type { Session } from "../lib/types";
 import type { Template, Workout } from "../lib/strength";
 import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive } from "../lib/coach";
@@ -76,6 +77,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
       <div className="cols">
       <div className="col">
       <ReadinessCard checkins={data.checkins} onScan={onScan} />
+      <ActivityCard activity={data.activity} target={data.settings.step_target} />
 
       <StrengthWeek data={data} start={start} onOpen={onOpenWorkout} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} onPlan={onPlan} />
       </div>
