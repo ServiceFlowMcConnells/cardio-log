@@ -30,7 +30,7 @@ export function DaySummary({ total, target, onTargets, onTrends }: { total: Macr
               <span className="fs2-val">
                 <b className={`fs2-tag ${it.cls}`}>{it.tag}</b>
                 <span className="num">{showLeft ? fmt(it, Math.abs(left!)) : fmt(it, it.eaten)}</span>
-                <span className={`fs2-unit${over ? " over" : ""}`}>{showLeft ? (over ? "over" : "left") : it.target != null ? "eaten" : it.unit}</span>
+                {showLeft ? <span className={`fs2-unit${over ? " over" : ""}`}>{over ? "over" : "left"}</span> : it.target != null ? <span className={`fs2-of${over ? " over" : ""}`}>/{fmt(it, it.target)}</span> : <span className="fs2-unit">{it.unit}</span>}
               </span>
               {it.target != null && <span className="fs2-track"><span className={`fs2-fill ${it.cls}${over ? " over" : ""}`} style={{ width: `${over ? 100 : frac * 100}%` }} /></span>}
             </span>

@@ -971,3 +971,6 @@ select.input { appearance: auto; }
 @keyframes slideInNext { from { transform: translateX(28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @keyframes slideInPrev { from { transform: translateX(-28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .food-swipe.slide-next, .food-swipe.slide-prev { animation: none; } }
+.fs2-of { font-size: 0.8rem; color: var(--muted); margin-left: -3px; }
+@media (max-width: 380px) { .fs2-row { grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); } .fs2-of { font-size: 0.7rem; margin-left: -4px; } }
+.fs2-of.over { color: var(--over); }
