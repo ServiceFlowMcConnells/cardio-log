@@ -12,6 +12,12 @@ SOCK=$(adb shell cat /proc/net/unix | grep -o "webview_devtools_remote_[0-9]*" |
 adb forward tcp:9222 localabstract:$SOCK
 adb shell screencap -p /sdcard/s0.png && adb pull /sdcard/s0.png $OUT/0-app.png
 node native/e2e/cdp.mjs 9222 health 2>&1 | tee $OUT/cdp.txt
+# Keyboard: tap the sign-in email field, then screenshot (no blank band above the keyboard)
+adb shell input tap 540 1000
+sleep 3
+adb shell screencap -p /sdcard/sk.png && adb pull /sdcard/sk.png $OUT/0-keyboard.png
+adb shell input keyevent KEYCODE_BACK
+sleep 1
 node native/e2e/cdp.mjs 9222 start 2>&1 | tee -a $OUT/cdp.txt
 adb shell input keyevent KEYCODE_HOME
 sleep 2
