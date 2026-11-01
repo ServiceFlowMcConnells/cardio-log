@@ -37,7 +37,7 @@ interface Props {
   onNewRecipe: () => void;
   onEditRecipe: (r: Recipe) => void;
   preselect?: string | null; // a food id just created
-  start?: "scan" | "quick"; // opened from a shortcut: straight to the scanner or quick add
+  start?: "scan" | "quick" | "search"; // opened from a shortcut or the search bar: scanner, quick add, or typing
 }
 
 const dayName = (d: string) => (d === todayYmd() ? "Today" : fromYmd(d).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" }));
@@ -261,7 +261,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
         <button className="fchip" onClick={onNewRecipe}>New recipe</button>
       </div>
       <div style={{ marginTop: 12 }}>
-        <FoodSearch nutri={nutri} onPick={pick} query={query} setQuery={setQuery} autoFocus={desktop} onNewFood={onNewFood} autoScan={start === "scan"} />
+        <FoodSearch nutri={nutri} onPick={pick} query={query} setQuery={setQuery} autoFocus={desktop || start === "search"} onNewFood={onNewFood} autoScan={start === "scan"} />
       </div>
       {!query.trim() && (
         <>

@@ -65,7 +65,7 @@ export type View =
   | { k: "mobility-test" }
   | { k: "niggles"; back: "mobility" | "home" }
   | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" }
-  | { k: "food-add"; time?: string; preselect?: string | null; start?: "scan" | "quick" }
+  | { k: "food-add"; time?: string; preselect?: string | null; start?: "scan" | "quick" | "search" }
   | { k: "food-edit"; food: Food | null; name?: string; barcode?: string; fromAdd?: boolean }
   | { k: "recipe"; recipe: Recipe | null; items?: { food_id: string; grams: number }[] }
   | { k: "targets" }
@@ -408,7 +408,7 @@ export default function App() {
         day={foodDay}
         setDay={setFoodDay}
         setNutri={setNutri}
-        onAdd={(time) => go({ k: "food-add", time })}
+        onAdd={(time, start) => go({ k: "food-add", time, start })}
         onTargets={() => go({ k: "targets" })}
         onMakeRecipe={(items) => go({ k: "recipe", recipe: null, items })}
         onTrends={() => go({ k: "nutrition" })}

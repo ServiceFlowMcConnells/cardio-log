@@ -3,13 +3,14 @@ import type { LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
 import { addDays, addEntries, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 import { DayCalendar, DaySummary } from "./DayHeader";
+import { useDesktop } from "../../lib/desktop";
 
 interface Props {
   nutri: NutritionData;
   day: string;
   setDay: (d: string) => void;
   setNutri: (f: (n: NutritionData) => NutritionData) => void;
-  onAdd: (time?: string) => void;
+  onAdd: (time?: string, start?: "search" | "scan") => void;
   onTargets: () => void;
   onMakeRecipe: (items: { food_id: string; grams: number }[]) => void;
   onTrends: () => void;
@@ -39,7 +40,23 @@ function Check({ on }: { on: boolean }) {
   );
 }
 
+/** "Search for a food" with a barcode button, like MacroFactor: opens Log food searching, or scanning. */
+function SearchBar({ onAdd, docked }: { onAdd: Props["onAdd"]; docked: boolean }) {
+  return (
+    <div className={`food-searchbar${docked ? " docked" : ""}`}>
+      <button className="fsb-main" onClick={() => onAdd(undefined, "search")}>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L20 20" /></svg>
+        <span>Search for a food</span>
+      </button>
+      <button className="fsb-scan" aria-label="Scan a barcode" onClick={() => onAdd(undefined, "scan")}>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8" /></svg>
+      </button>
+    </div>
+  );
+}
+
 export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets, onMakeRecipe, onTrends }: Props) {
+  const desktop = useDesktop();
   const [open, setOpen] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [sheet, setSheet] = useState<null | { mode: "copy" | "move"; day: string; time: string }>(null);
@@ -259,12 +276,12 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
           {error && <p className="error">{error}</p>}
           {note && <p className="ok">{note}</p>}
           {undo && (
-            <div className="undo-toast" role="status">
+            <div className={`undo-toast${desktop ? "" : " above-bar"}`} role="status">
               <span>Removed {undo.name}</span>
               <button className="link small" onClick={undoDelete}>Undo</button>
             </div>
           )}
-          <button className="btn primary block log-btn" onClick={() => onAdd()}>+ Log food</button>
+          {desktop && <SearchBar onAdd={onAdd} docked={false} />}
           {entries.length === 0 && yesterday.length > 0 && (
             <button className="btn ghost block" disabled={busy} onClick={copyDay} style={{ marginBottom: 10 }}>
               Copy everything from {isToday ? "yesterday" : "the day before"} ({fmtKcal(sumMacros(yesterday).kcal)} kcal)
@@ -303,6 +320,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
           )}
         </div>
       )}
+      {!desktop && sel.size === 0 && !open && <SearchBar onAdd={onAdd} docked />}
     </>
   );
 }
