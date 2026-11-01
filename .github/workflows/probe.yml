@@ -9,16 +9,14 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: |
-          npm view @capgo/capacitor-health versions --json | tr -d '\n '
-          echo
-          for v in 6 7; do echo "== $v"; npm view @capgo/capacitor-health@$v version peerDependencies --json | tail -20; done
-          V=$(npm view @capgo/capacitor-health@6 version --json | tail -1 | tr -d '"[], ')
-          echo "PICK $V"
+          V=7.2.15
           mkdir p && cd p && npm pack @capgo/capacitor-health@$V >/dev/null && tar xzf *.tgz
+          echo "== files"; find package -maxdepth 3 | head -40
           echo "== build.gradle"; cat package/android/build.gradle
           echo "== manifest"; cat package/android/src/main/AndroidManifest.xml
-          echo "== types"; grep -n "sleep\|Sleep\|HealthDataType\|registerPlugin\|export interface\|readSamples\|queryAggregated\|requestAuthorization\|isAvailable" package/dist/esm/definitions.d.ts | head -80
+          echo "== types"; grep -n "sleep\|Sleep\|HealthDataType =\|export type\|readSamples\|queryAggregated\|requestAuthorization\|isAvailable\|openHealthConnectSettings" package/dist/esm/definitions.d.ts | head -80
           echo "== plugin name"; grep -rn "registerPlugin" package/dist/esm/*.js
           echo "== android src"; find package/android/src -name "*.kt" -o -name "*.java" | head
-          grep -rn "SleepSession\|StepsRecord\|aggregate" package/android/src | head -20
-          echo "== README android"; grep -n -A12 -i "privacy\|rationale\|PermissionsRationale\|VIEW_PERMISSION_USAGE" package/README.md | head -80
+          grep -rn "SleepSession\|StepsRecord\|aggregate\|CapacitorPlugin(" package/android/src | head -20
+          echo "== README"; grep -n -B2 -A14 -i "privacy\|rationale\|VIEW_PERMISSION_USAGE\|MainActivity" package/README.md | head -120
+          echo "== cap7 android template minSdk"; npm view @capacitor/android@7 version | tail -3
