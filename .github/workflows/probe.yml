@@ -1,0 +1,15 @@
+name: probe
+on:
+  push:
+    branches: ["probe/**"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          mkdir p && cd p && npm pack @capacitor/android@8.6.0 >/dev/null && tar xzf *.tgz
+          grep -rln "ime()\|WindowInsetsCompat.Type.ime\|setOnApplyWindowInsetsListener" package/capacitor/src/main/java | head
+          for f in $(grep -rln "ime()\|setOnApplyWindowInsetsListener" package/capacitor/src/main/java); do echo "=== $f"; grep -n -B3 -A30 "setOnApplyWindowInsetsListener" $f | head -120; done
+          echo "=== config keys"; grep -rn "adjustMarginsForEdgeToEdge\|insetsHandling\|getString(\"android\|\"resizeOnFullScreen" package/capacitor/src/main/java | head -20
