@@ -19,6 +19,7 @@ import { loadPrograms, nextUp } from "./lib/programs";
 import ProgramEditor from "./components/ProgramEditor";
 import WeekPlanner from "./components/WeekPlanner";
 import type { PlannedWorkout } from "./lib/schedule";
+import { plannedTemplate } from "./lib/schedule";
 import { loadPlanned } from "./lib/schedule";
 import type { Checkin } from "./lib/readiness";
 import { todaysCheckin } from "./lib/readiness";
@@ -188,8 +189,10 @@ export default function App() {
   const { sessions, settings, exercises, templates, workouts, checkins } = data;
   const today = todaysCheckin(checkins);
   // Starting a workout: scan first if there's no scan today
-  const startWorkout = (template: Template | null) => {
+  const startWorkout = (base: Template | null) => {
     if (desktop) return; // live recording is phone-only
+    // A planned workout uses that week's set adjustments, if you made any when planning
+    const template = base ? plannedTemplate(base, data.planned) : null;
     go(today ? { k: "workout", workout: null, template } : { k: "readiness", checkin: null, next: { template } });
   };
 

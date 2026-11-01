@@ -10,7 +10,8 @@ import type { Exercise, Muscle, Template, Workout } from "./strength";
 import { MUSCLE_LABEL, muscleCredit } from "./strength";
 import type { Phase } from "./readiness";
 
-export interface PlannedWorkout { id: string; planned_on: string; template_id: string }
+/** changes: set adjustments for that week only (the template itself stays as it is) */
+export interface PlannedWorkout { id: string; planned_on: string; template_id: string; changes?: TemplateChange[] }
 
 export const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export const fromYmd = (s: string) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d, 12); };
@@ -20,13 +21,13 @@ export const nextDays = (n = 7, from = new Date()) => Array.from({ length: n }, 
 
 export async function loadPlanned(): Promise<PlannedWorkout[]> {
   const since = addDaysYmd(ymd(new Date()), -21);
-  const { data, error } = await supabase.from("planned_workouts").select("id, planned_on, template_id").gte("planned_on", since).order("planned_on");
+  const { data, error } = await supabase.from("planned_workouts").select("id, planned_on, template_id, changes").gte("planned_on", since).order("planned_on");
   if (error) throw error;
   return (data ?? []) as PlannedWorkout[];
 }
 
 /** Replace the plan for the given dates with `rows` (dates without a row become rest days). */
-export async function savePlan(dates: string[], rows: { planned_on: string; template_id: string }[]): Promise<void> {
+export async function savePlan(dates: string[], rows: { planned_on: string; template_id: string; changes?: TemplateChange[] }[]): Promise<void> {
   if (!dates.length) return;
   const { error: delErr } = await supabase.from("planned_workouts").delete().in("planned_on", dates);
   if (delErr) throw delErr;
@@ -309,4 +310,10 @@ export function applyChanges(templates: Template[], changes: TemplateChange[]): 
     touched.set(t.id, t);
   }
   return [...touched.values()];
+}
+
+/** The template as planned for `date`: with that week's set adjustments applied, if any. */
+export function plannedTemplate(t: Template, planned: PlannedWorkout[], date = ymd(new Date())): Template {
+  const p = planned.find((x) => x.planned_on === date && x.template_id === t.id);
+  return p?.changes?.length ? applyChanges([t], p.changes)[0] ?? t : t;
 }

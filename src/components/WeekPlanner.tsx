@@ -7,7 +7,7 @@ import { nextInProgram } from "../lib/programs";
 import type { Muscle } from "../lib/strength";
 import { startOfWeek, dayIndex } from "../lib/dates";
 import { applyChanges, fromYmd, planAdvice, savePlan, sessionTotalsAfter, setTarget, suggestDays, volumeSuggestions, ymd, SESSION_TOTAL_CAP } from "../lib/schedule";
-import { saveTemplate } from "../lib/strengthData";
+import type { TemplateChange } from "../lib/schedule";
 
 interface Props {
   data: AppData;
@@ -47,12 +47,23 @@ export default function WeekPlanner(props: Props) {
   return <PlanWeek key={week} {...props} start={week} today={today} nav={nav} />;
 }
 
-function PlanWeek({ data, onClose, onSaved, onRefresh, start, today, nav }: Props & { start: string; today: string; nav: JSX.Element }) {
-  const { templates, exercises, programs, activeProgramId, workouts } = data;
+function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start: string; today: string; nav: JSX.Element }) {
+  const { templates: baseTemplates, exercises, programs, activeProgramId, workouts } = data;
   const dates = useMemo(() => Array.from({ length: 7 }, (_, i) => plusDays(start, i)), [start]);
   // Days already gone this week stay as they were; only today onwards can change
   const open = dates.filter((d) => d >= today);
   const isPast = (d: string) => d < today;
+  // Set adjustments for this week only, saved with the plan; your templates stay as they are
+  const [weekChanges, setWeekChanges] = useState<TemplateChange[]>(() => {
+    const seen = new Set<string>();
+    const out: TemplateChange[] = [];
+    for (const p of data.planned) if (dates.includes(p.planned_on) && !seen.has(p.template_id)) { seen.add(p.template_id); out.push(...(p.changes ?? [])); }
+    return out;
+  });
+  const templates = useMemo(() => {
+    const changed = new Map(applyChanges(baseTemplates, weekChanges).map((t) => [t.id, t]));
+    return baseTemplates.map((t) => changed.get(t.id) ?? t);
+  }, [baseTemplates, weekChanges]);
   const active = programs.find((p) => p.id === activeProgramId) ?? null;
 
   // The order workouts get filled in: the active program's rotation from its next step, else longest-without first
@@ -116,28 +127,18 @@ function PlanWeek({ data, onClose, onSaved, onRefresh, start, today, nav }: Prop
   const after = new Map(afterAdvice.muscles.map((m) => [m.muscle, m.sets]));
   const full = sugg.filter((x) => x.full);
   const totals = sessionTotalsAfter(templates, allChanges);
-  const [applying, setApplying] = useState(false);
+  const applying = false;
 
-  async function apply(changes: typeof allChanges) {
-    setApplying(true);
-    setError(null);
-    try {
-      for (const t of applyChanges(templates, changes)) {
-        await saveTemplate({ id: t.id, name: t.name, notes: t.notes ?? "", exercises: t.exercises.map((e, i) => ({ ...e, position: i })) });
-      }
-      await onRefresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't update the templates.");
-    } finally {
-      setApplying(false);
-    }
-  }
+  // Applying a suggestion only changes this week's plan; it's saved with the plan
+  const apply = (changes: typeof allChanges) => setWeekChanges((w) => [...w, ...changes]);
+  const exName = (id: string) => exercises.find((e) => e.id === id)?.name ?? "Exercise";
+  const describe = (c: TemplateChange) => `${baseTemplates.find((t) => t.id === c.templateId)?.name ?? "Workout"}: ${exName(c.exerciseId)} ${c.kind === "add" ? `added, ${c.by} set${c.by === 1 ? "" : "s"}` : `${c.kind === "inc" ? "+" : "−"}${c.by} set${c.by === 1 ? "" : "s"}`}`;
 
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      await savePlan(open, plan.filter((p) => p.template && p.date >= today).map((p) => ({ planned_on: p.date, template_id: p.template!.id })));
+      await savePlan(open, plan.filter((p) => p.template && p.date >= today).map((p) => ({ planned_on: p.date, template_id: p.template!.id, changes: weekChanges.filter((c) => c.templateId === p.template!.id) })));
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save the plan.");
@@ -254,11 +255,22 @@ function PlanWeek({ data, onClose, onSaved, onRefresh, start, today, nav }: Prop
               <p className="muted small" style={{ marginTop: 6 }}>
                 After the changes: {[...totals.entries()].map(([id, n]) => `${templates.find((t) => t.id === id)?.name} ${n} sets`).join(", ")}. Sessions stay under about {SESSION_TOTAL_CAP} working sets (60–75 min) and any one muscle under ~10 sets per session. New exercises start at 8–12 reps @ RPE 8; the coach takes over from there.
               </p>
-              <button className="btn block" style={{ marginTop: 8 }} disabled={applying} onClick={() => apply(allChanges)}>{applying ? "Updating templates…" : "Apply all to my templates"}</button>
+              <button className="btn block" style={{ marginTop: 8 }} disabled={applying} onClick={() => apply(allChanges)}>Apply all for this week</button>
             </>
           ) : advice.sessions > 0 && !full.length ? (
             <p className="small" style={{ marginTop: 10 }}><span className="coach-chip tone-good">On target</span> Every muscle you train is in its weekly set range for this plan.</p>
           ) : null}
+
+          {weekChanges.length > 0 && (
+            <div className="panel" style={{ marginTop: 10 }}>
+              <div className="page-head" style={{ marginBottom: 4 }}>
+                <strong>Adjusted for this week only</strong>
+                <button className="link small" onClick={() => setWeekChanges([])}>Undo all</button>
+              </div>
+              <ul className="small" style={{ margin: "4px 0 0", paddingLeft: 18 }}>{weekChanges.map((c, i) => <li key={i}>{describe(c)}</li>)}</ul>
+              <p className="muted small" style={{ marginTop: 6 }}>Saved with this plan. Your templates don't change, so other weeks start from them as usual.</p>
+            </div>
+          )}
 
           {full.length > 0 && (
             <div className="coach-alert tone-warn" style={{ marginTop: 10 }}>

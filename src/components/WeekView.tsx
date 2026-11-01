@@ -11,7 +11,7 @@ import { AREA_LABEL, daysThisWeek, doneToday, fmtMin, needsRetest } from "../lib
 import { buildRoutine } from "./MobilityPlayer";
 import { useDesktop } from "../lib/desktop";
 import { nextUp } from "../lib/programs";
-import { addDaysYmd, nextDays, planAdvice, plannedStatus, shortName, ymd } from "../lib/schedule";
+import { addDaysYmd, nextDays, planAdvice, plannedStatus, shortName, ymd, plannedTemplate } from "../lib/schedule";
 
 
 interface Props {
@@ -192,7 +192,7 @@ function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Templ
   // The active program's next workout, else the template you've gone longest without
   const up = nextUp(data);
   if (!up) return null;
-  const t = up.template;
+  const t = plannedTemplate(up.template, data.planned); // with this week's set adjustments
   const lastDone = (x: Template) => workouts.find((w) => w.template_id === x.id)?.started_at ?? "";
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const today = todaysCheckin(checkins);
