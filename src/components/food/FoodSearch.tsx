@@ -8,7 +8,7 @@ export type Picked = { type: "food"; food: Food } | { type: "db"; db: DbFood } |
 const per100 = (m: { kcal: number; protein: number }) => `${Math.round(m.kcal)} kcal · ${Math.round(m.protein * 10) / 10} g protein per 100 g`;
 
 /** Search box over your foods (and recipes), the McCance & Widdowson reference foods, and Open Food Facts. */
-export default function FoodSearch({ nutri, onPick, recipes = true, query, setQuery, autoFocus, onNewFood }: {
+export default function FoodSearch({ nutri, onPick, recipes = true, query, setQuery, autoFocus, onNewFood, autoScan }: {
   nutri: NutritionData;
   onPick: (p: Picked) => void;
   recipes?: boolean;
@@ -16,8 +16,9 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
   setQuery: (q: string) => void;
   autoFocus?: boolean;
   onNewFood?: (name: string, barcode?: string) => void; // offered when a scanned barcode isn't found
+  autoScan?: boolean; // open the camera straight away
 }) {
-  const [scanning, setScanning] = useState(false);
+  const [scanning, setScanning] = useState(() => Boolean(autoScan) && typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia));
   const [scan, setScan] = useState<null | { code: string; busy?: boolean; missing?: boolean; error?: string }>(null);
   const canScan = typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
 

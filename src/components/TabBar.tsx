@@ -33,14 +33,14 @@ const icons: Record<Exclude<Tab, "train">, JSX.Element> = {
 
 const labels: Record<Tab, string> = { week: "Week", history: "History", train: "Train", food: "Food", exercises: "Exercises", progress: "Progress" };
 
-export default function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
+export default function TabBar({ tab, onTab, plusOpen }: { tab: Tab; onTab: (t: Tab) => void; plusOpen?: boolean }) {
   const order: Tab[] = ["week", "history", "train", "food", "progress"];
   return (
     <nav className="tabbar" aria-label="Main">
       <div className="tabbar-inner">
         {order.map((t) =>
           t === "train" ? (
-            <button key={t} className={`tab log${tab === t ? " active" : ""}`} onClick={() => onTab(t)} aria-label="Train: log cardio or start a workout" aria-current={tab === t ? "page" : undefined}>
+            <button key={t} className={`tab log${tab === t ? " active" : ""}${plusOpen ? " open" : ""}`} onClick={() => onTab(t)} aria-label="Shortcuts: start training, log food, weigh in" aria-expanded={plusOpen} aria-haspopup="dialog">
               <span className="plus">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
                   <path d="M12 5v14M5 12h14" />

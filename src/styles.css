@@ -873,3 +873,33 @@ select.input { appearance: auto; }
 .winsights > div { display: grid; grid-template-columns: 112px 1fr; gap: 12px; align-items: center; }
 .winsights .w-big { font-size: 1.6rem; text-align: center; background: var(--ground); border-radius: 12px; padding: 10px 4px; }
 @media (max-width: 380px) { .weigh-form { grid-template-columns: 1fr 1fr; } .weigh-form .btn { grid-column: 1 / -1; } }
+
+/* ---------- Shortcuts sheet (the + in the tab bar) ---------- */
+.sheet-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); opacity: 0; pointer-events: none; transition: opacity 0.22s; z-index: 60; }
+.sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; height: 50vh; height: 50dvh; min-height: 400px; max-height: calc(100dvh - 40px); background: var(--panel); border-radius: 20px 20px 0 0; box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; transform: translateY(105%); visibility: hidden; transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.26s; padding-bottom: env(safe-area-inset-bottom); }
+.sheet.open { transform: none; visibility: visible; transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.sheet-grab { touch-action: none; cursor: grab; flex: none; }
+.sheet-handle { display: block; width: 42px; height: 5px; border-radius: 3px; background: var(--line); margin: 8px auto 2px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 10px 8px; border-bottom: 1px solid var(--line); }
+.sheet-head strong { font-family: var(--display); font-size: 1.35rem; letter-spacing: 0.01em; }
+.sheet-x { color: var(--ink); }
+.sheet-body { overflow-y: auto; padding: 10px 14px 16px; flex: 1; }
+.sc-group { margin-bottom: 8px; }
+.sc-group-title { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 4px 2px 6px; }
+.sc-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.sc-btn { display: flex; flex-direction: column; align-items: center; gap: 5px; background: none; border: 0; padding: 4px 2px; color: var(--ink); font: inherit; cursor: pointer; min-width: 0; }
+.sc-icon { width: 54px; height: 54px; border-radius: 50%; background: var(--ground); display: grid; place-items: center; transition: transform 0.12s; }
+.sc-btn:active .sc-icon { transform: scale(0.94); }
+.sc-btn:first-child .sc-icon { background: var(--signal); color: #fff; }
+.sc-label { font-size: 0.82rem; font-weight: 600; text-align: center; line-height: 1.15; }
+.sc-sub { font-size: 0.7rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: -3px; }
+.sc-links { margin-top: 6px; border-top: 1px solid var(--line); }
+.sc-link { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 11px 2px; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.sc-link:last-child { border-bottom: 0; }
+.sc-link-icon { display: grid; place-items: center; color: var(--ink); }
+.sc-link-label { font-weight: 600; }
+.sc-chev { color: var(--muted); font-size: 1.3rem; }
+.tab.log .plus { transition: transform 0.2s; }
+.tab.log.open .plus { transform: rotate(45deg); }
+@media (prefers-reduced-motion: reduce) { .sheet, .sheet.open, .sheet-backdrop { transition: none; } }

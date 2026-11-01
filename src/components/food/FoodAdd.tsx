@@ -37,11 +37,12 @@ interface Props {
   onNewRecipe: () => void;
   onEditRecipe: (r: Recipe) => void;
   preselect?: string | null; // a food id just created
+  start?: "scan" | "quick"; // opened from a shortcut: straight to the scanner or quick add
 }
 
 const dayName = (d: string) => (d === todayYmd() ? "Today" : fromYmd(d).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" }));
 
-export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onNewFood, onEditFood, onNewRecipe, onEditRecipe, preselect }: Props) {
+export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onNewFood, onEditFood, onNewRecipe, onEditRecipe, preselect, start }: Props) {
   const desktop = useDesktop();
   const resume = saved && saved.day === day ? saved : null;
   const [time, setTime] = useState(hourTime(Number((resume?.time ?? time0 ?? (day === todayYmd() ? nowHour() : "12:00")).slice(0, 2))));
@@ -49,7 +50,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("recent");
   const [sel, setSel] = useState<{ item: Loggable; db?: DbFood } | null>(null);
-  const [quick, setQuick] = useState(false);
+  const [quick, setQuick] = useState(start === "quick");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -260,7 +261,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
         <button className="fchip" onClick={onNewRecipe}>New recipe</button>
       </div>
       <div style={{ marginTop: 12 }}>
-        <FoodSearch nutri={nutri} onPick={pick} query={query} setQuery={setQuery} autoFocus={desktop} onNewFood={onNewFood} />
+        <FoodSearch nutri={nutri} onPick={pick} query={query} setQuery={setQuery} autoFocus={desktop} onNewFood={onNewFood} autoScan={start === "scan"} />
       </div>
       {!query.trim() && (
         <>

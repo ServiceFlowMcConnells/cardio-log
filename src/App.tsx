@@ -15,7 +15,7 @@ import MobilityPlayer from "./components/MobilityPlayer";
 import Niggles from "./components/Niggles";
 import { useRestAlerts } from "./lib/useRestAlerts";
 import type { Program } from "./lib/programs";
-import { loadPrograms } from "./lib/programs";
+import { loadPrograms, nextUp } from "./lib/programs";
 import ProgramEditor from "./components/ProgramEditor";
 import WeekPlanner from "./components/WeekPlanner";
 import type { PlannedWorkout } from "./lib/schedule";
@@ -34,7 +34,8 @@ import SettingsView from "./components/SettingsView";
 import SessionEditor, { hasDraft as hasCardioDraft } from "./components/SessionEditor";
 import TabBar, { type Tab } from "./components/TabBar";
 import Train from "./components/Train";
-import WorkoutLogger, { hasWorkoutDraft } from "./components/WorkoutLogger";
+import WorkoutLogger, { hasWorkoutDraft, readWorkoutDraft } from "./components/WorkoutLogger";
+import ShortcutSheet, { ShortcutIcons } from "./components/ShortcutSheet";
 import WorkoutSummary from "./components/WorkoutSummary";
 import TemplateEditor from "./components/TemplateEditor";
 import ExerciseLibrary from "./components/ExerciseLibrary";
@@ -64,7 +65,7 @@ export type View =
   | { k: "mobility-test" }
   | { k: "niggles"; back: "mobility" | "home" }
   | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" }
-  | { k: "food-add"; time?: string; preselect?: string | null }
+  | { k: "food-add"; time?: string; preselect?: string | null; start?: "scan" | "quick" }
   | { k: "food-edit"; food: Food | null; name?: string; barcode?: string; fromAdd?: boolean }
   | { k: "recipe"; recipe: Recipe | null; items?: { food_id: string; grams: number }[] }
   | { k: "targets" }
@@ -102,6 +103,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("week");
   const [view, setView] = useState<View>(initialView);
   const [foodDay, setFoodDay] = useState(todayYmd);
+  const [sheet, setSheet] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuth(data.session));
@@ -306,6 +308,7 @@ export default function App() {
         day={foodDay}
         time={view.time}
         preselect={view.preselect}
+        start={view.start}
         setNutri={setNutri}
         onDone={() => home("food")}
         onNewFood={(name, barcode) => go({ k: "food-edit", food: null, name, barcode, fromAdd: true })}
@@ -341,7 +344,7 @@ export default function App() {
   } else if (view.k === "targets") {
     body = <TargetsEditor nutri={data.nutrition} setNutri={setNutri} onClose={() => home("food")} />;
   } else if (view.k === "weight") {
-    body = <WeightView nutri={data.nutrition} checkins={checkins} setNutri={setNutri} onClose={() => home("food")} />;
+    body = <WeightView nutri={data.nutrition} checkins={checkins} setNutri={setNutri} onClose={() => back()} />;
   } else if (view.k === "settings") {
     body = (
       <SettingsView
@@ -450,13 +453,47 @@ export default function App() {
     );
   }
 
+  // The + opens shortcuts: start training, log food, weigh in and so on
+  const draft = readWorkoutDraft();
+  const up = draft ? null : nextUp(data);
+  const logFood = (start?: "scan" | "quick") => { setFoodDay(todayYmd()); stack.current = []; setView({ k: "food-add", start }); setTab("food"); };
+  const quick = [
+    {
+      title: "Training",
+      items: [
+        draft
+          ? { key: "workout", label: "Resume workout", sub: draft.name, icon: ShortcutIcons.workout, onClick: () => go({ k: "workout", workout: null, template: null }) }
+          : { key: "workout", label: "Start workout", sub: up?.template.name ?? "Empty workout", icon: ShortcutIcons.workout, onClick: () => startWorkout(up?.template ?? null) },
+        { key: "cardio", label: "Log cardio", icon: ShortcutIcons.cardio, onClick: () => go({ k: "cardio", session: null }) },
+        { key: "scan", label: "Readiness", sub: today ? "Done today" : undefined, icon: ShortcutIcons.readiness, onClick: () => go({ k: "readiness", checkin: today ?? null, next: "home" }) },
+        { key: "mobility", label: "Mobility", sub: "Daily routine", icon: ShortcutIcons.mobility, onClick: () => go({ k: "mobility-play", kind: "daily", template: null, next: "home" }) },
+      ],
+    },
+    {
+      title: "Food and body",
+      items: [
+        { key: "food", label: "Log food", icon: ShortcutIcons.food, onClick: () => logFood() },
+        { key: "barcode", label: "Barcode", icon: ShortcutIcons.barcode, onClick: () => logFood("scan") },
+        { key: "quick", label: "Quick add", icon: ShortcutIcons.quick, onClick: () => logFood("quick") },
+        { key: "weight", label: "Weigh in", icon: ShortcutIcons.weight, onClick: () => go({ k: "weight" }) },
+      ],
+    },
+  ];
+  const links = [
+    { key: "train", label: "Programs and templates", icon: ShortcutIcons.programs, onClick: () => home("train") },
+    { key: "plan", label: "Plan my week", icon: ShortcutIcons.plan, onClick: () => go({ k: "plan" }) },
+    { key: "trends", label: "Nutrition trends", icon: ShortcutIcons.trends, onClick: () => { setTab("food"); go({ k: "nutrition" }); } },
+    { key: "library", label: "Exercise library", icon: ShortcutIcons.library, onClick: () => home("exercises") },
+  ];
+
   return (
     <>
       <main className="app">
         {banner}
         {body}
       </main>
-      <TabBar tab={activeTab} onTab={(t) => home(t)} />
+      <TabBar tab={activeTab} plusOpen={sheet} onTab={(t) => (t === "train" ? setSheet((o) => !o) : home(t))} />
+      <ShortcutSheet open={sheet} onClose={() => setSheet(false)} quick={quick} links={links} />
     </>
   );
 }
