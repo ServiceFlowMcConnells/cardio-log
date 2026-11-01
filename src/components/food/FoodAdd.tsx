@@ -3,7 +3,7 @@ import type { DbFood, Food, Macros, NewEntry, NutritionData, Recipe, RecentItem 
 import { addEntries, adoptFood, lookupBarcode, saveFood, fromYmd, isTime, hourTime, macrosFor, nowHour, perServing, recentItems, scaleMacros, setFoodFlags, setRecipeFavorite, sumMacros, targetFor, todayYmd } from "../../lib/nutrition";
 import { useDesktop } from "../../lib/desktop";
 import FoodSearch, { type Picked } from "./FoodSearch";
-import AmountPanel, { defaultAmount, type Loggable } from "./AmountPanel";
+import AmountPanel, { amountLabel, defaultAmount, defaultLine, type Loggable } from "./AmountPanel";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, PlusIcon, Star, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 
 type Tab = "recent" | "saved" | "recipes";
@@ -281,7 +281,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
                 <div key={r.key} className="list-row rec-row">
                   <button className="rec-main" onClick={() => openRecent(r)}>
                     <strong>{r.name}</strong>
-                    <span className="small muted" style={{ display: "block" }}><MacroSub m={r.macros} amount={r.kind === "quick" ? "quick add" : r.unit === "g" ? `${fmtG(r.amount)} g` : `${fmtG(r.amount)} serving${r.amount === 1 ? "" : "s"}`} /></span>
+                    <span className="small muted" style={{ display: "block" }}><MacroSub fire m={r.macros} amount={r.kind === "quick" ? "quick add" : r.kind === "food" ? amountLabel(r.id ? foodsById.get(r.id) ?? null : null, r.amount, r.unit) : `${fmtG(r.amount)} serving${r.amount === 1 ? "" : "s"}`} /></span>
                   </button>
                   <button className="add-btn" onClick={() => pushRecent(r)} aria-label={`Add ${r.name} to the plate`}><PlusIcon /></button>
                 </div>
@@ -299,7 +299,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
                 <div key={f.id} className="list-row rec-row">
                   <button className="rec-main" onClick={() => setSel({ item: { type: "food", food: f, id: f.id } })}>
                     <strong>{f.name}</strong>{f.brand && <span className="muted"> · {f.brand}</span>}
-                    <span className="small muted" style={{ display: "block" }}>{f.serving_g ? `${fmtKcal((f.kcal * f.serving_g) / 100)} kcal per ${f.serving_label || `${f.serving_g} g`}` : `${fmtKcal(f.kcal)} kcal per 100 g`}</span>
+                    <span className="small muted" style={{ display: "block" }}><MacroSub fire {...defaultLine({ type: "food", food: f, id: f.id }, nutri)} /></span>
                   </button>
                   <button className={`star-btn${f.favorite ? " on" : ""}`} aria-pressed={f.favorite} aria-label={f.favorite ? "Unstar" : "Star"} onClick={() => toggleFav(f.id, "food", !f.favorite)}><Star on={f.favorite} /></button>
                   <button className="add-btn" onClick={() => pushFood(f)} aria-label={`Add ${f.name} to the plate`}><PlusIcon /></button>
@@ -320,7 +320,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
                   <div key={r.id} className="list-row rec-row">
                     <button className="rec-main" onClick={() => setSel({ item: { type: "recipe", recipe: r } })}>
                       <strong>{r.name}</strong>
-                      <span className="small muted" style={{ display: "block" }}>{fmtKcal(ps.kcal)} kcal · P {fmtG(ps.protein)} per serving{r.servings !== 1 ? ` (makes ${fmtG(r.servings)})` : ""}</span>
+                      <span className="small muted" style={{ display: "block" }}><MacroSub fire m={ps} amount={`1 serving${r.servings !== 1 ? ` (makes ${fmtG(r.servings)})` : ""}`} /></span>
                     </button>
                     <button className={`star-btn${r.favorite ? " on" : ""}`} aria-pressed={r.favorite} aria-label={r.favorite ? "Unstar" : "Star"} onClick={() => toggleFav(r.id, "recipe", !r.favorite)}><Star on={r.favorite} /></button>
                     <button className="add-btn" onClick={() => pushRecipe(r)} aria-label={`Add ${r.name} to the plate`}><PlusIcon /></button>

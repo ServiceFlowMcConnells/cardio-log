@@ -2,15 +2,7 @@ import { useMemo, useState } from "react";
 import type { Macros, NutritionData, Target } from "../../lib/nutrition";
 import { dayTotals, fromYmd, targetFor, todayYmd, ymd } from "../../lib/nutrition";
 import { dayIndex, weekdayLabels } from "../../lib/dates";
-import { fmtKcal } from "./bits";
-
-export function FireIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="currentColor">
-      <path d="M12.6 2.2c.4 3-1 4.7-2.5 6.4C8.7 10.2 7 12 7 15a5 5 0 0 0 10 0c0-1.8-.7-3.3-1.6-4.6-.2 1.2-.8 2.2-1.9 2.7.5-2.9-.5-7.2-.9-10.9zM12 20.5a2.6 2.6 0 0 1-2.6-2.6c0-1.6 1.2-2.5 2-3.6.3 1.3 1.7 1.8 2.7 2.6.4.3.5.7.5 1A2.6 2.6 0 0 1 12 20.5z" />
-    </svg>
-  );
-}
+import { FireIcon, fmtKcal } from "./bits";
 
 type Item = { key: string; cls: string; tag: JSX.Element | string; eaten: number; target: number | null; unit: string };
 

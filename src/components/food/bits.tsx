@@ -16,10 +16,19 @@ export function MacroLine({ m, big }: { m: Macros; big?: boolean }) {
 }
 
 /** Compact line under a food: "108 kcal  21P 0F 6C · 200 g" */
-export function MacroSub({ m, amount }: { m: Macros; amount?: string }) {
+export function FireIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg className="fire" viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="currentColor">
+      <path d="M12.6 2.2c.4 3-1 4.7-2.5 6.4C8.7 10.2 7 12 7 15a5 5 0 0 0 10 0c0-1.8-.7-3.3-1.6-4.6-.2 1.2-.8 2.2-1.9 2.7.5-2.9-.5-7.2-.9-10.9zM12 20.5a2.6 2.6 0 0 1-2.6-2.6c0-1.6 1.2-2.5 2-3.6.3 1.3 1.7 1.8 2.7 2.6.4.3.5.7.5 1A2.6 2.6 0 0 1 12 20.5z" />
+    </svg>
+  );
+}
+
+/** "55🔥 5P 1F 6C · 50 g" (fire) or "55 kcal 5P 1F 6C · 50 g". */
+export function MacroSub({ m, amount, fire }: { m: Macros; amount?: string; fire?: boolean }) {
   return (
     <span className="macro-sub">
-      <span className="num">{fmtKcal(m.kcal)} kcal</span>
+      {fire ? <span className="num kcal-fire">{fmtKcal(m.kcal)}<FireIcon size={13} /><span className="sr-only"> kcal</span></span> : <span className="num">{fmtKcal(m.kcal)} kcal</span>}
       <span className="num">{fmtG(m.protein)}<b className="p">P</b> {fmtG(m.fat)}<b className="f">F</b> {fmtG(m.carbs)}<b className="c">C</b></span>
       {amount && <span>· {amount}</span>}
     </span>

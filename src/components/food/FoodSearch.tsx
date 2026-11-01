@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import type { DbFood, Food, NutritionData, Recipe } from "../../lib/nutrition";
-import { foodByBarcode, loadFoodDb, lookupBarcode, matchScore, perServing, searchBranded } from "../../lib/nutrition";
+import type { DbFood, Food, Macros, NutritionData, Recipe } from "../../lib/nutrition";
+import { foodByBarcode, loadFoodDb, lookupBarcode, matchScore, searchBranded } from "../../lib/nutrition";
 import BarcodeScanner from "./BarcodeScanner";
+import { defaultLine } from "./AmountPanel";
+import { MacroSub } from "./bits";
+
+const Line = ({ m, amount }: { m: Macros; amount: string }) => <MacroSub m={m} amount={amount} fire />;
 
 export type Picked = { type: "food"; food: Food } | { type: "db"; db: DbFood } | { type: "recipe"; recipe: Recipe };
 
-const per100 = (m: { kcal: number; protein: number }) => `${Math.round(m.kcal)} kcal · ${Math.round(m.protein * 10) / 10} g protein per 100 g`;
 
 /** Search box over your foods (and recipes), the McCance & Widdowson reference foods, and Open Food Facts. */
 export default function FoodSearch({ nutri, onPick, recipes = true, query, setQuery, autoFocus, onNewFood, autoScan }: {
@@ -121,9 +124,9 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
                 {mine.map((p) => (
                   <button key={p.type + (p.type === "food" ? p.food.id : p.type === "recipe" ? p.recipe.id : "")} className="list-row" onClick={() => onPick(p)}>
                     {p.type === "food" ? (
-                      <span><strong>{p.food.name}</strong>{p.food.brand && <span className="muted"> · {p.food.brand}</span>}<span className="small muted" style={{ display: "block" }}>{per100(p.food)}</span></span>
+                      <span><strong>{p.food.name}</strong>{p.food.brand && <span className="muted"> · {p.food.brand}</span>}<span className="small muted" style={{ display: "block" }}><Line {...defaultLine({ type: "food", food: p.food, id: p.food.id }, nutri)} /></span></span>
                     ) : p.type === "recipe" ? (
-                      <span><strong>{p.recipe.name}</strong> <span className="chip">recipe</span><span className="small muted" style={{ display: "block" }}>{Math.round(perServing(p.recipe, nutri.foods).kcal)} kcal per serving</span></span>
+                      <span><strong>{p.recipe.name}</strong> <span className="chip">recipe</span><span className="small muted" style={{ display: "block" }}><Line {...defaultLine({ type: "recipe", recipe: p.recipe }, nutri)} /></span></span>
                     ) : null}
                     <span className="muted" aria-hidden="true">›</span>
                   </button>
@@ -142,7 +145,7 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
                   <div className="panel list-panel">
                     {generic.map((d) => (
                       <button key={d.ref} className="list-row" onClick={() => onPick({ type: "db", db: d })}>
-                        <span>{d.name}<span className="small muted" style={{ display: "block" }}>{per100(d)}</span></span>
+                        <span>{d.name}<span className="small muted" style={{ display: "block" }}><Line {...defaultLine({ type: "food", food: d, id: null }, nutri)} /></span></span>
                         <span className="muted" aria-hidden="true">›</span>
                       </button>
                     ))}
@@ -158,7 +161,7 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
                 <div className="panel list-panel">
                   {branded!.results.map((d) => (
                     <button key={d.ref} className="list-row" onClick={() => onPick({ type: "db", db: d })}>
-                      <span><strong>{d.name}</strong>{d.brand && <span className="muted"> · {d.brand}</span>}{have.has(d.ref) && <span className="chip" style={{ marginLeft: 6 }}>saved</span>}<span className="small muted" style={{ display: "block" }}>{per100(d)}</span></span>
+                      <span><strong>{d.name}</strong>{d.brand && <span className="muted"> · {d.brand}</span>}{have.has(d.ref) && <span className="chip" style={{ marginLeft: 6 }}>saved</span>}<span className="small muted" style={{ display: "block" }}><Line {...defaultLine({ type: "food", food: d, id: null }, nutri)} /></span></span>
                       <span className="muted" aria-hidden="true">›</span>
                     </button>
                   ))}

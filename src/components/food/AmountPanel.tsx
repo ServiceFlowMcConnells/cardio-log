@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Food, Macros, NutritionData, Recipe } from "../../lib/nutrition";
 import { macrosFor, perServing, scaleMacros } from "../../lib/nutrition";
-import { MacroLine } from "./bits";
+import { MacroLine, fmtG } from "./bits";
 
 /** Something being logged: one of your foods (or a database food not saved yet), or a recipe. */
 export type Loggable =
@@ -13,6 +13,21 @@ export function defaultAmount(item: Loggable, nutri: NutritionData): { amount: n
   if (last) return { amount: last.amount, unit: item.type === "recipe" ? "serving" : last.unit === "serving" && item.food.serving_g ? "serving" : "g" };
   if (item.type === "recipe") return { amount: 1, unit: "serving" };
   return item.food.serving_g ? { amount: 1, unit: "serving" } : { amount: 100, unit: "g" };
+}
+
+/** "50 g", "1 wrap", "2 × slice", "1 serving". */
+export function amountLabel(f: { serving_label: string | null } | null, amount: number, unit: "g" | "serving"): string {
+  if (unit === "g") return `${fmtG(amount)} g`;
+  const lbl = (f?.serving_label ?? "").replace(/\s*\(.*\)\s*$/, "").trim();
+  if (!lbl) return `${fmtG(amount)} serving${amount === 1 ? "" : "s"}`;
+  return amount === 1 ? lbl : `${fmtG(amount)} × ${lbl}`;
+}
+
+/** What a search or list row shows: the macros for the amount you'd most likely log (your last amount, else a
+ *  serving, else 100 g), and that amount. */
+export function defaultLine(item: Loggable, nutri: NutritionData): { m: Macros; amount: string } {
+  const d = defaultAmount(item, nutri);
+  return { m: macrosOf(item, nutri, d.amount, d.unit), amount: item.type === "recipe" ? `${fmtG(d.amount)} serving${d.amount === 1 ? "" : "s"}` : amountLabel(item.food, d.amount, d.unit) };
 }
 
 export function macrosOf(item: Loggable, nutri: NutritionData, amount: number, unit: "g" | "serving"): Macros {
