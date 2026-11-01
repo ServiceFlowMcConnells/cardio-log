@@ -940,3 +940,7 @@ select.input { appearance: auto; }
 .act-sleep { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 10px; margin: 6px 0 4px; }
 .act-sleep > div { display: flex; flex-direction: column; background: var(--ground); border-radius: 10px; padding: 8px 10px; }
 .act-sleep strong { font-family: var(--display); font-size: 1.25rem; }
+.plan-weeknav { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--panel); border-radius: 14px; padding: 8px 10px; margin-bottom: 12px; text-align: center; }
+.plan-weeknav .icon-btn { font-size: 1.5rem; color: var(--ink); }
+.plan-weeknav .icon-btn:disabled { opacity: 0.3; }
+.plan-row.past { opacity: 0.55; }

@@ -5,7 +5,8 @@ import { MUSCLE_LABEL } from "../lib/strength";
 import { latestPhase } from "../lib/readiness";
 import { nextInProgram } from "../lib/programs";
 import type { Muscle } from "../lib/strength";
-import { applyChanges, fromYmd, nextDays, planAdvice, savePlan, sessionTotalsAfter, setTarget, suggestDays, volumeSuggestions, ymd, SESSION_TOTAL_CAP } from "../lib/schedule";
+import { startOfWeek, dayIndex } from "../lib/dates";
+import { applyChanges, fromYmd, planAdvice, savePlan, sessionTotalsAfter, setTarget, suggestDays, volumeSuggestions, ymd, SESSION_TOTAL_CAP } from "../lib/schedule";
 import { saveTemplate } from "../lib/strengthData";
 
 interface Props {
@@ -17,16 +18,41 @@ interface Props {
 
 type Row = { template_id: string | null; manual: boolean };
 
-function dayLabel(date: string, i: number) {
+const plusDays = (d: string, n: number) => { const x = fromYmd(d); x.setDate(x.getDate() + n); return ymd(x); };
+
+function dayLabel(date: string, today: string) {
   const d = fromYmd(date);
   const wk = d.toLocaleDateString("en-IE", { weekday: "short" });
   const dm = d.toLocaleDateString("en-IE", { day: "numeric", month: "short" });
-  return { top: i === 0 ? "Today" : i === 1 ? "Tomorrow" : wk, sub: i < 2 ? `${wk} ${dm}` : dm };
+  const rel = date === today ? "Today" : date === plusDays(today, 1) ? "Tomorrow" : null;
+  return { top: rel ?? wk, sub: rel ? `${wk} ${dm}` : dm };
 }
 
-export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props) {
+/** Pick the week (from your week start day in Settings), then plan it. On the last day of a week it opens on the next one. */
+export default function WeekPlanner(props: Props) {
+  const today = ymd(new Date());
+  const thisWeek = ymd(startOfWeek(new Date()));
+  const [week, setWeek] = useState(() => (dayIndex(new Date()) === 6 ? plusDays(thisWeek, 7) : thisWeek));
+  const label = (w: string) => (w === thisWeek ? "This week" : w === plusDays(thisWeek, 7) ? "Next week" : `Week of ${fromYmd(w).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}`);
+  const nav = (
+    <div className="plan-weeknav">
+      <button className="icon-btn" aria-label="Previous week" disabled={week <= thisWeek} onClick={() => setWeek(plusDays(week, -7))}>‹</button>
+      <span>
+        <strong>{label(week)}</strong>
+        <span className="small muted" style={{ display: "block" }}>{fromYmd(week).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })} – {fromYmd(plusDays(week, 6)).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}</span>
+      </span>
+      <button className="icon-btn" aria-label="Next week" disabled={week >= plusDays(thisWeek, 7 * 8)} onClick={() => setWeek(plusDays(week, 7))}>›</button>
+    </div>
+  );
+  return <PlanWeek key={week} {...props} start={week} today={today} nav={nav} />;
+}
+
+function PlanWeek({ data, onClose, onSaved, onRefresh, start, today, nav }: Props & { start: string; today: string; nav: JSX.Element }) {
   const { templates, exercises, programs, activeProgramId, workouts } = data;
-  const dates = useMemo(() => nextDays(7), []);
+  const dates = useMemo(() => Array.from({ length: 7 }, (_, i) => plusDays(start, i)), [start]);
+  // Days already gone this week stay as they were; only today onwards can change
+  const open = dates.filter((d) => d >= today);
+  const isPast = (d: string) => d < today;
   const active = programs.find((p) => p.id === activeProgramId) ?? null;
 
   // The order workouts get filled in: the active program's rotation from its next step, else longest-without first
@@ -58,7 +84,7 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
   const fill = (r: Record<string, Row>) => {
     const out = { ...r };
     let i = 0;
-    for (const d of dates) {
+    for (const d of open) {
       if (!out[d].template_id) continue;
       if (!out[d].manual && cycle.length) out[d] = { ...out[d], template_id: cycle[i % cycle.length].id };
       i++;
@@ -66,11 +92,11 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
     return out;
   };
 
-  const toggle = (d: string) => setRows((r) => fill({ ...r, [d]: r[d].template_id ? { template_id: null, manual: false } : { template_id: cycle[0]?.id ?? null, manual: false } }));
+  const toggle = (d: string) => isPast(d) ? undefined : setRows((r) => fill({ ...r, [d]: r[d].template_id ? { template_id: null, manual: false } : { template_id: cycle[0]?.id ?? null, manual: false } }));
   const pick = (d: string, id: string) => setRows((r) => (id === "" ? fill({ ...r, [d]: { template_id: null, manual: false } }) : { ...r, [d]: { template_id: id, manual: true } }));
   const quick = (n: number) => {
-    const chosen = new Set(suggestDays(n, dates));
-    setRows(() => fill(Object.fromEntries(dates.map((d) => [d, { template_id: chosen.has(d) ? cycle[0]?.id ?? null : null, manual: false }]))));
+    const chosen = new Set(suggestDays(n, open));
+    setRows((r) => fill({ ...r, ...Object.fromEntries(open.map((d) => [d, { template_id: chosen.has(d) ? cycle[0]?.id ?? null : null, manual: false }])) }));
   };
 
   const plan = dates.map((d) => ({ date: d, template: templates.find((t) => t.id === rows[d].template_id) ?? null }));
@@ -111,7 +137,7 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
     setBusy(true);
     setError(null);
     try {
-      await savePlan(dates, plan.filter((p) => p.template).map((p) => ({ planned_on: p.date, template_id: p.template!.id })));
+      await savePlan(open, plan.filter((p) => p.template && p.date >= today).map((p) => ({ planned_on: p.date, template_id: p.template!.id })));
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save the plan.");
@@ -137,6 +163,7 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
         </div>
         <button className="btn ghost" onClick={onClose}>Cancel</button>
       </div>
+      {nav}
 
       <div className="cols plan-cols">
       <div className="col">
@@ -146,19 +173,20 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
       </div>
 
       <div className="panel list-panel" style={{ marginTop: 10 }}>
-        {dates.map((d, i) => {
-          const l = dayLabel(d, i);
+        {dates.map((d) => {
+          const l = dayLabel(d, today);
           const r = rows[d];
+          const past = isPast(d);
           return (
-            <div key={d} className={`list-row static plan-row${r.template_id ? " on" : ""}`}>
-              <button className="plan-day" onClick={() => toggle(d)} aria-pressed={Boolean(r.template_id)}>
+            <div key={d} className={`list-row static plan-row${r.template_id ? " on" : ""}${past ? " past" : ""}`}>
+              <button className="plan-day" onClick={() => toggle(d)} aria-pressed={Boolean(r.template_id)} disabled={past}>
                 <span className="plan-check" aria-hidden="true">{r.template_id ? "✓" : ""}</span>
                 <span>
                   <strong>{l.top}</strong>
                   <span className="small muted" style={{ display: "block" }}>{l.sub}</span>
                 </span>
               </button>
-              <select className="input plan-select" value={r.template_id ?? ""} onChange={(e) => pick(d, e.target.value)} aria-label={`Workout for ${l.top}`}>
+              <select className="input plan-select" value={r.template_id ?? ""} disabled={past} onChange={(e) => pick(d, e.target.value)} aria-label={`Workout for ${l.top}`}>
                 <option value="">Rest</option>
                 {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
@@ -248,7 +276,7 @@ export default function WeekPlanner({ data, onClose, onSaved, onRefresh }: Props
       <div className="save-bar">
         <button className="btn primary block" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save plan"}</button>
       </div>
-      <p className="muted small" style={{ marginTop: 8 }}>Planned for {ymd(new Date()) === dates[0] ? "today" : dates[0]} to {fromYmd(dates[6]).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}. Next up follows the plan on those days; you can still start any workout any day.</p>
+      <p className="muted small" style={{ marginTop: 8 }}>Planned for {open[0] === today ? "today" : fromYmd(open[0] ?? dates[0]).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })} to {fromYmd(dates[6]).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}. Next up follows the plan on those days; you can still start any workout any day.</p>
     </>
   );
 }
