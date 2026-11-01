@@ -9,14 +9,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: |
-          V=7.2.15
+          V=8.11.13
           mkdir p && cd p && npm pack @capgo/capacitor-health@$V >/dev/null && tar xzf *.tgz
-          echo "== files"; find package -maxdepth 3 | head -40
+          echo "== peer"; npm view @capgo/capacitor-health@$V peerDependencies
           echo "== build.gradle"; cat package/android/build.gradle
           echo "== manifest"; cat package/android/src/main/AndroidManifest.xml
-          echo "== types"; grep -n "sleep\|Sleep\|HealthDataType =\|export type\|readSamples\|queryAggregated\|requestAuthorization\|isAvailable\|openHealthConnectSettings" package/dist/esm/definitions.d.ts | head -80
-          echo "== plugin name"; grep -rn "registerPlugin" package/dist/esm/*.js
-          echo "== android src"; find package/android/src -name "*.kt" -o -name "*.java" | head
-          grep -rn "SleepSession\|StepsRecord\|aggregate\|CapacitorPlugin(" package/android/src | head -20
-          echo "== README"; grep -n -B2 -A14 -i "privacy\|rationale\|VIEW_PERMISSION_USAGE\|MainActivity" package/README.md | head -120
-          echo "== cap7 android template minSdk"; npm view @capacitor/android@7 version | tail -3
+          echo "== android files"; find package/android/src -type f
+          echo "== types"; sed -n 1,400p package/dist/esm/definitions.d.ts | grep -v "^\s*\*\|^\s*/\*\*" | head -230
+          echo "== README android"; sed -n '/## Android/,/## Usage/p' package/README.md | head -80
+          echo "== cap8"; npm view @capacitor/android@8 version | tail -2; npm view @capacitor/cli@8 engines
