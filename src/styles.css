@@ -959,3 +959,15 @@ select.input { appearance: auto; }
   body.kb-open .tabbar, body.kb-open .food-searchbar.docked, body.kb-open .sel-bar, body.kb-open .plate-float { display: none; }
   body.kb-open .app { padding-bottom: 24px; }
 }
+/* Food log on phones: pinned header + macros; swipe between days */
+@media (max-width: 1023px) {
+  .food-sticky { position: sticky; top: 0; z-index: 12; background: var(--ground); margin: calc(-1 * (env(safe-area-inset-top) + 18px)) -16px 10px; padding: calc(env(safe-area-inset-top) + 18px) 16px 8px; box-shadow: 0 6px 10px -8px rgb(0 0 0 / 0.25); }
+  .food-sticky .page-head { margin-bottom: 10px; }
+  .food-sticky .fs2 { margin-bottom: 0; }
+  .food-swipe { touch-action: pan-y; min-height: 60vh; }
+  .food-swipe.slide-next { animation: slideInNext 0.22s ease-out; }
+  .food-swipe.slide-prev { animation: slideInPrev 0.22s ease-out; }
+}
+@keyframes slideInNext { from { transform: translateX(28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes slideInPrev { from { transform: translateX(-28px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .food-swipe.slide-next, .food-swipe.slide-prev { animation: none; } }

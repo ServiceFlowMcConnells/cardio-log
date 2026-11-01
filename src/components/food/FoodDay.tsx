@@ -252,8 +252,25 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
     );
   }
 
-  return (
-    <>
+  // Swipe left or right on the empty parts of the log to go forward or back a day (foods have their own swipe)
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const [slide, setSlide] = useState<"next" | "prev" | null>(null);
+  const blank = (t: EventTarget | null) => !(t instanceof Element) || !t.closest("button, input, select, textarea, a, .food-row, .entry-edit, .list-panel, .sel-bar");
+  const swipeHandlers = desktop ? {} : {
+    onPointerDown: (e: RPointerEvent) => { swipe.current = e.pointerType !== "mouse" && blank(e.target) ? { x: e.clientX, y: e.clientY } : null; },
+    onPointerUp: (e: RPointerEvent) => {
+      const st = swipe.current;
+      swipe.current = null;
+      if (!st) return;
+      const dx = e.clientX - st.x, dy = e.clientY - st.y;
+      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2) return;
+      setSlide(dx < 0 ? "next" : "prev");
+      goDay(addDays(day, dx < 0 ? 1 : -1));
+    },
+    onPointerCancel: () => { swipe.current = null; },
+  };
+
+  const head = (
       <div className="page-head food-head">
         <h1>Food</h1>
         <div className="day-nav">
@@ -263,14 +280,18 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
           {cal && <DayCalendar nutri={nutri} day={day} onPick={goDay} onClose={() => setCal(false)} />}
         </div>
       </div>
+  );
+  const summary = <DaySummary total={total} target={target} onTargets={onTargets} onTrends={onTrends} />;
+
+  return (
+    <>
+      {/* Phones: the title, day and macros stay pinned at the top while the log scrolls */}
+      {desktop ? head : <div className="food-sticky">{head}{summary}</div>}
 
       <div className="cols">
-        <div className="col">
-          <DaySummary total={total} target={target} onTargets={onTargets} onTrends={onTrends} />
+        {desktop && <div className="col">{summary}</div>}
 
-        </div>
-
-        <div className="col">
+        <div className={`col food-swipe${slide ? ` slide-${slide}` : ""}`} key={desktop ? undefined : day} onAnimationEnd={() => setSlide(null)} {...swipeHandlers}>
           {error && <p className="error">{error}</p>}
           {note && <p className="ok">{note}</p>}
           {undo && (
