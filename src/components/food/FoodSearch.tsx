@@ -90,6 +90,8 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
           value={query}
           autoFocus={autoFocus}
           onChange={(e) => setQuery(e.target.value)}
+          // Phones: once the keyboard is up, bring the box to the top so results show below it, above the keyboard
+          onFocus={(e) => { const el = e.currentTarget; if (window.matchMedia("(max-width: 1023px)").matches) window.setTimeout(() => { const top = el.getBoundingClientRect().top + window.scrollY - 12; window.scrollTo({ top, behavior: "smooth" }); }, 350); }}
           placeholder="Search foods, e.g. porridge oats, Brennans"
           aria-label="Search foods"
           enterKeyHint="search"

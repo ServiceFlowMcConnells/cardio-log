@@ -157,6 +157,17 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [tab, view.k]);
 
+  // While typing on a phone, hide the tab bar and other bars pinned to the bottom: with the keyboard up they'd
+  // sit just above it, on top of whatever field you're typing in
+  useEffect(() => {
+    const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.tagName === "TEXTAREA" || el.isContentEditable || (el.tagName === "INPUT" && !["checkbox", "radio", "button", "submit", "range", "date", "datetime-local", "file"].includes((el as HTMLInputElement).type)));
+    const on = (e: FocusEvent) => { if (typing(e.target)) document.body.classList.add("kb-open"); };
+    const off = () => window.setTimeout(() => { if (!typing(document.activeElement)) document.body.classList.remove("kb-open"); }, 50);
+    document.addEventListener("focusin", on);
+    document.addEventListener("focusout", off);
+    return () => { document.removeEventListener("focusin", on); document.removeEventListener("focusout", off); document.body.classList.remove("kb-open"); };
+  }, []);
+
   // Health Connect: in the Android app, once connected, pull new steps and sleep on open and when you come back to the app
   const reloadActivity = useCallback(() => loadActivity().then((activity) => setData((d) => ({ ...d, activity }))).catch(() => {}), []);
   useEffect(() => {

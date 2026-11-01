@@ -954,3 +954,8 @@ select.input { appearance: auto; }
 .circuit-row { padding: 6px 0; border-top: 1px solid var(--line); }
 .circuit-name { font-weight: 600; min-width: 0; }
 .circuit-no { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ground); font-size: 0.78rem; margin-right: 8px; }
+/* Keyboard open on a phone: bottom-pinned bars would cover the field being typed in */
+@media (max-width: 1023px) {
+  body.kb-open .tabbar, body.kb-open .food-searchbar.docked, body.kb-open .sel-bar, body.kb-open .plate-float { display: none; }
+  body.kb-open .app { padding-bottom: 24px; }
+}
