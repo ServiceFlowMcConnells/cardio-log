@@ -20,7 +20,10 @@ export function amountLabel(f: { serving_label: string | null } | null, amount: 
   if (unit === "g") return `${fmtG(amount)} g`;
   const lbl = (f?.serving_label ?? "").replace(/\s*\(.*\)\s*$/, "").trim();
   if (!lbl) return `${fmtG(amount)} serving${amount === 1 ? "" : "s"}`;
-  return amount === 1 ? lbl : `${fmtG(amount)} × ${lbl}`;
+  if (amount === 1) return lbl;
+  const one = /^1\s+(.+)$/.exec(lbl); // "1 slice" → "2 slices"
+  if (one) return `${fmtG(amount)} ${one[1]}${/s$/i.test(one[1]) ? "" : "s"}`;
+  return `${fmtG(amount)} × ${lbl}`;
 }
 
 /** What a search or list row shows: the macros for the amount you'd most likely log (your last amount, else a

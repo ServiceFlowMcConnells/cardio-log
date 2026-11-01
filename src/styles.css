@@ -742,10 +742,12 @@ select.input { appearance: auto; }
 .time-pill { flex: none; background: var(--panel); border-radius: 999px; padding: 4px 12px; font-family: var(--display); font-weight: 700; font-size: 1.05rem; }
 
 /* ---------- Hourly food timeline ---------- */
-.macro-sub { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font-size: 0.84rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.macro-sub { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; align-items: center; font-size: 0.84rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .macro-sub b { font-weight: 700; }
 .macro-sub .ms { display: inline-flex; align-items: baseline; gap: 3px; }
 .macro-sub .ms-k { align-items: center; gap: 2px; }
+.macro-sub .ms-k .fire { flex: none; }
+.macro-sub .num, .macro-sub b { line-height: 1.25; }
 .macro-sub .ms-k .fire { color: var(--ink); opacity: 0.85; }
 .macro-sub b.p { color: var(--m-p-ink); } .macro-sub b.f { color: var(--m-f-ink); } .macro-sub b.c { color: var(--m-c-ink); }
 .macro-sub.big { font-size: 0.95rem; color: var(--ink); }
