@@ -6,7 +6,7 @@ import { addDays, dayIndex, formatMinutes, formatShort, startOfWeek, weekKey, we
 import { emptyWeek, groupByWeek, zoneFor } from "../lib/calc";
 import SessionCard from "./SessionCard";
 import type { Checkin } from "../lib/readiness";
-import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, weeklyLossPct } from "../lib/readiness";
+import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, weeklyLossPct, lowReadinessCount, LOW_RUN } from "../lib/readiness";
 import { AREA_LABEL, daysThisWeek, doneToday, fmtMin, needsRetest } from "../lib/mobility";
 import { buildRoutine } from "./MobilityPlayer";
 import { useDesktop } from "../lib/desktop";
@@ -196,7 +196,7 @@ function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Templ
   const lastDone = (x: Template) => workouts.find((w) => w.template_id === x.id)?.started_at ?? "";
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const today = todaysCheckin(checkins);
-  const opts = { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: today ? adjustmentFor(today) : null, deload: deloadActive(settings.deload_until), phase: latestPhase(checkins) };
+  const opts = { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: today ? adjustmentFor(today) : null, deload: deloadActive(settings.deload_until), phase: latestPhase(checkins), lowRun: lowReadinessCount(checkins) };
   const nowIso = new Date().toISOString();
   const last = lastDone(t);
   return (
@@ -330,7 +330,23 @@ function MobilityCard({ data, onOpen, onPlay }: { data: AppData; onOpen: () => v
   );
 }
 
+/** Readiness strip, plus a note when it's been low on 4+ of the last 7 days (fatigue building). */
 function ReadinessCard({ checkins, onScan }: { checkins: Checkin[]; onScan: (c: Checkin | null) => void }) {
+  const low = lowReadinessCount(checkins);
+  const phase = latestPhase(checkins);
+  return (
+    <>
+      <ReadinessStrip checkins={checkins} onScan={onScan} />
+      {low >= LOW_RUN && (
+        <div className="coach-alert tone-warn" style={{ marginTop: -2, marginBottom: 10 }}>
+          <p><strong>Readiness under 60 on {low} of the last 7 days.</strong> Fatigue is building. Loads are being trimmed day to day, and any lift that slips is held rather than cut. Prioritise sleep{phase === "deficit" ? "; if it carries into next week, talk to your coach about a diet break or a deload" : "; if it carries into next week, consider a deload"}.</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ReadinessStrip({ checkins, onScan }: { checkins: Checkin[]; onScan: (c: Checkin | null) => void }) {
   const today = todaysCheckin(checkins);
   const rate = weeklyLossPct(checkins);
   const lastW = checkins.find((c) => c.bodyweight_kg != null);

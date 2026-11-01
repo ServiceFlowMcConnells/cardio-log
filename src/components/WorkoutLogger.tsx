@@ -10,7 +10,7 @@ import { unlockAudio } from "../lib/restAlert";
 import { useBackHandler } from "../lib/backNav";
 import { advance, programStepFor, setNextStep } from "../lib/programs";
 import type { Adjustment, Checkin } from "../lib/readiness";
-import { BAND_LABEL, adjustmentFor, latestPhase } from "../lib/readiness";
+import { BAND_LABEL, adjustmentFor, latestPhase, lowReadinessCount } from "../lib/readiness";
 import type { Prescription } from "../lib/coach";
 import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, previousInRange } from "../lib/coach";
 import { deleteWorkout, saveWorkout } from "../lib/strengthData";
@@ -166,7 +166,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     const d = fromTemplate(template, checkin, (te) =>
       coachExercise(exercises.find((e) => e.id === te.exercise_id), te.exercise_id,
         planOf(te),
-        workouts, templates, start, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: adj0, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins) })?.sets ?? te.sets);
+        workouts, templates, start, { formula: settings.e1rm_formula, inc: settings.weight_increment, adj: adj0, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins), lowRun: lowReadinessCount(data.checkins) })?.sets ?? te.sets);
     const ps = programStepFor(template, data);
     return ps ? { ...d, program_id: ps.programId, program_step: ps.step } : d;
   });
@@ -222,7 +222,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
   function prescribe(ex: LExercise, withAdj: Adjustment | null = adj): Prescription | null {
     const plan = ex.plan ? { sets: ex.plan.sets, rep_min: ex.plan.rep_min, rep_max: ex.plan.rep_max, target_rpe: ex.plan.target_rpe, progression: ex.plan.progression, on_stall: ex.plan.on_stall, increment_kg: ex.plan.increment_kg } : null;
     return coachExercise(exMap.get(ex.exercise_id), ex.exercise_id, plan, workouts, templates, draft.started_at,
-      { formula, inc, adj: withAdj, deload, excludeId: draft.id, phase: latestPhase(data.checkins) });
+      { formula, inc, adj: withAdj, deload, excludeId: draft.id, phase: latestPhase(data.checkins), lowRun: lowReadinessCount(data.checkins) });
   }
 
   /** What to pre-fill: the coach's weight, per-set rep goals and RPE. */
@@ -361,7 +361,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     setBusy(true);
     setError(null);
     try {
-      const id = await saveWorkout({ id: draft.id, template_id: draft.template_id, checkin_id: draft.checkin_id ?? null, program_id: draft.program_id ?? null, program_step: draft.program_step ?? null, name: draft.name, started_at: started, duration_min: duration, notes: draft.notes, sets: c.sets });
+      const id = await saveWorkout({ id: draft.id, template_id: draft.template_id, checkin_id: draft.checkin_id ?? null, load_factor: isEdit ? undefined : adj ? adj.loadFactor : 1, program_id: draft.program_id ?? null, program_step: draft.program_step ?? null, name: draft.name, started_at: started, duration_min: duration, notes: draft.notes, sets: c.sets });
       // Done the program's next workout: move the rotation on (A → B → A …)
       const prog = !isEdit && draft.program_id != null && draft.program_step != null ? data.programs.find((p) => p.id === draft.program_id) : null;
       if (prog) await setNextStep(prog.id, advance(prog, draft.program_step!)).catch(() => {});

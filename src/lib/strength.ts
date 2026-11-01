@@ -115,6 +115,7 @@ export interface Workout {
   id: string;
   template_id: string | null;
   checkin_id: string | null;
+  load_factor?: number; // readiness load cut it was done under (1 = full plan)
   program_id?: string | null; // the program step this workout completed, if any
   program_step?: number | null;
   name: string;

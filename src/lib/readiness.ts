@@ -169,6 +169,12 @@ export function bandFor(score: number): Band {
   return "very_low";
 }
 
+/** Scans under 60 in the last 7 days; 4 or more is a low-readiness run (fatigue, not lost strength). */
+export function lowReadinessCount(checkins: Pick<Checkin, "checked_at" | "score">[], now = Date.now()): number {
+  return checkins.filter((c) => now - new Date(c.checked_at).getTime() <= 7 * 86400000 && c.score < 60).length;
+}
+export const LOW_RUN = 4;
+
 export function adjustmentFor(c: Pick<Checkin, "score" | "soreness">): Adjustment {
   const band = bandFor(c.score);
   const base: Record<Band, Omit<Adjustment, "band" | "score" | "reasons">> = {

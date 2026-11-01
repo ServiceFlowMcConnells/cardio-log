@@ -22,7 +22,7 @@
 import type { E1rmFormula, Exercise, Template, WSet, Workout } from "./strength";
 import { isWorking, loadFor, pctOf1rm, rirFromRpe, roundTo, sessionE1rm, trainingE1rm, fmtKg } from "./strength";
 import type { Adjustment, Phase } from "./readiness";
-import { adjustedRpe, adjustedSets } from "./readiness";
+import { LOW_RUN, adjustedRpe, adjustedSets } from "./readiness";
 
 const DAY = 86400000;
 
@@ -83,7 +83,7 @@ function normalise(plan: Plan): Required<Omit<Plan, "increment_kg">> & { increme
 }
 
 export interface LiftHistory {
-  sessions: { at: string; workoutId: string; sets: WSet[]; top: number; topReps: number[]; e1rm: number | null }[];
+  sessions: { at: string; workoutId: string; sets: WSet[]; top: number; topReps: number[]; e1rm: number | null; factor: number }[]; // factor: readiness load cut (1 = full)
   peak6: number | null; // best session e1RM in the 6 weeks before the latest session
   latest: number | null;
   vsPeakPct: number | null; // latest vs 6-week peak (including latest), negative = below
@@ -111,6 +111,7 @@ export interface CoachOpts {
   deload: boolean;
   excludeId?: string;
   phase?: Phase | null; // nutrition phase from the latest readiness scan
+  lowRun?: number; // scans under 60 in the last 7 days (4+ = a low-readiness run)
 }
 
 const LOWER = new Set(["quads", "hamstrings", "glutes"]);
@@ -128,7 +129,7 @@ export function liftHistory(exerciseId: string, workouts: Workout[], before: str
     if (!sets.length) continue;
     if (match && !match(w, sets)) continue;
     const top = Math.max(...sets.map((s) => s.weight_kg));
-    sessions.push({ at: w.started_at, workoutId: w.id, sets, top, topReps: sets.filter((s) => s.weight_kg === top).map((s) => s.reps), e1rm: sessionE1rm(sets, formula) });
+    sessions.push({ at: w.started_at, workoutId: w.id, sets, top, topReps: sets.filter((s) => s.weight_kg === top).map((s) => s.reps), e1rm: sessionE1rm(sets, formula), factor: w.load_factor ?? 1 });
   }
   const latest = sessions[0]?.e1rm ?? null;
   const latestT = sessions[0] ? new Date(sessions[0].at).getTime() : 0;
@@ -287,7 +288,29 @@ export function coachExercise(
   const otherRanges = all.sessions.length > hist.sessions.length;
   const inc = plan.increment_kg ?? incrementFor(exercise, opts.inc);
   const target = plan.target_rpe;
-  const last = hist.sessions[0];
+  // A session cut for readiness doesn't reset progress: plan from your last full session (within 3 weeks),
+  // or scale the cut weight back up if there's none. Lifting full weight anyway counts as a normal session.
+  let last = hist.sessions[0];
+  let bounce = "";
+  let scaledUp = false;
+  if (last && last.factor < 1) {
+    const cut = last;
+    const full = hist.sessions.find((s) => s.factor >= 1);
+    const recent = full && new Date(before).getTime() - new Date(full.at).getTime() <= 21 * DAY;
+    if (full && recent && cut.top < full.top) {
+      last = full;
+      const n = hist.sessions.indexOf(full);
+      bounce = ` Back to ${fmtKg(full.top)} kg: your last ${n === 1 ? "session was" : `${n} sessions were`} cut for readiness (${fmtKg(cut.top)} kg), so this carries on from your last full one.`;
+    } else if (!full || !recent) {
+      const up = roundTo(cut.top / cut.factor, plan.increment_kg ?? incrementFor(exercise, opts.inc), "nearest");
+      if (up > cut.top) {
+        last = { ...cut, top: up, sets: cut.sets.map((s) => (s.weight_kg === cut.top ? { ...s, weight_kg: up } : s)) };
+        bounce = ` Scaled back up from ${fmtKg(cut.top)} kg (cut for readiness) to ${fmtKg(up)} kg.`;
+        scaledUp = true;
+      }
+    }
+  }
+  const lowRun = (opts.lowRun ?? 0) >= LOW_RUN;
   let sets = adjustedSets(plan.sets, adj);
   let rpe = adjustedRpe(target, adj);
   let status: CoachStatus;
@@ -364,7 +387,7 @@ export function coachExercise(
       why = `${missed >= 2 ? `Reps fell below ${plan.rep_min} on ${missed} sets` : `No progress for ${hist.stalled} sessions at RPE ${Math.round(avgRpe! * 10) / 10}`}. You're in a surplus, so add a set${canDrop ? ` and take one jump off to ${fmtKg(weight)} kg` : ` at ${fmtKg(weight)} kg`}: the extra volume drives the next gain. Stop at RPE ${rpe ?? 8}.`;
     } else if (preserveMode && (backwards || stuckHard || missed >= 2)) {
       status = "protect";
-      const trim = backwards || highRpe;
+      const trim = (backwards || highRpe) && !lowRun;
       if (trim) sets = Math.max(Math.min(sets, 2), sets - 1);
       if (target != null) rpe = Math.min(rpe ?? target, target);
       const oneDown = last.top - inc;
@@ -377,11 +400,20 @@ export function coachExercise(
       if (stuckHard) reasons.push(`no progress for ${hist.stalled} sessions with RPE averaging ${Math.round(avgRpe! * 10) / 10}${target != null ? ` against a target of ${target}` : ""}`);
       if (missed >= 2) reasons.push(`reps fell below ${plan.rep_min} on ${missed} sets`);
       const r0 = reasons.join(", and ");
-      why = `${r0.charAt(0).toUpperCase()}${r0.slice(1)}. Goal now: preserve muscle. `
+      why = lowRun && !canDrop
+        ? `${r0.charAt(0).toUpperCase()}${r0.slice(1)}, while readiness has been under 60 on ${opts.lowRun} of the last 7 days. That points to fatigue, not lost strength. Keep ${fmtKg(last.top)} kg and last time's reps on every set, stop at RPE ${rpe ?? 8}, and put the effort into recovery: sleep${phase === "deficit" ? ", and ask your coach about a diet break or a deload if it lasts" : " and a deload if it lasts"}.`
+        : `${r0.charAt(0).toUpperCase()}${r0.slice(1)}. Goal now: preserve muscle. `
         + (canDrop
           ? `Take one jump off to ${fmtKg(weight)} kg so every set lands back in the ${plan.rep_min}–${plan.rep_max} range, and keep it heavy.`
           : `Keep ${fmtKg(last.top)} kg on the bar: heavy loading is the signal that holds muscle${phase === "deficit" ? " in a deficit" : ""}. Match last time's reps rather than grinding for more.`)
         + `${trim ? " One fewer set keeps fatigue down." : ""} Stop at RPE ${rpe ?? 8}. Progression resumes once reps climb or RPE drops; if it keeps sliding, take a deload week.`;
+      if (lowRun && !canDrop) why = why.split(" Goal now")[0];
+    } else if (hist.slipping && lowRun) {
+      status = "protect";
+      if (target != null) rpe = Math.min(rpe ?? target, target);
+      weight = last.top;
+      reps = fit(last.topReps, sets, Math.min(...last.topReps)).map((r) => Math.min(r, plan.rep_max));
+      why = `Estimated 1RM is ${below}% under its 6-week best, while readiness has been under 60 on ${opts.lowRun} of the last 7 days. That points to fatigue, not lost strength. Keep ${fmtKg(last.top)} kg and last time's reps on every set, stop at RPE ${rpe ?? 8}, and put the effort into recovery: sleep${phase === "deficit" ? ", and ask your coach about a diet break or a deload if it lasts" : " and a deload if it lasts"}.`;
     } else if (hist.slipping) {
       status = "protect";
       sets = Math.max(Math.min(sets, 2), sets - 1);
@@ -468,6 +500,16 @@ export function coachExercise(
     }
   }
 
+  // A weight scaled back up from a cut day hasn't been lifted yet: repeat it before adding more
+  if (scaledUp && last && status === "add_weight") {
+    status = "build_reps";
+    weight = last.top;
+    reps = fit(last.topReps, sets, Math.min(...last.topReps)).map((r) => Math.min(r, plan.rep_max));
+    why = `Your last session was cut for readiness and there's no full session in the last 3 weeks, so this scales it back up to ${fmtKg(last.top)} kg. Match those reps here first; the weight goes up once you've owned it.`;
+    bounce = "";
+  }
+  if (bounce && status !== "deload" && status !== "recover" && status !== "new") why += bounce;
+
   // Readiness load scaling (never up); deload/recover/new already set their own loads
   if (adj && adj.loadFactor < 1 && weight != null && status !== "deload" && status !== "recover") {
     const scaled = roundTo(weight * adj.loadFactor, inc, "nearest");
@@ -514,6 +556,7 @@ export function coachOverview(exercises: Exercise[], workouts: Workout[], templa
   if (!opts.deload) {
     if (slippingLifts >= 2) deloadReason = `${slippingLifts} lifts are below their 6-week best.`;
     else if (slipping.length === 1 && opts.readiness7 != null && opts.readiness7 < 60) deloadReason = "A lift is slipping and your readiness has averaged under 60 this week.";
+    else if (slipping.length >= 1 && (opts.lowRun ?? 0) >= LOW_RUN) deloadReason = `A lift is slipping and readiness has been under 60 on ${opts.lowRun} of the last 7 days: fatigue is building.`;
   }
   return { lifts, slipping, deloadAdvised: deloadReason != null, deloadReason };
 }

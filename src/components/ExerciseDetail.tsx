@@ -11,7 +11,7 @@ import { TrendChart, trendText, type Point } from "./Charts";
 import { NewExerciseForm } from "./ExercisePicker";
 import { useBackHandler } from "../lib/backNav";
 import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, planVariants, rangeLabel } from "../lib/coach";
-import { adjustmentFor, latestPhase, todaysCheckin } from "../lib/readiness";
+import { adjustmentFor, latestPhase, todaysCheckin, lowReadinessCount } from "../lib/readiness";
 
 const FORMULA_LABEL = { rpe: "RTS RPE chart", epley: "Epley formula", brzycki: "Brzycki formula" } as const;
 const DAY = 86400000;
@@ -109,7 +109,7 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
         if (!sessions.length) return null;
         const variants = planVariants(ex.id, data.templates);
         const ps = (variants.length ? variants : [null]).map((v) => coachExercise(ex, ex.id, v, workouts, data.templates, new Date(Date.now() + 1000).toISOString(),
-          { formula: f, inc, adj: today ? adjustmentFor(today) : null, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins) }));
+          { formula: f, inc, adj: today ? adjustmentFor(today) : null, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins), lowRun: lowReadinessCount(data.checkins) }));
         return ps.map((p) => {
         if (!p) return null;
         const h = p.history;
