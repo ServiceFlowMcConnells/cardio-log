@@ -1,0 +1,19 @@
+name: probe
+on:
+  push:
+    branches: ["probe/**"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          mkdir p && cd p && npm pack @capgo/capacitor-health@8.11.13 >/dev/null && tar xzf *.tgz
+          M=package/android/src/main/java/app/capgo/plugin/health/HealthManager.kt
+          P=package/android/src/main/java/app/capgo/plugin/health/HealthPlugin.kt
+          echo "=== M 140-200"; sed -n 140,200p $M
+          echo "=== readRecords"; n=$(grep -n "fun <T : Record> readRecords" $M | head -1 | cut -d: -f1); sed -n "${n},$((n+60))p" $M
+          echo "=== M 790-830"; sed -n 790,830p $M
+          echo "=== plugin readSamples"; n=$(grep -n "fun readSamples" $P | cut -d: -f1); sed -n "${n},$((n+70))p" $P
+          echo "=== defs"; grep -n "dataOrigin\|sourceId\|sourceName\|limit" package/dist/esm/definitions.d.ts | head -30
