@@ -101,22 +101,40 @@ export function stepsByDay(recs: StepRec[], key: string): { startDate: string; v
 }
 
 /** Today's steps from each app writing to Health Connect, and Health Connect's combined total. */
-export async function stepSourcesToday(): Promise<{ total: number; sources: { key: string; label: string; steps: number }[] }> {
+export interface StepSources {
+  total: number;
+  dayTotal: number | null;
+  hours: { hour: number; steps: number }[];
+  sources: { key: string; label: string; steps: number; records: number; first: string | null; last: string | null }[];
+}
+export async function stepSourcesToday(): Promise<StepSources> {
   const from = midnight(todayYmd()), to = new Date();
-  const [agg, raw] = await Promise.all([
-    call<{ samples: { value: number }[] }>("queryAggregated", { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString(), bucket: "hour", aggregation: "sum" }),
-    call<{ samples: StepRec[] }>("readSamples", { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString(), limit: 0, ascending: true }),
+  const q = { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString() };
+  const [agg, day, raw] = await Promise.all([
+    call<{ samples: { startDate: string; value: number }[] }>("queryAggregated", { ...q, bucket: "hour", aggregation: "sum" }),
+    call<{ samples: { value: number }[] }>("queryAggregated", { ...q, bucket: "day", aggregation: "sum" }).catch(() => null),
+    call<{ samples: StepRec[] }>("readSamples", { ...q, limit: 0, ascending: true }),
   ]);
-  const by = new Map<string, number>();
+  const by = new Map<string, StepSources["sources"][number]>();
+  const hhmm = (t: string) => new Date(t).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
   for (const r of raw.samples) {
     // Only the part of a record after midnight counts for today
     const a = new Date(r.startDate).getTime(), b = Math.max(a + 1, new Date(r.endDate).getTime());
     const share = (Math.min(b, to.getTime()) - Math.max(a, from.getTime())) / (b - a);
-    if (share > 0) by.set(sourceKey(r), (by.get(sourceKey(r)) ?? 0) + (r.value || 0) * share);
+    if (share <= 0) continue;
+    const k = sourceKey(r);
+    const x = by.get(k) ?? { key: k, label: sourceLabel(k), steps: 0, records: 0, first: null, last: null };
+    x.steps += (r.value || 0) * share;
+    x.records++;
+    if (!x.first || r.startDate < x.first) x.first = r.startDate;
+    if (!x.last || r.endDate > x.last) x.last = r.endDate;
+    by.set(k, x);
   }
   return {
     total: Math.round(agg.samples.reduce((a, x) => a + (x.value || 0), 0)),
-    sources: [...by].map(([key, steps]) => ({ key, label: sourceLabel(key), steps: Math.round(steps) })).sort((a, b) => b.steps - a.steps),
+    dayTotal: day ? Math.round(day.samples.reduce((a, x) => a + (x.value || 0), 0)) : null,
+    hours: agg.samples.filter((x) => x.value > 0).map((x) => ({ hour: new Date(x.startDate).getHours(), steps: Math.round(x.value) })),
+    sources: [...by.values()].map((x) => ({ ...x, steps: Math.round(x.steps), first: x.first && hhmm(x.first), last: x.last && hhmm(x.last) })).sort((a, b) => b.steps - a.steps),
   };
 }
 

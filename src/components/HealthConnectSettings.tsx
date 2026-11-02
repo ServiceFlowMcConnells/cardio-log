@@ -82,9 +82,13 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
                     <div className="hc-sources" role="radiogroup" aria-label="Step source">
                       <label className="hc-src"><input type="radio" name="hc-src" checked={!src} disabled={busy} onChange={() => pickSource(null)} /><span>Health Connect combined<small className="muted"> · removes overlap by app priority</small></span><strong className="num">{sources.total.toLocaleString("en-IE")}</strong></label>
                       {sources.sources.map((x) => (
-                        <label key={x.key} className="hc-src"><input type="radio" name="hc-src" checked={src === x.key} disabled={busy} onChange={() => pickSource(x.key)} /><span>{x.label}</span><strong className="num">{x.steps.toLocaleString("en-IE")}</strong></label>
+                        <label key={x.key} className="hc-src"><input type="radio" name="hc-src" checked={src === x.key} disabled={busy} onChange={() => pickSource(x.key)} /><span>{x.label}<small className="muted"> · {x.records} record{x.records === 1 ? "" : "s"}{x.first ? `, ${x.first}–${x.last}` : ""}</small></span><strong className="num">{x.steps.toLocaleString("en-IE")}</strong></label>
                       ))}
                       {src && !sources.sources.some((x) => x.key === src) && <p className="muted small">Your chosen source has no steps today yet.</p>}
+                      <p className="muted small" style={{ margin: 0 }}>
+                        Combined by hour: {sources.hours.length ? sources.hours.map((h) => `${String(h.hour).padStart(2, "0")}h ${h.steps.toLocaleString("en-IE")}`).join(" · ") : "none"}
+                        {sources.dayTotal != null && ` · whole-day total ${sources.dayTotal.toLocaleString("en-IE")}`}
+                      </p>
                       <p className="muted small" style={{ margin: 0 }}>Today so far. Pick the one that matches your watch; history is re-read from that source.</p>
                     </div>
                   )}
