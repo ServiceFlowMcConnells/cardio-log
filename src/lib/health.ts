@@ -67,11 +67,13 @@ export const disconnectHealth = () => { ls.set(LS.connected, null); ls.set(LS.la
 
 const midnight = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return new Date(y, m - 1, dd); };
 
-/** One row per day: that day's steps, and the main sleep (the longest session) that ended that day. */
+/** One row per day: that day's steps (from hourly totals), and the main sleep (the longest session) that ended that day. */
 export function summarise(steps: { startDate: string; value: number }[], sleep: Sample[]): Map<string, DayActivity> {
   const out = new Map<string, DayActivity>();
   const row = (day: string) => out.get(day) ?? (out.set(day, { day, steps: null, sleep_minutes: null, in_bed_minutes: null, deep_minutes: null, rem_minutes: null, light_minutes: null, awake_minutes: null, sleep_start: null, sleep_end: null }), out.get(day)!);
-  for (const s of steps) if (s.value > 0) row(ymd(new Date(s.startDate))).steps = Math.round(s.value);
+  // Steps come in hourly buckets: add them up by local day (24-hour buckets drift off midnight when the clocks change)
+  for (const s of steps) if (s.value > 0) { const r = row(ymd(new Date(s.startDate))); r.steps = (r.steps ?? 0) + s.value; }
+  for (const r of out.values()) if (r.steps != null) r.steps = Math.round(r.steps);
   const main = new Map<string, Sample>();
   for (const s of sleep) {
     const day = ymd(new Date(s.endDate));
@@ -104,7 +106,7 @@ export function syncHealth(days?: number): Promise<number> {
     const from = midnight(addDays(todayYmd(), -(n - 1)));
     const to = new Date();
     const [st, sl] = await Promise.all([
-      call<{ samples: { startDate: string; value: number }[] }>("queryAggregated", { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString(), bucket: "day", aggregation: "sum" }).catch(() => ({ samples: [] })),
+      call<{ samples: { startDate: string; value: number }[] }>("queryAggregated", { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString(), bucket: "hour", aggregation: "sum" }).catch(() => ({ samples: [] })),
       // Sleep that ended in the window started the evening before it
       call<{ samples: Sample[] }>("readSamples", { dataType: "sleep", startDate: new Date(from.getTime() - 86400000).toISOString(), endDate: to.toISOString(), limit: 1000, ascending: true }).catch(() => ({ samples: [] })),
     ]);
