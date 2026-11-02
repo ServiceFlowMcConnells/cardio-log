@@ -50,7 +50,7 @@ export const setStepSource = (k: string | null) => ls.set(LS.source, k);
 const sourceKey = (r: StepRec) => `${r.sourceId ?? "?"}|${r.sourceName ?? r.sourceId ?? "?"}`;
 export const sourceLabel = (k: string) => {
   const [pkg, name] = k.split("|");
-  const app = KNOWN_APPS[pkg] ?? pkg;
+  const app = KNOWN_APPS[pkg] ?? (pkg.startsWith("com.android.healthconnect.phone") ? "phone sensor" : pkg);
   return name && name !== pkg ? `${name} (${app})` : app;
 };
 const KNOWN_APPS: Record<string, string> = {
@@ -108,7 +108,9 @@ export interface StepSources {
   sources: { key: string; label: string; steps: number; records: number; first: string | null; last: string | null }[];
 }
 export async function stepSourcesToday(): Promise<StepSources> {
-  const from = midnight(todayYmd()), to = new Date();
+  // Up to the end of today: Samsung Health writes one record for the whole day (00:00-23:59), and Health Connect
+  // spreads it across that span, so stopping at "now" would only count part of it
+  const from = midnight(todayYmd()), to = midnight(addDays(todayYmd(), 1));
   const q = { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString() };
   const [agg, day, raw] = await Promise.all([
     call<{ samples: { startDate: string; value: number }[] }>("queryAggregated", { ...q, bucket: "hour", aggregation: "sum" }),
@@ -189,7 +191,7 @@ export function syncHealth(days?: number): Promise<number> {
     const first = lastSync() == null;
     const n = days ?? (first ? 400 : 14);
     const from = midnight(addDays(todayYmd(), -(n - 1)));
-    const to = new Date();
+    const to = midnight(addDays(todayYmd(), 1)); // end of today (see stepSourcesToday)
     const [st, sl] = await Promise.all([
       readSteps(from, to).catch(() => ({ samples: [] })),
       // Sleep that ended in the window started the evening before it
