@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { DbFood, Food, Macros, NewEntry, NutritionData, Recipe, RecentItem } from "../../lib/nutrition";
-import { addEntries, adoptFood, lookupBarcode, saveFood, fromYmd, isTime, hourTime, macrosFor, nowHour, perServing, recentItems, scaleMacros, setFoodFlags, setRecipeFavorite, sumMacros, targetFor, todayYmd } from "../../lib/nutrition";
+import type { DbFood, Food, Macros, NewEntry, NutritionData, Recipe, RecentItem, Unit } from "../../lib/nutrition";
+import { UNIT_LABEL, VOLUME_UNITS, WEIGHT_UNITS, addEntries, adoptFood, convertAmount, lookupBarcode, saveFood, fromYmd, isTime, hourTime, macrosFor, nowHour, perServing, recentItems, scaleMacros, setFoodFlags, setRecipeFavorite, sumMacros, targetFor, todayYmd } from "../../lib/nutrition";
 import { useDesktop } from "../../lib/desktop";
 import FoodSearch, { type Picked } from "./FoodSearch";
 import AmountPanel, { amountLabel, defaultAmount, defaultLine, type Loggable } from "./AmountPanel";
@@ -14,7 +14,7 @@ type PlateItem = {
   kind: "food" | "recipe" | "quick";
   name: string;
   amount: string;
-  unit: "g" | "serving";
+  unit: Unit;
   foodId?: string;
   db?: DbFood; // a database food not in your foods yet (saved when you log the plate)
   recipeId?: string;
@@ -89,7 +89,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
     setQuery("");
   };
 
-  const pushFood = (f: Food, amount?: number, unit?: "g" | "serving") => {
+  const pushFood = (f: Food, amount?: number, unit?: Unit) => {
     const d = amount != null && unit ? { amount, unit } : defaultAmount({ type: "food", food: f, id: f.id }, nutri);
     push({ kind: "food", name: f.brand ? `${f.name} (${f.brand})` : f.name, amount: String(d.amount), unit: d.unit, foodId: f.id });
   };
@@ -128,14 +128,14 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
     let saved: Food;
     if (sel.item.id) {
       const f = foodsById.get(sel.item.id)!;
-      saved = await saveFood({ name: f.name, brand: f.brand, source: f.source, source_ref: f.source_ref, barcode: f.barcode, kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat, fibre: f.fibre, serving_g: grams, serving_label: label }, f.id);
+      saved = await saveFood({ name: f.name, brand: f.brand, source: f.source, source_ref: f.source_ref, barcode: f.barcode, kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat, fibre: f.fibre, serving_g: grams, serving_label: label, liquid: f.liquid }, f.id);
     } else if (sel.db) {
       saved = await adoptFood({ ...sel.db, serving_g: grams, serving_label: label }, nutri.foods);
     } else return;
     setNutri((n) => ({ ...n, foods: n.foods.some((x) => x.id === saved.id) ? n.foods.map((x) => (x.id === saved.id ? saved : x)) : [...n.foods, saved] }));
     setSel({ item: { type: "food", food: saved, id: saved.id } });
   }
-  function addSelected(amount: number, unit: "g" | "serving") {
+  function addSelected(amount: number, unit: Unit) {
     if (!sel) return;
     const it = sel.item;
     if (it.type === "recipe") return pushRecipe(it.recipe, amount);
@@ -212,14 +212,17 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
                   {it.kind !== "quick" && (
                     <span className="plate-amt">
                       <input className="cell" inputMode="decimal" value={it.amount} aria-label={`Amount of ${it.name}`} onFocus={(e) => e.target.select()} onChange={(e) => setItems(items.map((x) => (x.key === it.key ? { ...x, amount: e.target.value } : x)))} />
-                      {it.kind === "food" && f?.serving_g ? (
-                        <button className="unit-tog" onClick={() => setItems(items.map((x) => {
+                      {it.kind === "food" && f ? (
+                        <select className="unit-sel" value={it.unit} aria-label={`Unit for ${it.name}`} onChange={(e) => setItems(items.map((x) => {
                           if (x.key !== it.key) return x;
                           const a = num(x.amount);
-                          const u = x.unit === "g" ? "serving" : "g";
-                          return { ...x, unit: u, amount: a == null ? x.amount : String(u === "g" ? Math.round(a * f.serving_g!) : Math.round((a / f.serving_g!) * 100) / 100) };
-                        }))}>{it.unit === "g" ? "g" : "srv"}</button>
-                      ) : <span className="small muted unit-lbl">{it.unit === "g" ? "g" : "srv"}</span>}
+                          const u = e.target.value as Unit;
+                          return { ...x, unit: u, amount: a == null ? x.amount : String(convertAmount(f, a, x.unit, u)) };
+                        }))}>
+                          {(f.liquid ? [...VOLUME_UNITS, ...WEIGHT_UNITS] : [...WEIGHT_UNITS, ...VOLUME_UNITS]).map((u) => <option key={u} value={u}>{UNIT_LABEL[u]}</option>)}
+                          {f.serving_g ? <option value="serving">srv</option> : null}
+                        </select>
+                      ) : <span className="small muted unit-lbl">{it.unit === "serving" ? "srv" : UNIT_LABEL[it.unit]}</span>}
                     </span>
                   )}
                   <button className="icon-btn" aria-label={`Remove ${it.name}`} onClick={() => setItems(items.filter((x) => x.key !== it.key))}>✕</button>

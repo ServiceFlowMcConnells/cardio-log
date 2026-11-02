@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import type { Food, LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
-import { addDays, addEntries, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
+import { UNIT_LABEL, addDays, addEntries, convertAmount, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 import { DayCalendar, DaySummary } from "./DayHeader";
-import { amountLabel } from "./AmountPanel";
+import { UnitPicker, amountLabel } from "./AmountPanel";
 import { useDesktop } from "../../lib/desktop";
 
 interface Props {
@@ -25,7 +25,7 @@ function dayTitle(d: string) {
   return fromYmd(d).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" });
 }
 
-const amountText = (e: LogEntry, foods: Food[]) => (e.kind === "quick" ? "quick add" : e.kind === "import" ? "imported day total" : e.kind === "food" ? amountLabel(foods.find((f) => f.id === e.food_id) ?? null, e.amount, e.unit) : e.unit === "g" ? `${fmtG(e.amount)} g` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
+const amountText = (e: LogEntry, foods: Food[]) => (e.kind === "quick" ? "quick add" : e.kind === "import" ? "imported day total" : e.kind === "food" ? amountLabel(foods.find((f) => f.id === e.food_id) ?? null, e.amount, e.unit) : e.unit !== "serving" ? `${fmtG(e.amount)} ${UNIT_LABEL[e.unit]}` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
 
 function PencilIcon() {
   return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M4 17.2V20h2.8l8.3-8.3-2.8-2.8L4 17.2zm13.7-7.6a1 1 0 0 0 0-1.4l-1.9-1.9a1 1 0 0 0-1.4 0l-1.5 1.5 2.8 2.8 2-1z" /></svg>;
@@ -395,17 +395,12 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
       ) : (
         <div className="amount-row">
           <label className="field" style={{ flex: 1 }}>
-            <span>{unit === "g" ? "Grams" : "Servings"}</span>
+            <span>{unit === "serving" ? "Servings" : `Amount (${UNIT_LABEL[unit]})`}</span>
             <input className="input" inputMode="decimal" value={amount} onChange={(ev) => setAmount(ev.target.value)} onFocus={(ev) => ev.target.select()} />
           </label>
-          {food?.serving_g && (
-            <div className="seg unit-seg" role="group" aria-label="Unit">
-              <button className={unit === "serving" ? "on" : ""} aria-pressed={unit === "serving"} onClick={() => { if (a && unit === "g") setAmount(String(Math.round((a / food.serving_g!) * 100) / 100)); setUnit("serving"); }}>Serving</button>
-              <button className={unit === "g" ? "on" : ""} aria-pressed={unit === "g"} onClick={() => { if (a && unit === "serving") setAmount(String(Math.round(a * food.serving_g!))); setUnit("g"); }}>g</button>
-            </div>
-          )}
         </div>
       )}
+      {!macroOnly && food && <UnitPicker food={food} unit={unit} onChange={(u) => { if (a) setAmount(String(convertAmount(food, a, unit, u))); setUnit(u); }} />}
       <div className="field" style={{ marginTop: 10 }}>
         <span className="small muted" style={{ display: "block", marginBottom: 4 }}>Time</span>
         <HourPicker value={time} onChange={setTime} />

@@ -15,6 +15,8 @@ export interface Food extends Macros {
   fibre: number | null;
   serving_g: number | null;
   serving_label: string | null;
+  /** Values are per 100 ml: log it in ml, tbsp, fl oz… */
+  liquid: boolean;
   favorite: boolean;
   archived: boolean;
 }
@@ -35,7 +37,7 @@ export interface LogEntry extends Macros {
   recipe_id: string | null;
   name: string;
   amount: number;
-  unit: "g" | "serving";
+  unit: Unit;
   created_at: string;
 }
 
@@ -44,7 +46,7 @@ export interface BodyWeight { id: string; measured_on: string; weight_kg: number
 export interface BodyFat { id: string; measured_on: string; body_fat_pct: number }
 
 /** A reference food from the database or Open Food Facts, not yet in your foods. */
-export interface DbFood extends Macros { ref: string; source: "cofid" | "off"; name: string; brand: string | null; fibre: number | null; serving_g: number | null; serving_label: string | null; barcode: string | null }
+export interface DbFood extends Macros { ref: string; source: "cofid" | "off"; name: string; brand: string | null; fibre: number | null; serving_g: number | null; serving_label: string | null; barcode: string | null; liquid?: boolean }
 
 /** One day's totals (from the food_log_daily view, for history older than the loaded log). */
 export interface DayTotal extends Macros { day: string; entries: number }
@@ -82,10 +84,30 @@ export const scaleMacros = (m: Macros, f: number): Macros => ({ kcal: m.kcal * f
 export const sumMacros = (xs: Macros[]) => xs.reduce(addMacros, ZERO);
 export const roundMacros = (m: Macros): Macros => ({ kcal: Math.round(m.kcal), protein: r1(m.protein), carbs: r1(m.carbs), fat: r1(m.fat) });
 
-export function gramsOf(food: Pick<Food, "serving_g">, amount: number, unit: "g" | "serving"): number {
-  return unit === "serving" && food.serving_g ? amount * food.serving_g : amount;
+// ---------- units ----------
+// Weights convert exactly; volumes assume 1 ml weighs 1 g (food values are per 100 g, or per 100 ml for liquids).
+export type Unit = "g" | "oz" | "lb" | "ml" | "tsp" | "tbsp" | "floz" | "cup" | "serving";
+export type MeasureUnit = Exclude<Unit, "serving">;
+export const UNIT_GRAMS: Record<MeasureUnit, number> = { g: 1, oz: 28.3495, lb: 453.592, ml: 1, tsp: 4.92892, tbsp: 14.7868, floz: 29.5735, cup: 240 };
+export const UNIT_LABEL: Record<Unit, string> = { g: "g", oz: "oz", lb: "lb", ml: "ml", tsp: "tsp", tbsp: "tbsp", floz: "fl oz", cup: "cup", serving: "serving" };
+export const WEIGHT_UNITS: MeasureUnit[] = ["g", "oz", "lb"];
+export const VOLUME_UNITS: MeasureUnit[] = ["ml", "tbsp", "tsp", "floz", "cup"];
+export const isVolume = (u: Unit) => (VOLUME_UNITS as Unit[]).includes(u);
+/** The plain unit for a food: ml for liquids, else g. */
+export const baseUnit = (f: { liquid?: boolean } | null | undefined): MeasureUnit => (f?.liquid ? "ml" : "g");
+
+export function gramsOf(food: Pick<Food, "serving_g">, amount: number, unit: Unit): number {
+  if (unit === "serving") return food.serving_g ? amount * food.serving_g : amount;
+  return amount * (UNIT_GRAMS[unit] ?? 1);
 }
-export function macrosFor(food: Macros & Pick<Food, "serving_g">, amount: number, unit: "g" | "serving"): Macros {
+/** The same quantity in another unit, rounded sensibly. */
+export function convertAmount(food: Pick<Food, "serving_g">, amount: number, from: Unit, to: Unit): number {
+  if (from === to) return amount;
+  const g = gramsOf(food, amount, from);
+  const v = to === "serving" ? (food.serving_g ? g / food.serving_g : g) : g / UNIT_GRAMS[to];
+  return to === "g" || to === "ml" ? Math.round(v) : Math.round(v * 100) / 100;
+}
+export function macrosFor(food: Macros & Pick<Food, "serving_g">, amount: number, unit: Unit): Macros {
   return scaleMacros(food, gramsOf(food, amount, unit) / 100);
 }
 
@@ -113,7 +135,7 @@ export function targetFor(targets: Target[], day: string): Target | null {
 /** Protein/carbs/fat calories, for a target's macro split. */
 export const macroKcal = (p: number, c: number, f: number) => p * 4 + c * 4 + f * 9;
 
-export interface RecentItem { key: string; kind: "food" | "recipe" | "quick"; id: string | null; name: string; amount: number; unit: "g" | "serving"; macros: Macros; lastUsed: string; uses: number }
+export interface RecentItem { key: string; kind: "food" | "recipe" | "quick"; id: string | null; name: string; amount: number; unit: Unit; macros: Macros; lastUsed: string; uses: number }
 
 /** Foods and recipes you've logged, most recent first, with the amount you used last time.
  *  Quick adds repeat by name and calories. */
@@ -220,11 +242,11 @@ type Row = Record<string, unknown>;
 const n = (v: unknown) => (v == null ? 0 : Number(v));
 const nn = (v: unknown) => (v == null ? null : Number(v));
 
-const FOOD_COLS = "id, name, brand, source, source_ref, barcode, kcal, protein, carbs, fat, fibre, serving_g, serving_label, favorite, archived";
+const FOOD_COLS = "id, name, brand, source, source_ref, barcode, kcal, protein, carbs, fat, fibre, serving_g, serving_label, liquid, favorite, archived";
 const toFood = (r: Row): Food => ({
   id: r.id as string, name: r.name as string, brand: (r.brand as string) ?? null, source: r.source as Food["source"], source_ref: (r.source_ref as string) ?? null,
   barcode: (r.barcode as string) ?? null, kcal: n(r.kcal), protein: n(r.protein), carbs: n(r.carbs), fat: n(r.fat), fibre: nn(r.fibre),
-  serving_g: nn(r.serving_g), serving_label: (r.serving_label as string) ?? null, favorite: Boolean(r.favorite), archived: Boolean(r.archived),
+  serving_g: nn(r.serving_g), serving_label: (r.serving_label as string) ?? null, liquid: Boolean(r.liquid), favorite: Boolean(r.favorite), archived: Boolean(r.archived),
 });
 const toEntry = (r: Row): LogEntry => ({
   id: r.id as string, eaten_on: r.eaten_on as string, eaten_time: String(r.eaten_time ?? "12:00").slice(0, 5), meal: n(r.meal) as MealIndex, kind: r.kind as LogEntry["kind"], food_id: (r.food_id as string) ?? null,
@@ -328,7 +350,7 @@ export async function deleteEntry(id: string): Promise<void> {
 
 export type FoodInput = Omit<Food, "id" | "favorite" | "archived"> & { favorite?: boolean };
 export async function saveFood(f: FoodInput, id?: string): Promise<Food> {
-  const row = { name: f.name.trim(), brand: f.brand?.trim() || null, source: f.source, source_ref: f.source_ref, barcode: f.barcode, kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat, fibre: f.fibre, serving_g: f.serving_g, serving_label: f.serving_label?.trim() || null, updated_at: new Date().toISOString(), ...(f.favorite != null ? { favorite: f.favorite } : {}) };
+  const row = { name: f.name.trim(), brand: f.brand?.trim() || null, source: f.source, source_ref: f.source_ref, barcode: f.barcode, kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat, fibre: f.fibre, serving_g: f.serving_g, serving_label: f.serving_label?.trim() || null, liquid: Boolean(f.liquid), updated_at: new Date().toISOString(), ...(f.favorite != null ? { favorite: f.favorite } : {}) };
   const q = id ? supabase.from("foods").update(row).eq("id", id) : supabase.from("foods").insert(row);
   const { data, error } = await q.select(FOOD_COLS).single();
   if (error) throw error;
@@ -344,9 +366,11 @@ export async function adoptFood(d: DbFood, mine: Food[]): Promise<Food> {
   const had = mine.find((f) => f.source === d.source && f.source_ref === d.ref);
   if (had) {
     if (had.archived) await setFoodFlags(had.id, { archived: false });
-    return { ...had, archived: false };
+    // Picked up from the database as a drink since it was saved: measure it in ml from now on
+    if (d.liquid && !had.liquid) { await supabase.from("foods").update({ liquid: true }).eq("id", had.id); }
+    return { ...had, archived: false, liquid: had.liquid || Boolean(d.liquid) };
   }
-  return saveFood({ name: d.name, brand: d.brand, source: d.source, source_ref: d.ref, barcode: d.barcode, kcal: d.kcal, protein: d.protein, carbs: d.carbs, fat: d.fat, fibre: d.fibre, serving_g: d.serving_g, serving_label: d.serving_label });
+  return saveFood({ name: d.name, brand: d.brand, source: d.source, source_ref: d.ref, barcode: d.barcode, kcal: d.kcal, protein: d.protein, carbs: d.carbs, fat: d.fat, fibre: d.fibre, serving_g: d.serving_g, serving_label: d.serving_label, liquid: Boolean(d.liquid) });
 }
 
 export async function saveRecipe(r: { id?: string; name: string; servings: number; notes: string | null; items: RecipeItem[] }): Promise<string> {
@@ -427,9 +451,9 @@ export function loadFoodDb(): Promise<DbFood[]> {
   dbLoading = (async () => {
     const all: DbFood[] = [];
     for (let from = 0; ; from += 1000) {
-      const { data, error } = await supabase.from("food_db").select("id, name, kcal, protein, carbs, fat, fibre").order("id").range(from, from + 999);
+      const { data, error } = await supabase.from("food_db").select("id, name, kcal, protein, carbs, fat, fibre, liquid").order("id").range(from, from + 999);
       if (error) throw error;
-      for (const r of data ?? []) all.push({ ref: r.id as string, source: "cofid", name: r.name as string, brand: null, kcal: n(r.kcal), protein: n(r.protein), carbs: n(r.carbs), fat: n(r.fat), fibre: nn(r.fibre), serving_g: null, serving_label: null, barcode: null });
+      for (const r of data ?? []) all.push({ ref: r.id as string, source: "cofid", name: r.name as string, brand: null, kcal: n(r.kcal), protein: n(r.protein), carbs: n(r.carbs), fat: n(r.fat), fibre: nn(r.fibre), serving_g: null, serving_label: null, barcode: null, liquid: Boolean(r.liquid) });
       if ((data ?? []).length < 1000) break;
     }
     dbCache = all;

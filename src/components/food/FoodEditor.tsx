@@ -24,6 +24,7 @@ export default function FoodEditor({ food, initialName, initialBarcode, setNutri
   const [servingG, setServingG] = useState(show(food?.serving_g));
   const [servingLabel, setServingLabel] = useState(food?.serving_label ?? "");
   const [basis, setBasis] = useState<Basis>("100g");
+  const [liquid, setLiquid] = useState(Boolean(food?.liquid));
   const [vals, setVals] = useState<Record<Key, string>>(() => Object.fromEntries(KEYS.map((k) => [k, show(food ? food[k] : null)])) as Record<Key, string>);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +57,7 @@ export default function FoodEditor({ food, initialName, initialBarcode, setNutri
       const f = await saveFood({
         name, brand: brand || null, source: food?.source ?? "custom", source_ref: food?.source_ref ?? null, barcode: food?.barcode ?? initialBarcode ?? null,
         kcal: kcal!, protein: per100("protein") ?? 0, carbs: per100("carbs") ?? 0, fat: per100("fat") ?? 0, fibre: per100("fibre"),
-        serving_g: servingOk ? sg : null, serving_label: servingOk ? servingLabel || null : null,
+        serving_g: servingOk ? sg : null, serving_label: servingOk ? servingLabel || null : null, liquid,
       }, food?.id);
       setNutri((n) => ({ ...n, foods: n.foods.some((x) => x.id === f.id) ? n.foods.map((x) => (x.id === f.id ? f : x)) : [...n.foods, f] }));
       onSaved(f);
@@ -93,16 +94,17 @@ export default function FoodEditor({ food, initialName, initialBarcode, setNutri
         <label className="field"><span>Name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Protein yoghurt, strawberry" autoFocus={!food} /></label>
         <label className="field"><span>Brand (optional)</span><input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Glenisk" /></label>
         <div className="grid c2">
-          <label className="field"><span>Serving size (g or ml)</span><input className="input" inputMode="decimal" value={servingG} onChange={(e) => setServingG(e.target.value)} placeholder="optional" /></label>
+          <label className="field"><span>Serving size ({liquid ? "ml" : "g"})</span><input className="input" inputMode="decimal" value={servingG} onChange={(e) => setServingG(e.target.value)} placeholder="optional" /></label>
           <label className="field"><span>Serving name</span><input className="input" value={servingLabel} onChange={(e) => setServingLabel(e.target.value)} placeholder="e.g. 1 pot, 1 slice" disabled={!servingOk} /></label>
         </div>
+        <label className="check-row"><input type="checkbox" checked={liquid} onChange={(e) => setLiquid(e.target.checked)} /> <span>It's a drink or liquid: measure in ml (label values per 100 ml)</span></label>
       </section>
 
       <section className="section panel">
         <div className="page-head" style={{ marginBottom: 10 }}>
           <h2>Nutrition</h2>
           <div className="seg" role="group" aria-label="Label values are" style={{ minWidth: 200 }}>
-            <button className={basis === "100g" ? "on" : ""} aria-pressed={basis === "100g"} onClick={() => switchBasis("100g")}>Per 100 g</button>
+            <button className={basis === "100g" ? "on" : ""} aria-pressed={basis === "100g"} onClick={() => switchBasis("100g")}>Per 100 {liquid ? "ml" : "g"}</button>
             <button className={basis === "serving" ? "on" : ""} aria-pressed={basis === "serving"} disabled={!servingOk} onClick={() => switchBasis("serving")}>Per serving</button>
           </div>
         </div>
@@ -114,7 +116,7 @@ export default function FoodEditor({ food, initialName, initialBarcode, setNutri
             </label>
           ))}
         </div>
-        {basis === "serving" && kcal != null && <p className="muted small" style={{ marginTop: 8 }}>Saved as {Math.round(kcal)} kcal per 100 g.</p>}
+        {basis === "serving" && kcal != null && <p className="muted small" style={{ marginTop: 8 }}>Saved as {Math.round(kcal)} kcal per 100 {liquid ? "ml" : "g"}.</p>}
         {mismatch && <p className="small" style={{ marginTop: 8 }}>Protein, carbs and fat add up to about {Math.round(macroK)} kcal per 100 g, not {Math.round(kcal!)}. Worth checking the label (fibre and alcohol can explain a small gap).</p>}
       </section>
 

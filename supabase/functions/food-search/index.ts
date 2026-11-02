@@ -1,7 +1,7 @@
 // Branded food search via Open Food Facts (Irish products first, then UK). Signed-in users only (verify_jwt).
-// POST { q } for a text search, or { code } for a barcode. Returns per-100 g values.
+// POST { q } for a text search, or { code } for a barcode. Returns per-100 g values (per 100 ml for liquids).
 const UA = "TrainingLog/1.0 (personal training app)";
-const FIELDS = "code,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit,quantity,product_quantity";
+const FIELDS = "code,product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit,quantity,product_quantity,product_quantity_unit,nutrition_data_per";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -35,8 +35,12 @@ function toFood(p: P) {
       label = `1 ${count[2].toLowerCase().replace(/ies$/, "y").replace(/s$/, "")}`;
     }
   }
+  // Liquid when the label is per 100 ml, or the pack or serving is sold by volume (1 L, 330 ml, 50 cl)
+  const per = String(p.nutrition_data_per ?? "").toLowerCase();
+  const liquid = per === "100ml" || unit === "ml" || String(p.product_quantity_unit ?? "").toLowerCase() === "ml" ||
+    /\d\s*(ml|cl|l|litres?|liters?)\b/i.test(String(p.quantity ?? ""));
   return {
-    ref: String(p.code), name, brand, barcode: String(p.code),
+    ref: String(p.code), name, brand, barcode: String(p.code), liquid,
     kcal: Math.round(kcal), protein: r1(num(nu.proteins_100g) ?? 0), carbs: r1(num(nu.carbohydrates_100g) ?? 0), fat: r1(num(nu.fat_100g) ?? 0),
     fibre: num(nu.fiber_100g) == null ? null : r1(num(nu.fiber_100g)!),
     serving_g: sq && sq > 0 && (unit === "g" || unit === "ml") ? sq : null,
