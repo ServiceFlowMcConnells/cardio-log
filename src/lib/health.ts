@@ -26,6 +26,7 @@ interface Bridge {
   nativePromise?: <T>(plugin: string, method: string, options?: unknown) => Promise<T>;
 }
 type SleepStage = { startDate: string; endDate: string; stage: string; durationMinutes: number };
+type StepRec = { startDate: string; endDate: string; value: number; sourceId?: string; sourceName?: string; deviceType?: string };
 type Sample = { value: number; startDate: string; endDate: string; sleepState?: string; stages?: SleepStage[]; hasStageData?: boolean };
 
 const bridge = (): Bridge | null => {
@@ -37,12 +38,27 @@ const call = <T,>(method: string, options: unknown = {}) => bridge()!.nativeProm
 /** True inside an Android app build that has the Health plugin (1.0.6+). */
 export const healthSupported = () => bridge() != null;
 
-const LS = { connected: "hc-connected", last: "hc-last-sync" };
+const LS = { connected: "hc-connected", last: "hc-last-sync", source: "hc-steps-source" };
 const ls = {
   get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k: string, v: string | null) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 export const healthConnected = () => ls.get(LS.connected) === "1";
+/** Which app's steps to use: null = Health Connect's combined total (it removes overlap by app priority). */
+export const stepSource = () => ls.get(LS.source);
+export const setStepSource = (k: string | null) => ls.set(LS.source, k);
+const sourceKey = (r: StepRec) => `${r.sourceId ?? "?"}|${r.sourceName ?? r.sourceId ?? "?"}`;
+export const sourceLabel = (k: string) => {
+  const [pkg, name] = k.split("|");
+  const app = KNOWN_APPS[pkg] ?? pkg;
+  return name && name !== pkg ? `${name} (${app})` : app;
+};
+const KNOWN_APPS: Record<string, string> = {
+  "com.sec.android.app.shealth": "Samsung Health", "com.google.android.apps.fitness": "Google Fit", "com.google.android.apps.healthdata": "Health Connect",
+  "com.fitbit.FitbitMobile": "Fitbit", "com.garmin.android.apps.connectmobile": "Garmin Connect", "com.huawei.health": "Huawei Health",
+  "com.xiaomi.wearable": "Mi Fitness", "com.mc.miband1": "Notify for Mi Band", "com.withings.wiscale2": "Withings", "com.ouraring.oura": "Oura",
+  "com.google.android.apps.wear.companion": "Pixel Watch", "android": "This phone",
+};
 export const lastSync = () => { const v = ls.get(LS.last); return v ? Number(v) : null; };
 
 export interface HealthStatus { available: boolean; reason?: string; steps: boolean; sleep: boolean; history?: boolean }
@@ -66,6 +82,43 @@ export const openHealthSettings = () => call<void>("openHealthConnectSettings");
 export const disconnectHealth = () => { ls.set(LS.connected, null); ls.set(LS.last, null); };
 
 const midnight = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return new Date(y, m - 1, dd); };
+
+/** Raw step records from one source, added up by local day (a record crossing midnight is split by time). */
+export function stepsByDay(recs: StepRec[], key: string): { startDate: string; value: number }[] {
+  const out: { startDate: string; value: number }[] = [];
+  for (const r of recs) {
+    if (sourceKey(r) !== key || !(r.value > 0)) continue;
+    const a = new Date(r.startDate).getTime(), b = Math.max(a + 1, new Date(r.endDate).getTime());
+    let t = a;
+    while (t < b) {
+      const d = new Date(t); const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+      const e = Math.min(b, next);
+      out.push({ startDate: new Date(t).toISOString(), value: (r.value * (e - t)) / (b - a) });
+      t = e;
+    }
+  }
+  return out;
+}
+
+/** Today's steps from each app writing to Health Connect, and Health Connect's combined total. */
+export async function stepSourcesToday(): Promise<{ total: number; sources: { key: string; label: string; steps: number }[] }> {
+  const from = midnight(todayYmd()), to = new Date();
+  const [agg, raw] = await Promise.all([
+    call<{ samples: { value: number }[] }>("queryAggregated", { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString(), bucket: "hour", aggregation: "sum" }),
+    call<{ samples: StepRec[] }>("readSamples", { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString(), limit: 0, ascending: true }),
+  ]);
+  const by = new Map<string, number>();
+  for (const r of raw.samples) {
+    // Only the part of a record after midnight counts for today
+    const a = new Date(r.startDate).getTime(), b = Math.max(a + 1, new Date(r.endDate).getTime());
+    const share = (Math.min(b, to.getTime()) - Math.max(a, from.getTime())) / (b - a);
+    if (share > 0) by.set(sourceKey(r), (by.get(sourceKey(r)) ?? 0) + (r.value || 0) * share);
+  }
+  return {
+    total: Math.round(agg.samples.reduce((a, x) => a + (x.value || 0), 0)),
+    sources: [...by].map(([key, steps]) => ({ key, label: sourceLabel(key), steps: Math.round(steps) })).sort((a, b) => b.steps - a.steps),
+  };
+}
 
 /** One row per day: that day's steps (from hourly totals), and the main sleep (the longest session) that ended that day. */
 export function summarise(steps: { startDate: string; value: number }[], sleep: Sample[]): Map<string, DayActivity> {
@@ -96,6 +149,20 @@ export function summarise(steps: { startDate: string; value: number }[], sleep: 
   return out;
 }
 
+/** Steps for the window: Health Connect's combined hourly totals, or one chosen app's records (read a month at a time). */
+async function readSteps(from: Date, to: Date): Promise<{ samples: { startDate: string; value: number }[] }> {
+  const src = stepSource();
+  if (!src) return call("queryAggregated", { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString(), bucket: "hour", aggregation: "sum" });
+  const recs: StepRec[] = [];
+  for (let a = from.getTime(); a < to.getTime(); a += 31 * 86400000) {
+    const b = Math.min(to.getTime(), a + 31 * 86400000);
+    const r = await call<{ samples: StepRec[] }>("readSamples", { dataType: "steps", startDate: new Date(a).toISOString(), endDate: new Date(b).toISOString(), limit: 0, ascending: true });
+    // A record straddling a chunk edge comes back in both chunks: keep it once
+    for (const x of r.samples) if (new Date(x.startDate).getTime() >= a || a === from.getTime()) recs.push(x);
+  }
+  return { samples: stepsByDay(recs, src) };
+}
+
 let syncing: Promise<number> | null = null;
 /** Reads the last `days` days from Health Connect and saves them. Returns how many days were saved. */
 export function syncHealth(days?: number): Promise<number> {
@@ -106,7 +173,7 @@ export function syncHealth(days?: number): Promise<number> {
     const from = midnight(addDays(todayYmd(), -(n - 1)));
     const to = new Date();
     const [st, sl] = await Promise.all([
-      call<{ samples: { startDate: string; value: number }[] }>("queryAggregated", { dataType: "steps", startDate: from.toISOString(), endDate: to.toISOString(), bucket: "hour", aggregation: "sum" }).catch(() => ({ samples: [] })),
+      readSteps(from, to).catch(() => ({ samples: [] })),
       // Sleep that ended in the window started the evening before it
       call<{ samples: Sample[] }>("readSamples", { dataType: "sleep", startDate: new Date(from.getTime() - 86400000).toISOString(), endDate: to.toISOString(), limit: 1000, ascending: true }).catch(() => ({ samples: [] })),
     ]);

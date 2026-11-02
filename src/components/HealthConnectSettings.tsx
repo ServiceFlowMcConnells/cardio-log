@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { DayActivity, HealthStatus } from "../lib/health";
 import { fromYmd } from "../lib/nutrition";
-import { connectHealth, disconnectHealth, healthConnected, healthStatus, healthSupported, hm, lastSync, openHealthSettings, syncHealth } from "../lib/health";
+import { connectHealth, disconnectHealth, healthConnected, healthStatus, healthSupported, hm, lastSync, openHealthSettings, setStepSource, sourceLabel, stepSource, stepSourcesToday, syncHealth } from "../lib/health";
 
 /** Settings panel: connect Health Connect, see what came in, sync now. */
 export default function HealthConnectSettings({ activity, onSynced }: { activity: DayActivity[]; onSynced: () => void }) {
@@ -10,6 +10,8 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [, tick] = useState(0);
+  const [sources, setSources] = useState<Awaited<ReturnType<typeof stepSourcesToday>> | null>(null);
+  const [src, setSrc] = useState(stepSource());
 
   useEffect(() => { if (supported) healthStatus().then(setStatus).catch((e) => setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) })); }, [supported]);
 
@@ -35,6 +37,12 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
   const lastSleep = latest.find((d) => d.sleep_minutes != null);
   const ls = lastSync();
   const connected = healthConnected() && status?.available && (status.steps || status.sleep);
+  const checkSources = () => run(async () => { const r = await stepSourcesToday(); setSources(r); return r.sources.length ? "" : "No step records today yet."; });
+  const pickSource = (k: string | null) => run(async () => {
+    setStepSource(k); setSrc(k);
+    const n = await syncHealth(400); onSynced();
+    return `Steps now come from ${k ? sourceLabel(k) : "Health Connect's combined total"}. Re-read ${n} day${n === 1 ? "" : "s"}.`;
+  });
 
   return (
     <section className="section panel stack">
@@ -65,6 +73,23 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
           {connected ? (
             <>
               <button className="btn block" disabled={busy} onClick={sync}>{busy ? "Syncing…" : "Sync now"}</button>
+              {status?.steps && (
+                <div className="stack" style={{ gap: 6 }}>
+                  <p className="small" style={{ margin: 0 }}>Step source: <strong>{src ? sourceLabel(src) : "Health Connect combined"}</strong></p>
+                  {!sources ? (
+                    <button className="link small" style={{ justifySelf: "start" }} disabled={busy} onClick={checkSources}>Compare today's steps by app</button>
+                  ) : (
+                    <div className="hc-sources" role="radiogroup" aria-label="Step source">
+                      <label className="hc-src"><input type="radio" name="hc-src" checked={!src} disabled={busy} onChange={() => pickSource(null)} /><span>Health Connect combined<small className="muted"> · removes overlap by app priority</small></span><strong className="num">{sources.total.toLocaleString("en-IE")}</strong></label>
+                      {sources.sources.map((x) => (
+                        <label key={x.key} className="hc-src"><input type="radio" name="hc-src" checked={src === x.key} disabled={busy} onChange={() => pickSource(x.key)} /><span>{x.label}</span><strong className="num">{x.steps.toLocaleString("en-IE")}</strong></label>
+                      ))}
+                      {src && !sources.sources.some((x) => x.key === src) && <p className="muted small">Your chosen source has no steps today yet.</p>}
+                      <p className="muted small" style={{ margin: 0 }}>Today so far. Pick the one that matches your watch; history is re-read from that source.</p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="chip-row">
                 <button className="link small" disabled={busy} onClick={resync}>Re-read history</button>
                 <button className="link small" onClick={() => openHealthSettings().catch(() => {})}>Manage access in Health Connect</button>
@@ -76,7 +101,7 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
           )}
         </>
       )}
-      {msg && <p className={msg.ok ? "ok" : "error"} role="status">{msg.text}</p>}
+      {msg?.text && <p className={msg.ok ? "ok" : "error"} role="status">{msg.text}</p>}
     </section>
   );
 }

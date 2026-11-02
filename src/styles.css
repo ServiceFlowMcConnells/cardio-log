@@ -974,3 +974,6 @@ select.input { appearance: auto; }
 .fs2-of { font-size: 0.8rem; color: var(--muted); margin-left: -3px; }
 @media (max-width: 380px) { .fs2-row { grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); } .fs2-of { font-size: 0.7rem; margin-left: -4px; } }
 .fs2-of.over { color: var(--over); }
+.hc-sources { display: grid; gap: 4px; }
+.hc-src { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--ground); font-size: 0.9rem; cursor: pointer; }
+.hc-src small { display: block; }
