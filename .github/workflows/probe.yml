@@ -1,0 +1,15 @@
+name: probe
+on:
+  push:
+    branches: ["probe/**"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          mkdir p && cd p && npm pack @capgo/capacitor-health@8.11.13 >/dev/null && tar xzf *.tgz
+          find package/android -name "*.kt" -o -name "*.java" | head -30
+          for f in $(grep -rln "aggregate" package/android/src); do echo "=== $f"; grep -n -B5 -A60 "fun queryAggregated\|aggregateGroupBy\|AggregateGroupBy" $f | head -260; done
+          echo "=== steps read"; grep -rn "StepsRecord\|dataOrigin\|DataOrigin" package/android/src | head -40
