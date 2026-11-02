@@ -1,6 +1,7 @@
 import type { DayActivity } from "../lib/health";
 import { hm } from "../lib/health";
 import { addDays, fromYmd, todayYmd } from "../lib/nutrition";
+import { DayChartCard } from "./DayChart";
 
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const fmt = (n: number) => Math.round(n).toLocaleString("en-IE");
@@ -68,18 +69,15 @@ export function ActivitySections({ activity, target }: { activity: DayActivity[]
   return (
     <>
       {activity.some((d) => d.steps != null) && (
-        <section className="section panel">
-          <div className="page-head" style={{ marginBottom: 4 }}>
-            <h2>Steps</h2>
-            {steps7 != null && <span className="muted small">7-day average {fmt(steps7)}</span>}
-          </div>
-          <StepsChart activity={activity} target={target} />
-          <p className="chart-note">
-            {steps30 != null && `30-day average ${fmt(steps30)}. `}
-            {hit.length > 0 && `Target hit on ${hit.filter((d) => d.steps! >= target).length} of the last ${hit.length} days. `}
-            From Health Connect.
-          </p>
-        </section>
+        <DayChartCard
+          title="Steps" kind="bar" target={target}
+          sub={steps7 != null ? `7-day average ${fmt(steps7)}` : undefined}
+          values={new Map(activity.filter((d) => d.steps != null).map((d) => [d.day, d.steps!]))}
+          fmt={fmt} axis={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : String(v))}
+          barClass={(v) => `steps-bar${v >= target ? " hit" : ""}`}
+          extra={({ vals }) => (vals.length > 1 ? `target hit ${vals.filter((v) => v >= target).length} of ${vals.length}` : null)}
+          note={`${steps30 != null ? `30-day average ${fmt(steps30)}. ` : ""}${hit.length > 0 ? `Target hit on ${hit.filter((d) => d.steps! >= target).length} of the last ${hit.length} days. ` : ""}From Health Connect.`}
+        />
       )}
       {sleeps.length > 0 && (
         <section className="section panel">

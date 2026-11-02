@@ -20,7 +20,7 @@ export interface ChartUnit { suffix: string; scale: string; trend: string; aria:
 const KG: ChartUnit = { suffix: " kg", scale: "", trend: "trend", aria: "Bodyweight" };
 const BF: ChartUnit = { suffix: "%", scale: "measured", trend: "between readings", aria: "Body fat", sparse: true };
 
-type Agg = "D" | "W" | "M";
+export type Agg = "D" | "W" | "M";
 interface ChartPt { day: string; label: string; scale: number | null; trend: number }
 
 /** Group days into weeks or months: scale is the average weigh-in, trend the average trend. */
@@ -146,14 +146,14 @@ function rateVerdict(ratePct: number, checkins: Checkin[]) {
   return `${where === "on" ? "On" : where[0].toUpperCase() + where.slice(1)} target for ${PHASE_LABEL[phase].toLowerCase()} (${b.text}).`;
 }
 
-type Range = 7 | 30 | 91 | 182 | 365 | 0;
+export type Range = 7 | 30 | 91 | 182 | 365 | 0;
 const RANGES: { r: Range; l: string }[] = [{ r: 7, l: "1W" }, { r: 30, l: "1M" }, { r: 91, l: "3M" }, { r: 182, l: "6M" }, { r: 365, l: "1Y" }, { r: 0, l: "All" }];
 
-const autoAgg = (days: number): Agg => (days > 500 ? "M" : days > 120 ? "W" : "D");
+export const autoAgg = (days: number): Agg => (days > 500 ? "M" : days > 120 ? "W" : "D");
 
 /** The date window a chart shows: a preset range ending today (‹ › step through it), or a custom window set by
  *  pinching or dragging the chart. */
-function useTimeWindow(first: string, last: string, initial: Range) {
+export function useTimeWindow(first: string, last: string, initial: Range) {
   const [range, setRange] = useState<Range>(initial);
   const [aggPick, setAggPick] = useState<Agg | null>(null);
   const [anchor, setAnchor] = useState(last);
@@ -189,9 +189,9 @@ function useTimeWindow(first: string, last: string, initial: Range) {
   const pickRange = (r: Range) => { setRange(r); setAnchor(last); setCustom(null); setAggPick(null); };
   return { range, pickRange, aggPick, setAggPick, start, end, zoomed, onPinch, shift, canShift: !!range || custom != null, first, last };
 }
-type TimeWindow = ReturnType<typeof useTimeWindow>;
+export type TimeWindow = ReturnType<typeof useTimeWindow>;
 
-function WindowNav({ w }: { w: TimeWindow }) {
+export function WindowNav({ w }: { w: TimeWindow }) {
   return (
     <div className="ntr-range">
       <button className="icon-btn" aria-label="Earlier" disabled={!w.canShift || w.start <= w.first} onClick={() => w.shift(-1)}>‹</button>
@@ -201,7 +201,7 @@ function WindowNav({ w }: { w: TimeWindow }) {
   );
 }
 
-function WindowControls({ w, agg }: { w: TimeWindow; agg: Agg }) {
+export function WindowControls({ w, agg }: { w: TimeWindow; agg: Agg }) {
   return (
     <div className="ntr-controls">
       <div className="seg ntr-ranges" role="group" aria-label="Range">

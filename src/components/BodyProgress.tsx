@@ -2,7 +2,10 @@ import type { AppData } from "../App";
 import type { Checkin } from "../lib/readiness";
 import { BAND_LABEL, PHASE_LABEL, bandFor } from "../lib/readiness";
 import { formatShort } from "../lib/dates";
-import { TrendChart, type Point } from "./Charts";
+import type { Point } from "./Charts";
+import { DayChartCard } from "./DayChart";
+import { hm } from "../lib/health";
+import { ymd } from "../lib/nutrition";
 import { ActivitySections } from "./Activity";
 
 const DAY = 86400000;
@@ -28,27 +31,33 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
   const avg = (p: Point[]) => (p.length ? p.reduce((a, q) => a + q.v, 0) / p.length : null);
   const score7 = avg(recent(score, 7));
   const sleep7 = avg(recent(sleep, 7));
+  // One value per day: the day's last scan; sleep falls back to Health Connect
+  const scoreByDay = new Map<string, number>();
+  const sleepByDay = new Map<string, number>();
+  for (const a of data.activity) if (a.sleep_minutes != null && a.sleep_minutes > 0) sleepByDay.set(a.day, a.sleep_minutes / 60);
+  for (const c of asc) {
+    const d = ymd(new Date(c.checked_at));
+    scoreByDay.set(d, c.score);
+    if (c.sleep_hours != null) sleepByDay.set(d, c.sleep_hours);
+  }
 
   return (
     <>
-      <section className="panel">
-        <div className="page-head" style={{ marginBottom: 4 }}>
-          <h2>Readiness</h2>
-          {score7 != null && <span className="muted small">7-day average {Math.round(score7)} ({BAND_LABEL[bandFor(score7)]})</span>}
-        </div>
-        <TrendChart points={score} color="var(--lift)" unit="readiness" band={[70, 100]} />
-        <p className="chart-note">The shaded band is "Ready" or better. A run of low scores in a deficit is a sign to talk to your coach about a diet break or a deload.</p>
-      </section>
+      <DayChartCard
+        title="Readiness" kind="line" color="var(--lift)" band={[70, 100]} floor={40} clamp={[0, 100]}
+        sub={score7 != null ? `7-day average ${Math.round(score7)} (${BAND_LABEL[bandFor(score7)]})` : undefined}
+        values={scoreByDay} fmt={(v) => String(Math.round(v))} axis={(v) => String(Math.round(v))}
+        extra={({ avg }) => BAND_LABEL[bandFor(avg)]}
+        note='The shaded band is "Ready" or better. A run of low scores in a deficit is a sign to talk to your coach about a diet break or a deload.'
+      />
 
-      {sleep.length > 0 && (
-        <section className="section panel">
-          <div className="page-head" style={{ marginBottom: 4 }}>
-            <h2>Sleep</h2>
-            {sleep7 != null && <span className="muted small">7-day average {sleep7.toFixed(1)} h</span>}
-          </div>
-          <TrendChart points={sleep} color="var(--bike)" unit="hours" band={[7, 9]} />
-          <p className="chart-note">7–9 hours is the recommended range for adults. Under 6 hours cuts into strength and recovery.</p>
-        </section>
+      {sleepByDay.size > 0 && (
+        <DayChartCard
+          title="Sleep" kind="line" color="var(--bike)" band={[7, 9]}
+          sub={sleep7 != null ? `7-day average ${sleep7.toFixed(1)} h` : undefined}
+          values={sleepByDay} fmt={(v) => hm(v * 60)} axis={(v) => `${Math.round(v * 10) / 10}h`}
+          note="Hours from your readiness scans, or Health Connect on days without a scan. 7–9 hours is the recommended range for adults; under 6 cuts into strength and recovery."
+        />
       )}
 
       <ActivitySections activity={data.activity} target={data.settings.step_target} />
