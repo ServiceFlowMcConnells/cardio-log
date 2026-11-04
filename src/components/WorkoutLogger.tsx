@@ -245,7 +245,9 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
     const working = s.set_type !== "warmup";
     const wi = ex.sets.slice(0, idx).filter((x) => x.set_type !== "warmup").length; // working-set index
     const goals = sug.presc?.reps ?? [];
-    const weight = working && sug.workingKg != null ? fmtKg(sug.workingKg) : p ? fmtKg(p.weight_kg) : "";
+    const perSet = sug.presc?.weights;
+    const wk = perSet ? perSet[wi] ?? perSet[perSet.length - 1] : sug.workingKg;
+    const weight = working && wk != null ? fmtKg(wk) : p ? fmtKg(p.weight_kg) : "";
     const goal = working ? goals[wi] ?? goals[goals.length - 1] : undefined;
     const reps = goal != null ? String(goal) : p ? String(p.reps) : working && ex.plan ? String(ex.plan.rep_min) : "";
     const rpe = working && sug.rpeToday != null ? String(sug.rpeToday) : "";

@@ -95,6 +95,8 @@ export interface Prescription {
   exerciseId: string;
   status: CoachStatus;
   weight: number | null;
+  /** Per-set weights when sets differ (a top set and back-off sets); weight is then the first set's. */
+  weights?: number[];
   reps: number[]; // goal per working set
   rpe: number | null; // stop at this RPE
   sets: number;
@@ -265,6 +267,13 @@ function dropBy(top: number, pct: number, inc: number): number | null {
 }
 
 const repsText = (reps: number[]) => (reps.every((r) => r === reps[0]) ? `${reps.length} × ${reps[0]}` : reps.join(", "));
+/** "70.5 kg × 11, then 68 kg × 11, 11, 10" */
+const groupedText = (weights: number[], reps: number[]) => {
+  const g: { w: number; r: number[] }[] = [];
+  weights.forEach((w, i) => { if (g.length && g[g.length - 1].w === w) g[g.length - 1].r.push(reps[i]); else g.push({ w, r: [reps[i]] }); });
+  return g.map((x) => `${fmtKg(x.w)} kg × ${x.r.join(", ")}`).join(", then ");
+};
+const setText = (s: WSet) => `${fmtKg(s.weight_kg)} × ${s.reps}${s.rpe != null ? ` @${s.rpe}` : ""}`;
 
 export function coachExercise(
   exercise: Exercise | undefined,
@@ -316,6 +325,7 @@ export function coachExercise(
   let status: CoachStatus;
   let weight: number | null = null;
   let reps: number[];
+  let weights: number[] | undefined;
   let why: string;
 
   // A last session logged under a different rep range (e.g. an 8–10 day feeding a new 10–12 template) seeds
@@ -446,6 +456,34 @@ export function coachExercise(
         reps = fit(last.topReps, sets, Math.min(...last.topReps));
         why = `${stalledCase ? `No gain for ${hist.stalled} sessions` : `Reps fell short`} at ${fmtKg(last.top)} kg, but one weight jump here is over 15%. Add a set at the same weight instead; once reps climb, you'll be ready for the next weight.`;
       }
+    } else if (new Set(last.sets.map((x) => x.weight_kg)).size > 1) {
+      // Weights varied last time (a top set, then back-off sets): progress each set from its own weight, reps and
+      // RPE, rather than putting the top weight on every set. At or under target RPE: one more rep (two if it was
+      // a full point easier). Over target: repeat it. At the top of the range: that set goes up a jump.
+      status = "build_reps";
+      const band = target != null ? target + rpeBand : null;
+      const prevSets = Array.from({ length: sets }, (_, i) => last.sets[i] ?? null);
+      const lastDone = last.sets[last.sets.length - 1];
+      const ws: number[] = [], rs: number[] = [];
+      let up = 0, held = 0, added = 0;
+      prevSets.forEach((x, i) => {
+        if (!x) { ws.push(ws[i - 1] ?? lastDone.weight_kg); rs.push(Math.min(plan.rep_max, lastDone.reps)); return; } // a set you didn't do last time: match your last one
+        if (holdForReadiness || (band != null && x.rpe != null && x.rpe > band)) { ws.push(x.weight_kg); rs.push(x.reps); held++; return; }
+        if (x.reps >= plan.rep_max) { ws.push(x.weight_kg + inc); rs.push(plan.rep_min); up++; return; }
+        const step = target != null && x.rpe != null && x.rpe <= target - 1 ? 2 : 1;
+        const r = Math.min(plan.rep_max, x.reps + step);
+        added += r - x.reps;
+        ws.push(x.weight_kg); rs.push(r);
+      });
+      weights = ws;
+      reps = rs;
+      weight = ws[0];
+      if (up > 0 && added === 0 && held === 0) status = "add_weight";
+      const parts: string[] = [];
+      if (added) parts.push(`${added} more rep${added === 1 ? "" : "s"} on the sets you kept at${target != null ? ` or under RPE ${band}` : " a manageable effort"}`);
+      if (up) parts.push(`${up === 1 ? "one set moves" : `${up} sets move`} up ${fmtKg(inc)} kg after hitting ${plan.rep_max}`);
+      if (held) parts.push(holdForReadiness ? "the same as last time while readiness is down" : `${held === 1 ? "one set repeats" : `${held} sets repeat`} because ${held === 1 ? "it was" : "they were"} over RPE ${band}`);
+      why = `Set by set from last time (${last.sets.map(setText).join(", ")}): ${parts.join("; ") || "repeat each set"}.${prevSets.some((x) => !x) ? " A set you didn't do last time matches your last one." : ""} Once a set reaches ${plan.rep_max} at target RPE, its weight goes up.`;
     } else if (allTop && rpeOk) {
       const easy = target != null && avgRpe != null && avgRpe <= target - 1.5;
       const beyond = Math.min(...last.topReps) - plan.rep_max; // reps past the top of the range on the weakest set
@@ -501,7 +539,7 @@ export function coachExercise(
   }
 
   // A weight scaled back up from a cut day hasn't been lifted yet: repeat it before adding more
-  if (scaledUp && last && status === "add_weight") {
+  if (scaledUp && last && status === "add_weight" && !weights) {
     status = "build_reps";
     weight = last.top;
     reps = fit(last.topReps, sets, Math.min(...last.topReps)).map((r) => Math.min(r, plan.rep_max));
@@ -514,15 +552,18 @@ export function coachExercise(
   if (adj && adj.loadFactor < 1 && weight != null && status !== "deload" && status !== "recover") {
     const scaled = roundTo(weight * adj.loadFactor, inc, "nearest");
     if (scaled < weight) {
-      why += ` Readiness: ${fmtKg(weight)} → ${fmtKg(scaled)} kg today.`;
+      why += ` Readiness: ${fmtKg(weight)} → ${fmtKg(scaled)} kg today${weights ? " (the other sets scale the same)" : ""}.`;
       weight = scaled;
+      if (weights) weights = weights.map((w) => roundTo(w * adj.loadFactor, inc, "nearest"));
     } else {
       why += " Readiness is down; the weight jump is too big to trim, so keep it and stop a rep earlier.";
     }
   }
 
-  const headline = `${weight != null ? `${fmtKg(weight)} kg × ` : ""}${repsText(reps)}${rpe != null ? ` @ RPE ${rpe}` : ""}`;
-  return { exerciseId, status, weight, reps, rpe, sets: reps.length, headline, why, history: hist, plan };
+  const headline = weights && new Set(weights).size > 1
+    ? `${groupedText(weights, reps)}${rpe != null ? ` @ RPE ${rpe}` : ""}`
+    : `${weight != null ? `${fmtKg(weight)} kg × ` : ""}${repsText(reps)}${rpe != null ? ` @ RPE ${rpe}` : ""}`;
+  return { exerciseId, status, weight, ...(weights ? { weights } : {}), reps, rpe, sets: reps.length, headline, why, history: hist, plan };
 }
 
 export interface CoachOverview {
@@ -572,6 +613,13 @@ export function deloadActive(until: string | null): boolean {
 export function verdict(p: Prescription, done: WSet[]): { hit: boolean; text: string } {
   const work = done.filter((s) => isWorking(s) && s.reps > 0);
   if (!work.length || p.weight == null) return { hit: false, text: "" };
+  if (p.weights && new Set(p.weights).size > 1) {
+    // Set by set: each set against its own weight and rep goal
+    const goal = sum(p.reps);
+    const got = p.reps.reduce((a, r, i) => a + (work[i] ? (work[i].weight_kg >= p.weights![i] ? Math.min(work[i].reps, 99) : 0) : 0), 0);
+    const hitAll = p.reps.every((r, i) => work[i] && work[i].weight_kg >= p.weights![i] && work[i].reps >= r);
+    return hitAll ? { hit: true, text: got > goal ? `Target beaten: ${got} reps vs ${goal}. The next session builds from each set.` : "Target hit on every set." } : { hit: false, text: `${got} of ${goal} target reps at the prescribed weights.` };
+  }
   const top = Math.max(...work.map((s) => s.weight_kg));
   const atTop = work.filter((s) => s.weight_kg === top);
   if (top < p.weight) return { hit: false, text: `Lighter than the ${fmtKg(p.weight)} kg prescribed.` };
