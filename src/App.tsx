@@ -262,6 +262,7 @@ export default function App() {
         existing={existing}
         checkins={checkins}
         hcSleep={data.activity.find((a) => a.day === (existing ? ymd(new Date(existing.checked_at)) : todayYmd())) ?? null}
+        dayWeight={data.nutrition.weights.find((x) => x.measured_on === (existing ? ymd(new Date(existing.checked_at)) : todayYmd()))?.weight_kg ?? null}
         saveLabel={next === "home" ? "Save scan" : next === "resume" ? "Save and back to workout" : `Save and start ${next.template?.name ?? "workout"}`}
         onSaved={async (c) => {
           setData((d) => ({ ...d, checkins: [c, ...d.checkins.filter((x) => x.id !== c.id)].sort((a, b) => b.checked_at.localeCompare(a.checked_at)) }));

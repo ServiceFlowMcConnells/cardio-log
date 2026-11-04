@@ -18,6 +18,8 @@ interface Props {
   onDeleted?: () => void;
   /** Last night from Health Connect (the sleep that ended this morning), if synced */
   hcSleep?: DayActivity | null;
+  /** That day's weigh-in from the weight log, if there is one: used for the scan's weight. */
+  dayWeight?: number | null;
 }
 
 function Rating({ label, hint, labels, value, onChange }: { label: string; hint: string; labels: string[]; value: number | null; onChange: (v: number) => void }) {
@@ -47,7 +49,7 @@ const parse = (s: string) => {
   return Number.isFinite(n) ? n : NaN;
 };
 
-export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, onSkip, onCancel, onDeleted, hcSleep }: Props) {
+export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, onSkip, onCancel, onDeleted, hcSleep, dayWeight }: Props) {
   const hcHours = hcSleep?.sleep_minutes != null ? Math.round((hcSleep.sleep_minutes / 60) * 4) / 4 : null;
   const last = checkins.find((c) => c.id !== existing?.id);
   const lastWeight = checkins.find((c) => c.id !== existing?.id && c.bodyweight_kg != null)?.bodyweight_kg ?? null;
@@ -55,7 +57,7 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
   const [energy, setEnergy] = useState<number | null>(existing?.energy ?? null);
   const [soreness, setSoreness] = useState<number | null>(existing?.soreness ?? null);
   const [hours, setHours] = useState(existing?.sleep_hours != null ? String(existing.sleep_hours) : hcHours != null ? String(hcHours) : last?.sleep_hours != null ? String(last.sleep_hours) : "");
-  const [weight, setWeight] = useState(existing?.bodyweight_kg != null ? String(existing.bodyweight_kg) : "");
+  const [weight, setWeight] = useState(existing?.bodyweight_kg != null ? String(existing.bodyweight_kg) : dayWeight != null ? String(dayWeight) : "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   // Nutrition phase and calories carry forward from your last scan
   const prevPhase = latestPhase(checkins.filter((c) => c.id !== existing?.id));
@@ -159,6 +161,7 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
               ? `${w - lastWeight > 0 ? "+" : ""}${(Math.round((w - lastWeight) * 10) / 10).toFixed(1)} kg since last`
               : "Optional. Same time each morning."}
             {rate != null && <>{". "}{rate >= 0 ? `Losing ${rate.toFixed(1)}%` : `Gaining ${Math.abs(rate).toFixed(1)}%`} a week</>}
+            {dayWeight != null && w === dayWeight && existing?.bodyweight_kg == null && ". From today's weigh-in"}
           </p>
         </div>
       </div>
