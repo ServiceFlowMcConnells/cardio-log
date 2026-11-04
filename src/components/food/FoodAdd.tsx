@@ -53,6 +53,12 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
   const [quick, setQuick] = useState(start === "quick");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Phones: the search sheet over the day, with the plate behind it (MacroFactor style)
+  const [view, setView] = useState<"search" | "plate">("search");
+  const [timeOpen, setTimeOpen] = useState(false);
+  const [dock, setDock] = useState<HTMLDivElement | null>(null);
+  const [scanReq, setScanReq] = useState(0);
+  const [focusReq, setFocusReq] = useState(0);
 
   useEffect(() => { saved = { day, time, items }; }, [day, time, items]);
 
@@ -121,6 +127,18 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
         }).catch(() => { /* keep per 100 g */ });
       }
     }
+  }
+
+  /** + on a search result: straight onto the plate at its usual amount (your last, else a serving, else 100 g/ml). */
+  function addPicked(p: Picked) {
+    const q = query; // keep the search so you can add several from it
+    window.setTimeout(() => setQuery(q), 0);
+    if (p.type === "food") return pushFood(p.food);
+    if (p.type === "recipe") return pushRecipe(p.recipe);
+    const mine = nutri.foods.find((f) => f.source === p.db.source && f.source_ref === p.db.ref);
+    if (mine) return pushFood(mine);
+    const d = defaultAmount({ type: "food", food: p.db, id: null }, nutri);
+    push({ kind: "food", name: p.db.brand ? `${p.db.name} (${p.db.brand})` : p.db.name, amount: String(d.amount), unit: d.unit, db: p.db });
   }
 
   async function setServing(label: string, grams: number) {
@@ -243,6 +261,13 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
     </section>
   );
 
+  const chips = (
+    <div className="chip-row">
+      <button className="fchip" onClick={() => setQuick(true)}>Quick add</button>
+      <button className="fchip" onClick={() => onNewFood(query.trim())}>New food from a label</button>
+      <button className="fchip" onClick={onNewRecipe}>New recipe</button>
+    </div>
+  );
   const picker = sel ? (
     <AmountPanel
       key={sel.item.type === "recipe" ? sel.item.recipe.id : `${sel.item.id ?? sel.db?.ref}-${sel.item.food.serving_g ?? ""}`}
@@ -258,13 +283,10 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
     <QuickAdd onCancel={() => setQuick(false)} onAdd={(name, m) => push({ kind: "quick", name, amount: "1", unit: "serving", quick: m })} />
   ) : (
     <>
-      <div className="chip-row">
-        <button className="fchip" onClick={() => setQuick(true)}>Quick add</button>
-        <button className="fchip" onClick={() => onNewFood(query.trim())}>New food from a label</button>
-        <button className="fchip" onClick={onNewRecipe}>New recipe</button>
-      </div>
-      <div style={{ marginTop: 12 }}>
-        <FoodSearch nutri={nutri} onPick={pick} query={query} setQuery={setQuery} autoFocus={desktop || start === "search"} onNewFood={onNewFood} autoScan={start === "scan"} />
+      {desktop && chips}
+      <div style={desktop ? { marginTop: 12 } : undefined}>
+        <FoodSearch nutri={nutri} onPick={pick} query={query} setQuery={setQuery} autoFocus={desktop || start === "search"} onNewFood={onNewFood} autoScan={start === "scan"}
+          dock={desktop ? undefined : dock} scanRequest={scanReq} focusRequest={focusReq} onAdd={addPicked} />
       </div>
       {!query.trim() && (
         <>
@@ -340,6 +362,71 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
   async function toggleFav(id: string, kind: "food" | "recipe", on: boolean) {
     setNutri((n) => (kind === "food" ? { ...n, foods: n.foods.map((f) => (f.id === id ? { ...f, favorite: on } : f)) } : { ...n, recipes: n.recipes.map((r) => (r.id === id ? { ...r, favorite: on } : r)) }));
     try { await (kind === "food" ? setFoodFlags(id, { favorite: on }) : setRecipeFavorite(id, on)); } catch { /* shows next refresh */ }
+  }
+
+  const logLabel = busy ? "Logging…" : items.length ? `Log ${items.length}` : "Log foods";
+
+  if (!desktop) {
+    const searching = !sel && !quick;
+    return (
+      <div className={`food-add fa-sheet${view === "plate" ? " show-plate" : ""}`}>
+        <div className="fa-top">
+          <button className="fa-x" onClick={cancel} aria-label={items.length ? "Discard the plate and close" : "Close"}>✕</button>
+          <button className={`fa-time num${timeOpen ? " on" : ""}`} onClick={() => setTimeOpen((o) => !o)} aria-label={`Time ${time}. Change`}>{time}</button>
+          <div className="fa-macros" aria-label="Day so far including the plate">
+            <MiniBar label="kcal" v={total.kcal} t={target?.kcal ?? null} cls="k" />
+            <MiniBar label="F" v={total.fat} t={target?.fat ?? null} cls="f" />
+            <MiniBar label="P" v={total.protein} t={target?.protein ?? null} cls="p" />
+            <MiniBar label="C" v={total.carbs} t={target?.carbs ?? null} cls="c" />
+          </div>
+          <button className={`fa-plate-pill${view === "plate" ? " on" : ""}${items.length ? " full" : ""}`} onClick={() => { setTimeOpen(false); setView((v) => (v === "plate" ? "search" : "plate")); }} aria-label={view === "plate" ? "Back to search" : `Your plate, ${items.length} food${items.length === 1 ? "" : "s"}`} aria-pressed={view === "plate"}>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7 3v8M5 3v4a2 2 0 0 0 4 0V3M7 11v10M16 21V3c-2 1.5-3 4-3 7v4h3" /></svg>
+            {items.length > 0 && <span className="fa-count">{items.length}</span>}
+          </button>
+        </div>
+        {timeOpen && (
+          <div className="fa-timepop">
+            <HourPicker value={time} onChange={setTime} />
+            <div className="chip-row time-quick">
+              {day === todayYmd() && <button className={`fchip${time === nowHour() ? " on" : ""}`} onClick={() => { setTime(nowHour()); setTimeOpen(false); }}>Now</button>}
+              {["08:00", "13:00", "16:00", "19:00"].map((t) => <button key={t} className={`fchip${time === t ? " on" : ""}`} onClick={() => { setTime(t); setTimeOpen(false); }}>{t}</button>)}
+            </div>
+            <p className="muted small" style={{ margin: 0 }}>{dayName(day)}</p>
+          </div>
+        )}
+
+        {/* Behind: the plate */}
+        <div className="fa-body fa-plate" hidden={view !== "plate"}>{plate}</div>
+
+        {/* In front: search, lists and amounts */}
+        <div className="fa-body fa-search" hidden={view === "plate"}>
+          {searching && (
+            <div className="fa-tabs" role="toolbar" aria-label="Ways to add">
+              <button onClick={() => setScanReq((n) => n + 1)}>Scan</button>
+              <button onClick={() => setQuick(true)}>Quick add</button>
+              <button onClick={() => onNewFood(query.trim())}>New food</button>
+              <button onClick={onNewRecipe}>New recipe</button>
+            </div>
+          )}
+          {picker}
+        </div>
+
+        {view === "plate" ? (
+          <div className="fa-dock">
+            <button className="fa-search-stub" onClick={() => { setView("search"); setFocusReq((n) => n + 1); }}>
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+              Search for a food
+            </button>
+            <button className="fa-log" disabled={!allValid || busy || !isTime(time)} onClick={logPlate}>{logLabel}</button>
+          </div>
+        ) : searching ? (
+          <div className="fa-dock">
+            <div className="fa-dock-box" ref={setDock} />
+            <button className="fa-log" disabled={!allValid || busy || !isTime(time)} onClick={logPlate}>{logLabel}</button>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (

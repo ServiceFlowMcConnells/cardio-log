@@ -997,3 +997,37 @@ select.input { appearance: auto; }
 .steps-ring > span { font-family: var(--display); font-weight: 700; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
 .steps-ring-bg { fill: none; stroke: var(--ground); stroke-width: 4; }
 .steps-ring-fill { fill: none; stroke: var(--band); stroke-width: 4; stroke-linecap: round; transition: stroke-dasharray 0.4s; }
+/* Phones: log food as a full-screen sheet; search docked above the keyboard, the plate behind (MacroFactor style) */
+.fa-sheet { position: fixed; inset: 0; z-index: 45; background: var(--ground); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); }
+.fa-top { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--ground); }
+.fa-x { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--panel); color: var(--ink); font-size: 1rem; cursor: pointer; }
+.fa-time { flex: none; height: 38px; padding: 0 12px; border-radius: 19px; border: 0; background: var(--panel); color: var(--ink); font-family: var(--display); font-weight: 700; font-size: 0.95rem; cursor: pointer; }
+.fa-time.on { background: var(--ink); color: var(--panel); }
+.fa-macros { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 10px; }
+.fa-macros .mini .small { font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; }
+.fa-macros .mini .tbar-track { height: 3px; margin-top: 1px; }
+.fa-plate-pill { position: relative; flex: none; height: 38px; min-width: 48px; padding: 0 12px; border-radius: 19px; border: 0; background: var(--panel); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; }
+.fa-plate-pill.full { color: var(--ink); }
+.fa-plate-pill.on { background: var(--ink); color: var(--panel); }
+.fa-count { font-weight: 700; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.fa-timepop { flex: none; display: grid; gap: 8px; padding: 6px 12px 10px; background: var(--ground); border-bottom: 1px solid var(--line); }
+.fa-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 12px 12px; overscroll-behavior: contain; }
+.fa-body[hidden] { display: none; }
+.fa-search { background: var(--panel); border-radius: 18px 18px 0 0; padding-top: 4px; box-shadow: 0 -6px 20px rgb(0 0 0 / 0.08); }
+.fa-search .list-panel { background: transparent; }
+.fa-search .group-h { margin-top: 12px; }
+.fa-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin: 0 -12px 6px; padding: 6px 12px; border-bottom: 1px solid var(--line); position: sticky; top: -4px; background: var(--panel); z-index: 2; }
+.fa-tabs::-webkit-scrollbar { display: none; }
+.fa-tabs button { flex: none; border: 0; background: none; color: var(--ink); font: inherit; font-size: 0.88rem; font-weight: 600; padding: 6px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.fa-tabs button:active { background: var(--ground); }
+.fa-plate .plate { margin-top: 4px; }
+.fa-plate .plate-top, .fa-plate .plate-bars, .fa-plate .plate-actions { display: none; }
+.fa-plate .plate-h { margin-top: 4px; }
+.fa-dock { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px calc(env(safe-area-inset-bottom) + 8px); background: var(--panel); border-top: 1px solid var(--line); }
+.show-plate .fa-dock { border-radius: 18px 18px 0 0; box-shadow: 0 -6px 20px rgb(0 0 0 / 0.1); }
+.fa-dock-box { flex: 1; min-width: 0; }
+.fa-dock-box .food-search .input { border-radius: 999px; height: 44px; }
+.fa-search-stub { flex: 1; min-width: 0; height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--ground); color: var(--muted); font: inherit; font-size: 0.95rem; text-align: left; cursor: pointer; }
+.fa-log { flex: none; height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--ink); color: var(--panel); font: inherit; font-weight: 700; font-size: 0.95rem; cursor: pointer; white-space: nowrap; }
+.fa-log:disabled { opacity: 0.4; cursor: default; }
+@media (max-width: 1023px) { body.kb-open .fa-dock { padding-bottom: 8px; } }

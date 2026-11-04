@@ -1,17 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { DbFood, Food, Macros, NutritionData, Recipe } from "../../lib/nutrition";
 import { foodByBarcode, loadFoodDb, lookupBarcode, matchScore, searchBranded } from "../../lib/nutrition";
 import BarcodeScanner from "./BarcodeScanner";
 import { defaultLine } from "./AmountPanel";
-import { MacroSub } from "./bits";
+import { MacroSub, PlusIcon } from "./bits";
 
 const Line = ({ m, amount }: { m: Macros; amount: string }) => <MacroSub m={m} amount={amount} fire />;
+
+/** A result row: tap to choose an amount; with onAdd, a + puts it on the plate at its usual amount. */
+function Row({ onOpen, onAdd, label, children }: { onOpen: () => void; onAdd?: () => void; label: string; children: ReactNode }) {
+  if (!onAdd) return <button className="list-row" onClick={onOpen}>{children}<span className="muted" aria-hidden="true">›</span></button>;
+  return (
+    <div className="list-row rec-row">
+      <button className="rec-main" onClick={onOpen}>{children}</button>
+      <button className="add-btn" onClick={onAdd} aria-label={`Add ${label} to the plate`}><PlusIcon /></button>
+    </div>
+  );
+}
 
 export type Picked = { type: "food"; food: Food } | { type: "db"; db: DbFood } | { type: "recipe"; recipe: Recipe };
 
 
 /** Search box over your foods (and recipes), the McCance & Widdowson reference foods, and Open Food Facts. */
-export default function FoodSearch({ nutri, onPick, recipes = true, query, setQuery, autoFocus, onNewFood, autoScan }: {
+export default function FoodSearch({ nutri, onPick, recipes = true, query, setQuery, autoFocus, onNewFood, autoScan, dock, scanRequest, focusRequest, onAdd }: {
   nutri: NutritionData;
   onPick: (p: Picked) => void;
   recipes?: boolean;
@@ -20,10 +32,20 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
   autoFocus?: boolean;
   onNewFood?: (name: string, barcode?: string) => void; // offered when a scanned barcode isn't found
   autoScan?: boolean; // open the camera straight away
+  /** Phones: put the search box in this element (a bar docked above the keyboard) instead of above the results. */
+  dock?: HTMLElement | null;
+  /** Bump to open the camera, or to focus the box. */
+  scanRequest?: number;
+  focusRequest?: number;
+  /** Show a + on each result that adds it straight to the plate. */
+  onAdd?: (p: Picked) => void;
 }) {
   const [scanning, setScanning] = useState(() => Boolean(autoScan) && typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia));
   const [scan, setScan] = useState<null | { code: string; busy?: boolean; missing?: boolean; error?: string }>(null);
   const canScan = typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (scanRequest && canScan) { setScan(null); setScanning(true); } }, [scanRequest, canScan]);
+  useEffect(() => { if (focusRequest) inputRef.current?.focus(); }, [focusRequest]);
 
   async function onCode(code: string) {
     setScanning(false);
@@ -80,28 +102,33 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
   const showBranded = branded && branded.q === q;
   const have = new Set(nutri.foods.filter((f) => f.source === "off").map((f) => f.source_ref));
 
+  const box = (
+  <form className={`food-search${dock ? " docked" : ""}`} role="search" onSubmit={(e) => { e.preventDefault(); findBranded(); }}>
+      <input
+        className="input"
+        type="search"
+        value={query}
+        autoFocus={autoFocus}
+        onChange={(e) => setQuery(e.target.value)}
+        ref={inputRef}
+        // Phones (not docked): once the keyboard is up, bring the box to the top so results show below it, above the keyboard
+        onFocus={(e) => { if (dock) return; const el = e.currentTarget; if (window.matchMedia("(max-width: 1023px)").matches) window.setTimeout(() => { const top = el.getBoundingClientRect().top + window.scrollY - 12; window.scrollTo({ top, behavior: "smooth" }); }, 350); }}
+        placeholder={dock ? "Search for a food" : "Search foods, e.g. porridge oats, Brennans"}
+        aria-label="Search foods"
+        enterKeyHint="search"
+      />
+      {canScan && (
+        <button type="button" className="scan-btn" aria-label="Scan a barcode" onClick={() => { setScan(null); setScanning(true); }}>
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8" /></svg>
+        </button>
+      )}
+    </form>
+  );
+
   return (
     <>
       {scanning && <BarcodeScanner onCode={onCode} onClose={() => setScanning(false)} />}
-      <form className="food-search" role="search" onSubmit={(e) => { e.preventDefault(); findBranded(); }}>
-        <input
-          className="input"
-          type="search"
-          value={query}
-          autoFocus={autoFocus}
-          onChange={(e) => setQuery(e.target.value)}
-          // Phones: once the keyboard is up, bring the box to the top so results show below it, above the keyboard
-          onFocus={(e) => { const el = e.currentTarget; if (window.matchMedia("(max-width: 1023px)").matches) window.setTimeout(() => { const top = el.getBoundingClientRect().top + window.scrollY - 12; window.scrollTo({ top, behavior: "smooth" }); }, 350); }}
-          placeholder="Search foods, e.g. porridge oats, Brennans"
-          aria-label="Search foods"
-          enterKeyHint="search"
-        />
-        {canScan && (
-          <button type="button" className="scan-btn" aria-label="Scan a barcode" onClick={() => { setScan(null); setScanning(true); }}>
-            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8" /></svg>
-          </button>
-        )}
-      </form>
+      {dock ? createPortal(box, dock) : dock === undefined ? box : null}
       {scan && (
         <div className={`panel scan-result${scan.missing || scan.error ? " warn" : ""}`}>
           {scan.busy ? <p className="small">Looking up {scan.code}…</p>
@@ -124,14 +151,13 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
               <h3 className="group-h">Your foods{recipes ? " and recipes" : ""}</h3>
               <div className="panel list-panel">
                 {mine.map((p) => (
-                  <button key={p.type + (p.type === "food" ? p.food.id : p.type === "recipe" ? p.recipe.id : "")} className="list-row" onClick={() => onPick(p)}>
+                  <Row key={p.type + (p.type === "food" ? p.food.id : p.type === "recipe" ? p.recipe.id : "")} onOpen={() => onPick(p)} onAdd={onAdd && (() => onAdd(p))} label={p.type === "food" ? p.food.name : p.type === "recipe" ? p.recipe.name : ""}>
                     {p.type === "food" ? (
                       <span><strong>{p.food.name}</strong>{p.food.brand && <span className="muted"> · {p.food.brand}</span>}<span className="small muted" style={{ display: "block" }}><Line {...defaultLine({ type: "food", food: p.food, id: p.food.id }, nutri)} /></span></span>
                     ) : p.type === "recipe" ? (
                       <span><strong>{p.recipe.name}</strong> <span className="chip">recipe</span><span className="small muted" style={{ display: "block" }}><Line {...defaultLine({ type: "recipe", recipe: p.recipe }, nutri)} /></span></span>
                     ) : null}
-                    <span className="muted" aria-hidden="true">›</span>
-                  </button>
+                  </Row>
                 ))}
               </div>
             </>
@@ -146,10 +172,9 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
                 : (
                   <div className="panel list-panel">
                     {generic.map((d) => (
-                      <button key={d.ref} className="list-row" onClick={() => onPick({ type: "db", db: d })}>
+                      <Row key={d.ref} onOpen={() => onPick({ type: "db", db: d })} onAdd={onAdd && (() => onAdd({ type: "db", db: d }))} label={d.name}>
                         <span>{d.name}<span className="small muted" style={{ display: "block" }}><Line {...defaultLine({ type: "food", food: d, id: null }, nutri)} /></span></span>
-                        <span className="muted" aria-hidden="true">›</span>
-                      </button>
+                      </Row>
                     ))}
                   </div>
                 )}
@@ -162,10 +187,9 @@ export default function FoodSearch({ nutri, onPick, recipes = true, query, setQu
               ) : (
                 <div className="panel list-panel">
                   {branded!.results.map((d) => (
-                    <button key={d.ref} className="list-row" onClick={() => onPick({ type: "db", db: d })}>
+                    <Row key={d.ref} onOpen={() => onPick({ type: "db", db: d })} onAdd={onAdd && (() => onAdd({ type: "db", db: d }))} label={d.name}>
                       <span><strong>{d.name}</strong>{d.brand && <span className="muted"> · {d.brand}</span>}{have.has(d.ref) && <span className="chip" style={{ marginLeft: 6 }}>saved</span>}<span className="small muted" style={{ display: "block" }}><Line {...defaultLine({ type: "food", food: d, id: null }, nutri)} /></span></span>
-                      <span className="muted" aria-hidden="true">›</span>
-                    </button>
+                    </Row>
                   ))}
                 </div>
               )}
