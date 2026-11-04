@@ -20,6 +20,8 @@ interface Props {
   hcSleep?: DayActivity | null;
   /** That day's weigh-in from the weight log, if there is one: used for the scan's weight. */
   dayWeight?: number | null;
+  /** That day's calorie target from Food → Targets: used for the scan's calories. */
+  dayTarget?: number | null;
 }
 
 function Rating({ label, hint, labels, value, onChange }: { label: string; hint: string; labels: string[]; value: number | null; onChange: (v: number) => void }) {
@@ -49,7 +51,7 @@ const parse = (s: string) => {
   return Number.isFinite(n) ? n : NaN;
 };
 
-export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, onSkip, onCancel, onDeleted, hcSleep, dayWeight }: Props) {
+export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, onSkip, onCancel, onDeleted, hcSleep, dayWeight, dayTarget }: Props) {
   const hcHours = hcSleep?.sleep_minutes != null ? Math.round((hcSleep.sleep_minutes / 60) * 4) / 4 : null;
   const last = checkins.find((c) => c.id !== existing?.id);
   const lastWeight = checkins.find((c) => c.id !== existing?.id && c.bodyweight_kg != null)?.bodyweight_kg ?? null;
@@ -63,7 +65,7 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
   const prevPhase = latestPhase(checkins.filter((c) => c.id !== existing?.id));
   const prevCalories = checkins.find((c) => c.id !== existing?.id && c.calories != null)?.calories ?? null;
   const [phase, setPhase] = useState<Phase | null>(existing ? existing.calorie_status : prevPhase);
-  const [calories, setCalories] = useState(existing?.calories != null ? String(existing.calories) : prevCalories != null ? String(prevCalories) : "");
+  const [calories, setCalories] = useState(existing?.calories != null ? String(existing.calories) : dayTarget != null ? String(Math.round(dayTarget)) : prevCalories != null ? String(prevCalories) : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -177,9 +179,10 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
           ))}
         </div>
         <label className="field" style={{ marginTop: 10 }}>
-          <span>Daily calorie target (optional)</span>
+          <span>Daily calorie target{dayTarget == null ? " (optional)" : ""}</span>
           <input className="input" inputMode="numeric" value={calories} placeholder="e.g. 2200" onChange={(e) => setCalories(e.target.value)} />
         </label>
+        {dayTarget != null && kcal === Math.round(dayTarget) && <p className="muted small" style={{ marginTop: 6 }}>From your food target for the day.</p>}
         <p className="muted small" style={{ marginTop: 6 }}>
           {phase === "deficit" && "The coach holds weight and trims volume when lifts stall, so you keep muscle while losing fat."}
           {phase === "maintenance" && "Normal progression, with each template's stall rule."}

@@ -44,7 +44,7 @@ import TemplateEditor from "./components/TemplateEditor";
 import ExerciseLibrary from "./components/ExerciseLibrary";
 import ExerciseDetail from "./components/ExerciseDetail";
 import type { Food, NutritionData, Recipe } from "./lib/nutrition";
-import { EMPTY_NUTRITION, loadNutrition, todayYmd, ymd } from "./lib/nutrition";
+import { EMPTY_NUTRITION, loadNutrition, targetFor, todayYmd, ymd } from "./lib/nutrition";
 import FoodDay from "./components/food/FoodDay";
 import FoodAdd from "./components/food/FoodAdd";
 import FoodEditor from "./components/food/FoodEditor";
@@ -262,6 +262,7 @@ export default function App() {
         existing={existing}
         checkins={checkins}
         hcSleep={data.activity.find((a) => a.day === (existing ? ymd(new Date(existing.checked_at)) : todayYmd())) ?? null}
+        dayTarget={targetFor(data.nutrition.targets, existing ? ymd(new Date(existing.checked_at)) : todayYmd())?.kcal ?? null}
         dayWeight={data.nutrition.weights.find((x) => x.measured_on === (existing ? ymd(new Date(existing.checked_at)) : todayYmd()))?.weight_kg ?? null}
         saveLabel={next === "home" ? "Save scan" : next === "resume" ? "Save and back to workout" : `Save and start ${next.template?.name ?? "workout"}`}
         onSaved={async (c) => {
