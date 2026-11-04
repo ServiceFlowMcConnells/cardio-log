@@ -60,7 +60,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
   const desktop = useDesktop();
   const [open, setOpen] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
-  const [sheet, setSheet] = useState<null | { mode: "copy" | "move"; day: string; time: string }>(null);
+  const [sheet, setSheet] = useState<null | { mode: "copy" | "move"; day: string; time: string; keep: boolean }>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,16 +179,33 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
     setNutri((n) => ({ ...n, log: [...n.log, ...added] }));
   });
 
+  // Keep times: each food goes to the same time on the new day (copying all of today to tomorrow keeps the day's shape)
   const applySheet = () => sheet && run(async () => {
     if (sheet.mode === "copy") {
-      const added = await addEntries(selected.map((e) => copyOf(e, sheet.day, sheet.time)));
+      const added = await addEntries(selected.map((e) => copyOf(e, sheet.day, sheet.keep ? e.eaten_time : sheet.time)));
       setNutri((n) => ({ ...n, log: [...n.log, ...added] }));
     } else {
-      const moved = await moveEntries(selected.map((e) => e.id), sheet.day, sheet.time);
+      const groups = new Map<string, string[]>();
+      for (const e of selected) { const t = sheet.keep ? e.eaten_time : sheet.time; groups.set(t, [...(groups.get(t) ?? []), e.id]); }
+      const moved = (await Promise.all([...groups].map(([t, ids]) => moveEntries(ids, sheet.day, t)))).flat();
       const m = new Map(moved.map((e) => [e.id, e]));
       setNutri((n) => ({ ...n, log: n.log.map((e) => m.get(e.id) ?? e) }));
     }
-  }, `${sheet.mode === "copy" ? "Copied" : "Moved"} ${selected.length} to ${dayTitle(sheet.day).toLowerCase()} at ${sheet.time}`);
+  }, `${sheet.mode === "copy" ? "Copied" : "Moved"} ${selected.length} to ${dayTitle(sheet.day).toLowerCase()}${sheet.keep ? "" : ` at ${sheet.time}`}`);
+
+  // The ▶ beside an hour: move what's selected to that hour today, and keep it selected so you can keep nudging
+  const moveToHour = async (t: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const moved = await moveEntries(selected.map((e) => e.id), day, t);
+      const m = new Map(moved.map((e) => [e.id, e]));
+      setNutri((n) => ({ ...n, log: n.log.map((e) => m.get(e.id) ?? e) }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't move that.");
+    } finally { setBusy(false); }
+  };
+  const selHours = new Set(selected.map((e) => hourOf(e.eaten_time)));
 
   const removeSel = () => run(async () => {
     const ids = selected.map((e) => e.id);
@@ -217,8 +234,11 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
             <MacroSub m={sub} big />
           ) : <span />}
           <span className="hour-tools">
+            {sel.size > 0 && !sheet && !(selHours.size === 1 && selHours.has(h)) && (
+              <button className="hour-move" disabled={busy} onClick={() => moveToHour(t)} aria-label={`Move ${selected.length === 1 ? "it" : `the ${selected.length} selected`} to ${t}`}>▶</button>
+            )}
             {list.length > 0
-              ? <button className={`time-pill num${allOn ? " on" : ""}`} onClick={() => toggle(list.map((e) => e.id))} aria-label={`Select everything at ${t}`}>{t}</button>
+              ? <button className={`time-pill num${allOn || selHours.has(h) ? " on" : ""}`} onClick={() => toggle(list.map((e) => e.id))} aria-label={`Select everything at ${t}`}>{t}</button>
               : <button className="time-pill num" onClick={() => onAdd(t)} aria-label={`Log food at ${t}`}>{t}</button>}
           </span>
         </div>
@@ -318,7 +338,11 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
               <strong>{sheet.mode === "copy" ? "Copy" : "Move"} {selected.length} to</strong>
               <div className="sel-sheet-row">
                 <input className="input" type="date" value={sheet.day} onChange={(e) => setSheet({ ...sheet, day: e.target.value })} aria-label="Day" />
-                <HourPicker value={sheet.time} onChange={(t) => setSheet({ ...sheet, time: t })} />
+                {!sheet.keep && <HourPicker value={sheet.time} onChange={(t) => setSheet({ ...sheet, time: t })} />}
+              </div>
+              <div className="seg" role="group" aria-label="Times">
+                <button className={sheet.keep ? "on" : ""} aria-pressed={sheet.keep} onClick={() => setSheet({ ...sheet, keep: true })}>Keep their times</button>
+                <button className={!sheet.keep ? "on" : ""} aria-pressed={!sheet.keep} onClick={() => setSheet({ ...sheet, keep: false })}>All at one time</button>
               </div>
               <div className="sel-sheet-row">
                 <button className="btn ghost" onClick={() => setSheet(null)}>Back</button>
@@ -330,8 +354,8 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
               <button className="sel-x" onClick={clearSel} aria-label="Clear selection">✕</button>
               <span className="sel-count"><strong>{selected.length}</strong> selected<span className="small muted" style={{ display: "block" }}>{fmtKcal(sumMacros(selected).kcal)} kcal</span></span>
               <div className="sel-actions">
-                <button className="fchip" onClick={() => setSheet({ mode: "copy", day: isToday ? day : todayYmd(), time: selected[0]?.eaten_time.slice(0, 2) + ":00" })}>Copy</button>
-                <button className="fchip" onClick={() => setSheet({ mode: "move", day, time: selected[0]?.eaten_time.slice(0, 2) + ":00" })}>Move</button>
+                <button className="fchip" onClick={() => setSheet({ mode: "copy", day: isToday ? addDays(day, 1) : todayYmd(), time: selected[0]?.eaten_time.slice(0, 2) + ":00", keep: true })}>Copy</button>
+                <button className="fchip" onClick={() => setSheet({ mode: "move", day: addDays(day, 1), time: selected[0]?.eaten_time.slice(0, 2) + ":00", keep: true })}>Move</button>
                 <button className="fchip" onClick={makeRecipe}>Make recipe</button>
                 <button className={`fchip danger${confirmRemove ? " on" : ""}`} disabled={busy} onClick={() => (confirmRemove ? removeSel() : setConfirmRemove(true))}>{confirmRemove ? "Tap to confirm" : "Remove"}</button>
               </div>

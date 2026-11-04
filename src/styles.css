@@ -987,3 +987,5 @@ select.input { appearance: auto; }
 .unit-div { flex: none; width: 1px; height: 24px; background: var(--line); margin: 0 2px; }
 .unit-pick.compact .unit-chip { height: 32px; min-width: 44px; padding: 0 10px; }
 .unit-sel { border: 0; background: none; font: inherit; font-size: 0.8rem; color: var(--muted); padding: 0 2px; cursor: pointer; }
+.hour-move { flex: none; width: 26px; height: 26px; border: 0; border-radius: 50%; background: none; color: var(--ink); font-size: 0.8rem; cursor: pointer; margin-right: 2px; }
+.hour-move:active { background: var(--ground); }
