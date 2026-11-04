@@ -1,6 +1,6 @@
 {
-  "name": "Training Log",
-  "short_name": "Training",
+  "name": "Kata",
+  "short_name": "Kata",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#17232A",

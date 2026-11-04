@@ -23,7 +23,7 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
   const connect = () => run(async () => {
     const st = await connectHealth();
     setStatus(st);
-    if (!st.steps && !st.sleep) return "Nothing was allowed. Tap Connect again, or allow Training Log in Health Connect's settings.";
+    if (!st.steps && !st.sleep) return "Nothing was allowed. Tap Connect again, or allow Kata in Health Connect's settings.";
     const n = await syncHealth();
     onSynced();
     return `Connected. Brought in ${n} day${n === 1 ? "" : "s"}${st.history === false ? " (the last 30 days: allow \"past data\" in Health Connect for more)" : ""}.`;
@@ -49,14 +49,14 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
       <h2>Health Connect</h2>
       {!supported ? (
         <p className="muted small">
-          Steps and sleep come from Health Connect on your phone. Open Training Log in the Android app (version 1.0.6 or later) to connect it.
+          Steps and sleep come from Health Connect on your phone. Open Kata in the Android app (version 1.0.6 or later) to connect it.
           {lastSteps && ` Last synced data: ${lastSteps.steps!.toLocaleString("en-IE")} steps on ${dayName(lastSteps.day)}.`}
         </p>
       ) : status && !status.available ? (
         <p className="muted small">Health Connect isn't available on this phone{status.reason ? ` (${status.reason})` : ""}. On Android 13 or older, install "Health Connect" from the Play Store, then come back.</p>
       ) : (
         <>
-          <p className="muted small">Reads your daily steps and sleep (from your watch, phone or any app that writes to Health Connect). Training Log only reads; it never writes to Health Connect.</p>
+          <p className="muted small">Reads your daily steps and sleep (from your watch, phone or any app that writes to Health Connect). Kata only reads; it never writes to Health Connect.</p>
           {status && (
             <p className="small">
               Steps: <strong>{status.steps ? "allowed" : "not allowed"}</strong> · Sleep: <strong>{status.sleep ? "allowed" : "not allowed"}</strong>

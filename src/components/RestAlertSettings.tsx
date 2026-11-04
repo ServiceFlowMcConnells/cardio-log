@@ -13,7 +13,7 @@ export default function RestAlertSettings() {
     try {
       const perm = await native.requestPermission();
       if (!perm.granted) {
-        setMsg({ ok: false, text: "Notifications are off for Training Log. Turn them on in your phone's Settings › Apps › Training Log › Notifications, then try again." });
+        setMsg({ ok: false, text: "Notifications are off for Kata. Turn them on in your phone's Settings › Apps › Kata › Notifications, then try again." });
         return;
       }
       const r = await native.start({ endAt: Date.now() + 10_000, title: "Test rest", body: "Rest timer test", sound });

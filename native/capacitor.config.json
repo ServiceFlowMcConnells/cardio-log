@@ -1,6 +1,6 @@
 {
   "appId": "ie.traininglog.app",
-  "appName": "Training Log",
+  "appName": "Kata",
   "webDir": "www",
   "server": {
     "url": "https://training-log-coach.vercel.app",

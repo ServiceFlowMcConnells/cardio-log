@@ -19,7 +19,7 @@ export default function Sidebar({ active, onNav, onLogCardio, onLogFood, email }
     <aside className="sidebar" aria-label="Main">
       <div className="side-brand">
         <img src="/icon.svg" alt="" width="32" height="32" />
-        <span>Training Log</span>
+        <span>Kata</span>
       </div>
       <div className="side-ctas">
         <button className="btn primary side-cta" onClick={onLogFood}>+ Log food</button>

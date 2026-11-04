@@ -2,7 +2,7 @@
   "name": "training-log-android",
   "private": true,
   "version": "1.0.0",
-  "description": "Android shell for Training Log: loads the live site, adds a native rest timer notification and reads steps and sleep from Health Connect.",
+  "description": "Android shell for Kata: loads the live site, adds a native rest timer notification and reads steps and sleep from Health Connect.",
   "dependencies": {
     "@capacitor/android": "8.6.0",
     "@capacitor/cli": "8.6.0",

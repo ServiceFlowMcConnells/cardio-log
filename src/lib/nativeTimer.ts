@@ -1,5 +1,5 @@
 // Bridge to the Android app's RestTimer plugin (native/overlay/java/RestTimerPlugin.java).
-// Only present when Training Log is running inside the Android app.
+// Only present when Kata is running inside the Android app.
 //
 // The site is loaded live from Vercel, so it doesn't bundle @capacitor/core (which is where
 // registerPlugin lives). The native bridge Capacitor injects into the page does provide

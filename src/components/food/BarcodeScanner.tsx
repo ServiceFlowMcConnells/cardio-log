@@ -55,7 +55,7 @@ export default function BarcodeScanner({ onCode, onClose }: { onCode: (code: str
         setError(
           name === "NotAllowedError" || name === "SecurityError"
             ? inAndroidApp()
-              ? "The app couldn't use the camera. Install the latest Training Log app (1.0.5 or later), then allow the camera when asked. Or type the number below."
+              ? "The app couldn't use the camera. Install the latest Kata app (1.0.5 or later), then allow the camera when asked. Or type the number below."
               : "Camera access was blocked. Allow the camera for this site, or type the number below."
             : name === "NotFoundError" || name === "NotSupportedError"
               ? "No camera found. Type the number under the barcode instead."
