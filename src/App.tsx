@@ -408,6 +408,7 @@ export default function App() {
         onDailyMobility={() => go({ k: "mobility-play", kind: "daily", template: null, next: "home" })}
         goSettings={() => go({ k: "settings" })}
         onScan={(c) => go({ k: "readiness", checkin: c, next: "home" })}
+        onSteps={() => { try { localStorage.setItem("cardio-log:progress-mode", "body"); } catch { /* private mode */ } home("progress"); }}
       />
     );
   } else if (tab === "history") {

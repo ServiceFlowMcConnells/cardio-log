@@ -10,6 +10,7 @@ import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, wee
 import { AREA_LABEL, daysThisWeek, doneToday, fmtMin, needsRetest } from "../lib/mobility";
 import { buildRoutine } from "./MobilityPlayer";
 import { useDesktop } from "../lib/desktop";
+import { todayYmd, addDays as addYmd } from "../lib/nutrition";
 import { nextUp } from "../lib/programs";
 import { addDaysYmd, nextDays, planAdvice, plannedStatus, shortName, ymd, plannedTemplate } from "../lib/schedule";
 
@@ -27,9 +28,11 @@ interface Props {
   onDailyMobility: () => void;
   goSettings: () => void;
   onScan: (c: Checkin | null) => void;
+  /** Open the steps chart (Progress → Recovery). */
+  onSteps?: () => void;
 }
 
-export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onTrain, onStart, onWarmup, onPlan, onMobility, onDailyMobility, goSettings, onScan }: Props) {
+export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onTrain, onStart, onWarmup, onPlan, onMobility, onDailyMobility, goSettings, onScan, onSteps }: Props) {
   const { sessions, settings, workouts, exercises } = data;
   const z = zoneFor(settings);
   const start = startOfWeek(new Date());
@@ -73,6 +76,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
       <div className="cols">
       <div className="col">
       <ReadinessCard checkins={data.checkins} onScan={onScan} />
+      <StepsStrip data={data} onOpen={onSteps} />
 
       <StrengthWeek data={data} start={start} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} onPlan={onPlan} />
       </div>
@@ -343,6 +347,38 @@ function ReadinessCard({ checkins, onScan }: { checkins: Checkin[]; onScan: (c: 
         </div>
       )}
     </>
+  );
+}
+
+/** Today's steps against the target (from Health Connect), styled like the readiness strip. */
+function StepsStrip({ data, onOpen }: { data: AppData; onOpen?: () => void }) {
+  const today = todayYmd();
+  const act = data.activity;
+  if (!act.some((d) => d.steps != null)) return null;
+  const target = data.settings.step_target || 15000;
+  const steps = act.find((d) => d.day === today)?.steps ?? 0;
+  const past = act.filter((d) => d.day < today && d.day >= addYmd(today, -7) && d.steps != null).map((d) => d.steps!);
+  const avg7 = past.length ? past.reduce((a, b) => a + b, 0) / past.length : null;
+  const hit = steps >= target;
+  const pct = Math.min(1, steps / target);
+  const f = (n: number) => Math.round(n).toLocaleString("en-IE");
+  const R = 19, C = 2 * Math.PI * R;
+  return (
+    <button className={`ready-strip steps-strip${hit ? " hit" : ""}`} style={{ marginBottom: 10 }} onClick={onOpen}>
+      <span className="steps-ring" aria-hidden="true">
+        <svg viewBox="0 0 46 46" width="46" height="46">
+          <circle cx="23" cy="23" r={R} className="steps-ring-bg" />
+          <circle cx="23" cy="23" r={R} className="steps-ring-fill" strokeDasharray={`${C * pct} ${C}`} transform="rotate(-90 23 23)" />
+        </svg>
+        <span>{Math.round(pct * 100)}%</span>
+      </span>
+      <span style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+        <strong>{f(steps)} steps</strong> <span className="small">of {f(target)}{hit ? " · target hit" : ` · ${f(target - steps)} to go`}</span>
+        <span className="fs2-track" style={{ marginTop: 6 }}><span className={`fs2-fill steps${hit ? " hit" : ""}`} style={{ width: `${pct * 100}%` }} /></span>
+        {avg7 != null && <span className="small" style={{ display: "block", opacity: 0.85, marginTop: 4 }}>7-day average {f(avg7)}</span>}
+      </span>
+      <span aria-hidden="true">›</span>
+    </button>
   );
 }
 
