@@ -293,12 +293,12 @@ function WeekBudget({ nutri, totals, today }: { nutri: NutritionData; totals: Ma
   const unlogged = days.filter((d) => d < today && !(totals.get(d)?.entries)).length;
   const keys = [["kcal", "Calories", "k"], ["protein", "Protein", "p"], ["fat", "Fat", "f"], ["carbs", "Carbs", "c"]] as const;
   const rows = keys.map(([k, name, cls]) => {
-    const tv = ts.map((t) => (t as Record<string, number | null>)[k]);
+    const tv = ts.map((t) => (t as unknown as Record<string, number | null>)[k]);
     if (tv.some((v) => v == null)) return null;
     const budget = (tv as number[]).reduce((a, b) => a + b, 0);
     const eaten = logged.reduce((a, d) => a + d[k], 0);
     const left = budget - eaten;
-    const daily = (t0 as Record<string, number | null>)[k] as number;
+    const daily = (t0 as unknown as Record<string, number | null>)[k] as number;
     const perDay = open.length ? left / open.length : null;
     return { k, name, cls, budget, eaten, left, daily, perDay };
   }).filter((r): r is NonNullable<typeof r> => !!r);
