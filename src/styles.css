@@ -1031,3 +1031,14 @@ select.input { appearance: auto; }
 .fa-log { flex: none; height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--ink); color: var(--panel); font: inherit; font-weight: 700; font-size: 0.95rem; cursor: pointer; white-space: nowrap; }
 .fa-log:disabled { opacity: 0.4; cursor: default; }
 @media (max-width: 1023px) { body.kb-open .fa-dock { padding-bottom: 8px; } }
+/* Quick weigh-in from the shortcuts */
+.weigh-sheet { height: auto; min-height: 0; }
+.weigh-date { position: relative; display: grid; justify-items: center; line-height: 1.2; cursor: pointer; }
+.weigh-date-main { font-family: var(--display); font-weight: 700; font-size: 1.1rem; }
+.weigh-date input[type=date] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.weigh-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px 12px; padding: 12px 14px 14px; }
+.weigh-input { position: relative; display: block; }
+.weigh-input .input { padding-right: 40px; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.weigh-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.weigh-kg .input { box-shadow: inset 0 0 0 2px var(--ink); }
+.weigh-save { grid-column: 1 / -1; margin-top: 2px; }

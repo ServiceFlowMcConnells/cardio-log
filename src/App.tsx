@@ -39,6 +39,7 @@ import TabBar, { type Tab } from "./components/TabBar";
 import Train from "./components/Train";
 import WorkoutLogger, { hasWorkoutDraft, readWorkoutDraft } from "./components/WorkoutLogger";
 import ShortcutSheet, { ShortcutIcons } from "./components/ShortcutSheet";
+import WeighInSheet from "./components/WeighInSheet";
 import WorkoutSummary from "./components/WorkoutSummary";
 import TemplateEditor from "./components/TemplateEditor";
 import ExerciseLibrary from "./components/ExerciseLibrary";
@@ -108,6 +109,8 @@ export default function App() {
   const [view, setView] = useState<View>(initialView);
   const [foodDay, setFoodDay] = useState(todayYmd);
   const [sheet, setSheet] = useState(false);
+  const [weighIn, setWeighIn] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuth(data.session));
@@ -514,7 +517,7 @@ export default function App() {
         { key: "food", label: "Log food", icon: ShortcutIcons.food, onClick: () => logFood() },
         { key: "barcode", label: "Barcode", icon: ShortcutIcons.barcode, onClick: () => logFood("scan") },
         { key: "quick", label: "Quick add", icon: ShortcutIcons.quick, onClick: () => logFood("quick") },
-        { key: "weight", label: "Weigh in", icon: ShortcutIcons.weight, onClick: () => go({ k: "weight" }) },
+        { key: "weight", label: "Weigh in", icon: ShortcutIcons.weight, onClick: () => setWeighIn(true) },
       ],
     },
   ];
@@ -533,6 +536,9 @@ export default function App() {
       </main>
       <TabBar tab={activeTab} plusOpen={sheet} onTab={(t) => (t === "train" ? setSheet((o) => !o) : home(t))} />
       <ShortcutSheet open={sheet} onClose={() => setSheet(false)} quick={quick} links={links} />
+      <WeighInSheet open={weighIn} onClose={() => setWeighIn(false)} nutri={data.nutrition} setNutri={setNutri}
+        onSaved={(t) => { setToast(t); window.setTimeout(() => setToast(null), 2500); }} />
+      {toast && <div className="toast" role="status">{toast}</div>}
     </>
   );
 }
