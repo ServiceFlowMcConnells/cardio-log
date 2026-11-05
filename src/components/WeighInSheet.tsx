@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { NutritionData } from "../lib/nutrition";
+import { DateSheet } from "./food/Pickers";
 import { deleteBodyFat, deleteWeight, fromYmd, loadNutrition, saveBodyFat, saveWeight, todayYmd } from "../lib/nutrition";
 
 /** Quick weigh-in from the shortcuts (MacroFactor style): date, scale weight and optional body fat, then Save.
@@ -17,7 +18,7 @@ export default function WeighInSheet({ open, onClose, nutri, setNutri, onSaved }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const weightRef = useRef<HTMLInputElement>(null);
-  const dateRef = useRef<HTMLInputElement>(null);
+  const [dateOpen, setDateOpen] = useState(false);
 
   const w = nutri.weights.find((x) => x.measured_on === day);
   const f = nutri.bodyFats.find((x) => x.measured_on === day);
@@ -87,12 +88,10 @@ export default function WeighInSheet({ open, onClose, nutri, setNutri, onSaved }
           <button type="button" className="icon-btn sheet-x" aria-label="Close" onClick={onClose} tabIndex={open ? 0 : -1}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
-          <label className="weigh-date">
+          <button type="button" className="weigh-date" onClick={() => setDateOpen(true)} tabIndex={open ? 0 : -1} aria-label={`Date: ${label}. Change`}>
             <span className="weigh-date-main">{label} <span aria-hidden="true">▾</span></span>
             <span className="small muted">Scale weight</span>
-            <input ref={dateRef} type="date" value={day} max={todayYmd()} onChange={(e) => e.target.value && setDay(e.target.value)} aria-label="Date" tabIndex={open ? 0 : -1}
-              onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch { /* older browsers open on tap */ } }} />
-          </label>
+          </button>
           <button type="button" className="icon-btn" aria-label="Delete this weigh-in" disabled={!(w || f) || busy} onClick={remove} tabIndex={open ? 0 : -1}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
           </button>
@@ -111,6 +110,7 @@ export default function WeighInSheet({ open, onClose, nutri, setNutri, onSaved }
           <button className="btn primary block weigh-save" disabled={!kOk || !bOk || busy} tabIndex={open ? 0 : -1}>{busy ? "Saving…" : "Save"}</button>
         </div>
       </form>
+      <DateSheet open={dateOpen} value={day} max={todayYmd()} onPick={setDay} onClose={() => setDateOpen(false)} title="Weigh-in date" />
     </>
   );
 }

@@ -3,6 +3,7 @@ import type { Food, LogEntry, NewEntry, NutritionData } from "../../lib/nutritio
 import { UNIT_LABEL, addDays, addEntries, convertAmount, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, nowHour, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 import { DayCalendar, DaySummary } from "./DayHeader";
+import { DateField } from "./Pickers";
 import { UnitPicker, amountLabel } from "./AmountPanel";
 import { useDesktop } from "../../lib/desktop";
 
@@ -376,7 +377,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
           <div className="sel-sheet">
             <strong>{sheet.mode === "copy" ? "Copy" : "Move"} {selected.length} to</strong>
             <div className="sel-sheet-row">
-              <input className="input" type="date" value={sheet.day} onChange={(e) => setSheet({ ...sheet, day: e.target.value })} aria-label="Day" />
+              <DateField value={sheet.day} onChange={(d) => setSheet({ ...sheet, day: d })} title={`${sheet.mode === "copy" ? "Copy" : "Move"} to`} />
               {!sheet.keep && <HourPicker value={sheet.time} onChange={(t) => setSheet({ ...sheet, time: t })} />}
             </div>
             <div className="seg" role="group" aria-label="Times">

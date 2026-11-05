@@ -8,6 +8,7 @@ import { useDesktop } from "../../lib/desktop";
 import type { Pinch } from "../../lib/chartGestures";
 import { daysApart, pinchWindow, useChartGestures } from "../../lib/chartGestures";
 import { num } from "./bits";
+import { DateField } from "./Pickers";
 
 const short = (d: string) => fromYmd(d).toLocaleDateString("en-IE", { day: "numeric", month: "short" });
 const kg = (v: number) => v.toFixed(1);
@@ -272,7 +273,7 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
 
       <section className="panel weigh-row">
         <form className="weigh-form" onSubmit={(e) => { e.preventDefault(); if (v != null) act(() => saveWeight(day, Math.round(v * 10) / 10)); }}>
-          <label className="field"><span>Day</span><input className="input" type="date" value={day} max={today} onChange={(e) => pickDay(e.target.value)} /></label>
+          <div className="field"><span>Day</span><DateField value={day} max={today} onChange={pickDay} label="Day" /></div>
           <label className="field"><span>Scale weight (kg)</span><input className="input" inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} placeholder="e.g. 78.2" /></label>
           <button className="btn primary" disabled={busy || v == null || v < 25 || v > 350}>{busy ? "…" : existing ? "Update" : "Save"}</button>
         </form>
@@ -395,7 +396,7 @@ function BodyFatSection({ nutri, setNutri, weightPts }: { nutri: NutritionData; 
       <h2 style={{ marginBottom: 8 }}>Body fat</h2>
       <section className="panel weigh-row">
         <form className="weigh-form" onSubmit={(e) => { e.preventDefault(); if (v != null) act(() => saveBodyFat(day, Math.round(v * 10) / 10)); }}>
-          <label className="field"><span>Day</span><input className="input" type="date" value={day} max={today} onChange={(e) => pickDay(e.target.value)} /></label>
+          <div className="field"><span>Day</span><DateField value={day} max={today} onChange={pickDay} label="Day" /></div>
           <label className="field"><span>Body fat (%)</span><input className="input" inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} placeholder="e.g. 21.3" /></label>
           <button className="btn primary" disabled={busy || v == null || v <= 2 || v >= 70}>{busy ? "…" : existing ? "Update" : "Save"}</button>
         </form>

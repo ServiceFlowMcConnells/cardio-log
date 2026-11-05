@@ -47,19 +47,7 @@ export function MacroSub({ m, amount, big }: { m: Macros; amount?: string; fire?
 }
 
 /** Pick an hour: ‹ 13:00 › */
-export function HourPicker({ value, onChange }: { value: string; onChange: (t: string) => void }) {
-  const h = Number(value.slice(0, 2));
-  const set = (n: number) => onChange(`${String(Math.max(0, Math.min(23, n))).padStart(2, "0")}:00`);
-  return (
-    <span className="hour-picker">
-      <button type="button" className="icon-btn" aria-label="An hour earlier" disabled={h <= 0} onClick={() => set(h - 1)}>‹</button>
-      <select value={`${String(h).padStart(2, "0")}:00`} onChange={(e) => onChange(e.target.value)} aria-label="Hour">
-        {Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`).map((t) => <option key={t} value={t}>{t}</option>)}
-      </select>
-      <button type="button" className="icon-btn" aria-label="An hour later" disabled={h >= 23} onClick={() => set(h + 1)}>›</button>
-    </span>
-  );
-}
+export { HourPicker } from "./Pickers";
 
 /** One target bar: eaten vs target, turning to the "over" colour past it. */
 export function TargetBar({ label, eaten, target, unit, cls }: { label: string; eaten: number; target: number | null; unit: string; cls: string }) {

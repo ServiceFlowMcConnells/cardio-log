@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { NutritionData } from "../../lib/nutrition";
 import { deleteTarget, fromYmd, loadNutrition, saveTarget, targetFor, todayYmd } from "../../lib/nutrition";
 import { MacroInputs, fmtKcal, formKcal, macroForm, num } from "./bits";
+import { DateField } from "./Pickers";
 
 /** Calorie and macro targets from your coach. A change applies from the date you pick; earlier days keep the old targets. */
 export default function TargetsEditor({ nutri, setNutri, onClose }: { nutri: NutritionData; setNutri: (f: (n: NutritionData) => NutritionData) => void; onClose: () => void }) {
@@ -45,7 +46,7 @@ export default function TargetsEditor({ nutri, setNutri, onClose }: { nutri: Nut
         <p className="small muted">Enter the grams your coach gave you; calories are worked out from them.</p>
         <MacroInputs v={v} set={setV} autoFocus={!cur} kcalLabel="Calories a day" />
         {k != null && (k < 800 || k > 8000) && <p className="small error">That's {fmtKcal(k)} kcal a day. Check the numbers.</p>}
-        <label className="field"><span>Starting</span><input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+        <div className="field"><span>Starting</span><DateField value={from} onChange={setFrom} label="Starting" title="Target starts" /></div>
       </section>
 
       {error && <p className="error" style={{ marginTop: 10 }}>{error}</p>}

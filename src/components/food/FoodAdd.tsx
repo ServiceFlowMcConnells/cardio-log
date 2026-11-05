@@ -3,6 +3,7 @@ import type { DbFood, Food, Macros, NewEntry, NutritionData, Recipe, RecentItem,
 import { UNIT_LABEL, VOLUME_UNITS, WEIGHT_UNITS, addEntries, adoptFood, convertAmount, lookupBarcode, saveFood, fromYmd, isTime, hourTime, macrosFor, nowHour, perServing, recentItems, scaleMacros, setFoodFlags, setRecipeFavorite, sumMacros, targetFor, todayYmd } from "../../lib/nutrition";
 import { useDesktop } from "../../lib/desktop";
 import FoodSearch, { type Picked } from "./FoodSearch";
+import { TimeSheet } from "./Pickers";
 import AmountPanel, { amountLabel, defaultAmount, defaultLine, type Loggable } from "./AmountPanel";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, PlusIcon, Star, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 
@@ -199,11 +200,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
   const plate = (
     <section className="panel plate">
       <div className="plate-top">
-        <HourPicker value={time} onChange={setTime} />
-        <div className="chip-row time-quick">
-          {day === todayYmd() && <button className={`fchip${time === nowHour() ? " on" : ""}`} onClick={() => setTime(nowHour())}>Now</button>}
-          {["08:00", "13:00", "16:00", "19:00"].map((t) => <button key={t} className={`fchip${time === t ? " on" : ""}`} onClick={() => setTime(t)}>{t}</button>)}
-        </div>
+        <HourPicker value={time} onChange={setTime} title={`Log at · ${dayName(day)}`} />
       </div>
       <div className="plate-bars" aria-label="Day so far including this plate">
         <MiniBar label="kcal" v={total.kcal} t={target?.kcal ?? null} cls="k" />
@@ -384,16 +381,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
             {items.length > 0 && <span className="fa-count">{items.length}</span>}
           </button>
         </div>
-        {timeOpen && (
-          <div className="fa-timepop">
-            <HourPicker value={time} onChange={setTime} />
-            <div className="chip-row time-quick">
-              {day === todayYmd() && <button className={`fchip${time === nowHour() ? " on" : ""}`} onClick={() => { setTime(nowHour()); setTimeOpen(false); }}>Now</button>}
-              {["08:00", "13:00", "16:00", "19:00"].map((t) => <button key={t} className={`fchip${time === t ? " on" : ""}`} onClick={() => { setTime(t); setTimeOpen(false); }}>{t}</button>)}
-            </div>
-            <p className="muted small" style={{ margin: 0 }}>{dayName(day)}</p>
-          </div>
-        )}
+        <TimeSheet open={timeOpen} value={time} onPick={setTime} onClose={() => setTimeOpen(false)} title={`Log at · ${dayName(day)}`} />
 
         {/* Behind: the plate */}
         <div className="fa-body fa-plate" hidden={view !== "plate"}>{plate}</div>
