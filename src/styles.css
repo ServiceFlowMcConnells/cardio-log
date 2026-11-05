@@ -1042,3 +1042,22 @@ select.input { appearance: auto; }
 .weigh-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
 .weigh-kg .input { box-shadow: inset 0 0 0 2px var(--ink); }
 .weigh-save { grid-column: 1 / -1; margin-top: 2px; }
+/* Food log: one docked slot for the search bar and the selection bar (cross-fade, nothing below moves) */
+.food-dock { position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 70px); z-index: 19; max-width: 536px; margin: 0 auto; height: 52px; pointer-events: none; }
+.food-dock.hidden { display: none; }
+.food-dock.desk-dock { bottom: 20px; left: calc(50% + 132px); right: auto; width: min(560px, calc(100vw - 300px)); transform: translateX(-50%); margin: 0; }
+.dock-layer { position: absolute; inset: 0; transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1); pointer-events: auto; }
+.dock-layer.off { opacity: 0; transform: translateY(10px) scale(0.97); pointer-events: none; }
+.food-dock .food-searchbar.docked { position: absolute; inset: 0; margin: 0; max-width: none; }
+.sel-dock { height: 100%; display: flex; align-items: center; gap: 8px; padding: 0 6px; background: var(--panel); border-radius: 999px; border: 1px solid var(--line); box-shadow: 0 6px 22px rgb(0 0 0 / 0.18); }
+.sel-dock .sel-x, .sel-back { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--ink); color: var(--panel); font-size: 0.9rem; cursor: pointer; }
+.sel-back { background: var(--ground); color: var(--ink); font-size: 1.4rem; line-height: 1; }
+.sel-dock .sel-count { display: grid; line-height: 1.1; min-width: 0; }
+.sel-dock .sel-count strong { font-size: 0.95rem; }
+.sel-dock .sel-count .small { font-size: 0.72rem; white-space: nowrap; }
+.sel-div { flex: none; width: 1px; height: 28px; background: var(--line); }
+.sel-dock .sel-actions { animation: sel-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); padding-right: 6px; }
+@keyframes sel-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+.sel-pop { position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 132px); z-index: 26; max-width: 536px; margin: 0 auto; box-shadow: 0 10px 30px rgb(0 0 0 / 0.25); }
+.desk .sel-pop { bottom: 84px; }
+@media (max-width: 1023px) { body.kb-open .food-dock { display: none; } }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import type { Food, LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
-import { UNIT_LABEL, addDays, addEntries, convertAmount, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
+import { UNIT_LABEL, addDays, addEntries, convertAmount, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, nowHour, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
 import { DayCalendar, DaySummary } from "./DayHeader";
 import { UnitPicker, amountLabel } from "./AmountPanel";
@@ -56,12 +56,16 @@ function SearchBar({ onAdd, docked }: { onAdd: Props["onAdd"]; docked: boolean }
   );
 }
 
+const out_count = (rs: LogEntry[], nutri: NutritionData) => rs.reduce((a, e) => a + (nutri.recipes.find((r) => r.id === e.recipe_id)?.items.length ?? 0), 0);
+
 export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets, onMakeRecipe, onTrends }: Props) {
   const desktop = useDesktop();
   const [open, setOpen] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [sheet, setSheet] = useState<null | { mode: "copy" | "move"; day: string; time: string; keep: boolean }>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // The selection bar: its main actions, or Copy/Move destinations
+  const [barMode, setBarMode] = useState<"main" | "copy" | "move">("main");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -158,7 +162,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
       return n;
     });
   };
-  const clearSel = () => { setSel(new Set()); setSheet(null); setConfirmRemove(false); };
+  const clearSel = () => { setSel(new Set()); setSheet(null); setConfirmRemove(false); setBarMode("main"); };
 
   async function run(fn: () => Promise<void>, done?: string) {
     setBusy(true);
@@ -192,6 +196,42 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
       setNutri((n) => ({ ...n, log: n.log.map((e) => m.get(e.id) ?? e) }));
     }
   }, `${sheet.mode === "copy" ? "Copied" : "Moved"} ${selected.length} to ${dayTitle(sheet.day).toLowerCase()}${sheet.keep ? "" : ` at ${sheet.time}`}`);
+
+  // Copy/Move from the bar: To now (today, this hour), to today or tomorrow keeping each food's time
+  const sendTo = (mode: "copy" | "move", toDay: string, time: string | null) => run(async () => {
+    if (mode === "copy") {
+      const added = await addEntries(selected.map((e) => copyOf(e, toDay, time ?? e.eaten_time)));
+      setNutri((n) => ({ ...n, log: [...n.log, ...added] }));
+    } else {
+      const groups = new Map<string, string[]>();
+      for (const e of selected) { const t = time ?? e.eaten_time; groups.set(t, [...(groups.get(t) ?? []), e.id]); }
+      const moved = (await Promise.all([...groups].map(([t, ids]) => moveEntries(ids, toDay, t)))).flat();
+      const m = new Map(moved.map((e) => [e.id, e]));
+      setNutri((n) => ({ ...n, log: n.log.map((e) => m.get(e.id) ?? e) }));
+    }
+  }, `${mode === "copy" ? "Copied" : "Moved"} ${selected.length} to ${time ? `now (${time})` : dayTitle(toDay).toLowerCase()}`);
+
+  // Explode: a logged recipe becomes its ingredients at the same time, scaled to the servings you had
+  const recipeSel = selected.filter((e) => e.kind === "recipe" && e.recipe_id && nutri.recipes.some((r) => r.id === e.recipe_id));
+  const explode = () => run(async () => {
+    const out: NewEntry[] = [];
+    for (const e of recipeSel) {
+      const r = nutri.recipes.find((x) => x.id === e.recipe_id)!;
+      for (const it of r.items) {
+        const f = nutri.foods.find((x) => x.id === it.food_id);
+        if (!f) continue;
+        const g = Math.round(((it.grams * e.amount) / (r.servings || 1)) * 10) / 10;
+        if (!(g > 0)) continue;
+        const m = macrosFor(f, g, "g");
+        out.push({ eaten_on: e.eaten_on, eaten_time: e.eaten_time, kind: "food", food_id: f.id, recipe_id: null, name: f.brand ? `${f.name} (${f.brand})` : f.name, amount: g, unit: f.liquid ? "ml" : "g", kcal: m.kcal, protein: m.protein, carbs: m.carbs, fat: m.fat });
+      }
+    }
+    if (!out.length) throw new Error("That recipe's foods aren't in your foods any more, so it can't be split.");
+    const added = await addEntries(out);
+    const ids = recipeSel.map((e) => e.id);
+    await deleteEntries(ids);
+    setNutri((n) => ({ ...n, log: [...n.log.filter((e) => !ids.includes(e.id)), ...added] }));
+  }, `Split into ${out_count(recipeSel, nutri)} foods`);
 
   // The ▶ beside an hour: move what's selected to that hour today, and keep it selected so you can keep nudging
   const moveToHour = async (t: string) => {
@@ -326,44 +366,65 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
               Copy everything from {isToday ? "yesterday" : "the day before"} ({fmtKcal(sumMacros(yesterday).kcal)} kcal)
             </button>
           )}
-          {entries.length > 0 && sel.size === 0 && <p className="muted small hint">Tap foods to select them: copy, move, remove or make a recipe. The pencil edits one. Tap an empty hour to log food at that time.</p>}
+          {entries.length > 0 && <p className="muted small hint" style={{ visibility: sel.size ? "hidden" : undefined }} aria-hidden={sel.size > 0}>Tap foods to select them: copy, move, remove or make a recipe. The pencil edits one. Tap an empty hour to log food at that time.</p>}
           <div className="timeline">{rows}</div>
         </div>
       </div>
 
-      {sel.size > 0 && (
-        <div className="sel-bar" role="toolbar" aria-label="Selected foods">
-          {sheet ? (
-            <div className="sel-sheet">
-              <strong>{sheet.mode === "copy" ? "Copy" : "Move"} {selected.length} to</strong>
-              <div className="sel-sheet-row">
-                <input className="input" type="date" value={sheet.day} onChange={(e) => setSheet({ ...sheet, day: e.target.value })} aria-label="Day" />
-                {!sheet.keep && <HourPicker value={sheet.time} onChange={(t) => setSheet({ ...sheet, time: t })} />}
-              </div>
-              <div className="seg" role="group" aria-label="Times">
-                <button className={sheet.keep ? "on" : ""} aria-pressed={sheet.keep} onClick={() => setSheet({ ...sheet, keep: true })}>Keep their times</button>
-                <button className={!sheet.keep ? "on" : ""} aria-pressed={!sheet.keep} onClick={() => setSheet({ ...sheet, keep: false })}>All at one time</button>
-              </div>
-              <div className="sel-sheet-row">
-                <button className="btn ghost" onClick={() => setSheet(null)}>Back</button>
-                <button className="btn primary" style={{ flex: 1 }} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(sheet.day)} onClick={applySheet}>{busy ? "…" : sheet.mode === "copy" ? "Copy here" : "Move here"}</button>
-              </div>
+      {sheet && sel.size > 0 && (
+        <div className="panel sel-pop" role="dialog" aria-label={`${sheet.mode === "copy" ? "Copy" : "Move"} to a date and time`}>
+          <div className="sel-sheet">
+            <strong>{sheet.mode === "copy" ? "Copy" : "Move"} {selected.length} to</strong>
+            <div className="sel-sheet-row">
+              <input className="input" type="date" value={sheet.day} onChange={(e) => setSheet({ ...sheet, day: e.target.value })} aria-label="Day" />
+              {!sheet.keep && <HourPicker value={sheet.time} onChange={(t) => setSheet({ ...sheet, time: t })} />}
             </div>
-          ) : (
-            <>
-              <button className="sel-x" onClick={clearSel} aria-label="Clear selection">✕</button>
-              <span className="sel-count"><strong>{selected.length}</strong> selected<span className="small muted" style={{ display: "block" }}>{fmtKcal(sumMacros(selected).kcal)} kcal</span></span>
-              <div className="sel-actions">
-                <button className="fchip" onClick={() => setSheet({ mode: "copy", day: isToday ? addDays(day, 1) : todayYmd(), time: selected[0]?.eaten_time.slice(0, 2) + ":00", keep: true })}>Copy</button>
-                <button className="fchip" onClick={() => setSheet({ mode: "move", day: addDays(day, 1), time: selected[0]?.eaten_time.slice(0, 2) + ":00", keep: true })}>Move</button>
-                <button className="fchip" onClick={makeRecipe}>Make recipe</button>
-                <button className={`fchip danger${confirmRemove ? " on" : ""}`} disabled={busy} onClick={() => (confirmRemove ? removeSel() : setConfirmRemove(true))}>{confirmRemove ? "Tap to confirm" : "Remove"}</button>
-              </div>
-            </>
-          )}
+            <div className="seg" role="group" aria-label="Times">
+              <button className={sheet.keep ? "on" : ""} aria-pressed={sheet.keep} onClick={() => setSheet({ ...sheet, keep: true })}>Keep their times</button>
+              <button className={!sheet.keep ? "on" : ""} aria-pressed={!sheet.keep} onClick={() => setSheet({ ...sheet, keep: false })}>All at one time</button>
+            </div>
+            <div className="sel-sheet-row">
+              <button className="btn ghost" onClick={() => setSheet(null)}>Back</button>
+              <button className="btn primary" style={{ flex: 1 }} disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(sheet.day)} onClick={applySheet}>{busy ? "…" : sheet.mode === "copy" ? "Copy here" : "Move here"}</button>
+            </div>
+          </div>
         </div>
       )}
-      {!desktop && sel.size === 0 && !open && <SearchBar onAdd={onAdd} docked />}
+
+      {/* One slot above the tab bar: the search bar, or (with foods selected) the selection bar in its place,
+          cross-fading so the log underneath never moves */}
+      {(!desktop || sel.size > 0) && (
+        <div className={`food-dock${desktop ? " desk-dock" : ""}${open && sel.size === 0 ? " hidden" : ""}`}>
+          {!desktop && <div className={`dock-layer${sel.size > 0 ? " off" : ""}`} aria-hidden={sel.size > 0}><SearchBar onAdd={onAdd} docked /></div>}
+          <div className={`dock-layer${sel.size > 0 ? "" : " off"}`} aria-hidden={sel.size === 0}>
+            <div className="sel-dock" role="toolbar" aria-label="Selected foods">
+              {barMode === "main"
+                ? <button className="sel-x" onClick={clearSel} aria-label="Clear selection">✕</button>
+                : <button className="sel-back" onClick={() => setBarMode("main")} aria-label="Back">‹</button>}
+              <span className="sel-count"><strong>{barMode === "copy" ? "Copy" : barMode === "move" ? "Move" : "Select"}</strong><span className="small muted">{selected.length} food{selected.length === 1 ? "" : "s"} · {fmtKcal(sumMacros(selected).kcal)} kcal</span></span>
+              <span className="sel-div" aria-hidden="true" />
+              <div className="sel-actions" key={barMode}>
+                {barMode === "main" ? (
+                  <>
+                    <button className="fchip" onClick={() => { setConfirmRemove(false); setBarMode("copy"); }}>Copy</button>
+                    <button className="fchip" onClick={() => { setConfirmRemove(false); setBarMode("move"); }}>Move</button>
+                    {selected.length >= 2 && <button className="fchip" onClick={makeRecipe}>Make recipe</button>}
+                    {recipeSel.length > 0 && <button className="fchip" disabled={busy} onClick={explode}>Explode</button>}
+                    <button className={`fchip danger${confirmRemove ? " on" : ""}`} disabled={busy} onClick={() => (confirmRemove ? removeSel() : setConfirmRemove(true))}>{confirmRemove ? "Tap to confirm" : "Remove"}</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="fchip" disabled={busy} onClick={() => sendTo(barMode, todayYmd(), nowHour())}>To Now</button>
+                    <button className="fchip" disabled={busy} onClick={() => sendTo(barMode, todayYmd(), null)}>To Today</button>
+                    <button className="fchip" disabled={busy} onClick={() => sendTo(barMode, addDays(todayYmd(), 1), null)}>To Tomorrow</button>
+                    <button className="fchip" disabled={busy} onClick={() => setSheet({ mode: barMode, day: addDays(day, 1), time: selected[0]?.eaten_time.slice(0, 2) + ":00", keep: true })}>Date &amp; time…</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
