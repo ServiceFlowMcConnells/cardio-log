@@ -185,7 +185,6 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
 
       <div className="cols" style={{ marginTop: 14 }}>
         <div className="col">
-          <WeekBudget nutri={nutri} totals={totals} today={today} />
           <Habits nutri={nutri} totals={totals} today={today} />
         </div>
         <div className="col">
@@ -277,68 +276,6 @@ function niceStep(v: number) {
   const p = 10 ** Math.floor(Math.log10(Math.max(1, v)));
   for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p;
   return 10 * p;
-}
-
-/** This week (from your week start day): what's left of each target, and what that means per day for the days left.
- *  Everything logged counts, including today so far and days planned ahead; those planned days count as done. */
-function WeekBudget({ nutri, totals, today }: { nutri: NutritionData; totals: Map<string, DayTotal>; today: string }) {
-  const mon = weekStartOf(today);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
-  const ts = days.map((d) => targetFor(nutri.targets, d));
-  if (ts.some((t) => !t)) return null;
-  const t0 = ts[days.indexOf(today)]!;
-  const logged = days.map((d) => totals.get(d)).filter((x): x is DayTotal => !!x && x.entries > 0);
-  const planned = days.filter((d) => d > today && (totals.get(d)?.entries ?? 0) > 0);
-  const open = days.filter((d) => d === today || (d > today && !planned.includes(d)));
-  const unlogged = days.filter((d) => d < today && !(totals.get(d)?.entries)).length;
-  const keys = [["kcal", "Calories", "k"], ["protein", "Protein", "p"], ["fat", "Fat", "f"], ["carbs", "Carbs", "c"]] as const;
-  const rows = keys.map(([k, name, cls]) => {
-    const tv = ts.map((t) => (t as unknown as Record<string, number | null>)[k]);
-    if (tv.some((v) => v == null)) return null;
-    const budget = (tv as number[]).reduce((a, b) => a + b, 0);
-    const eaten = logged.reduce((a, d) => a + d[k], 0);
-    const left = budget - eaten;
-    const daily = (t0 as unknown as Record<string, number | null>)[k] as number;
-    const perDay = open.length ? left / open.length : null;
-    return { k, name, cls, budget, eaten, left, daily, perDay };
-  }).filter((r): r is NonNullable<typeof r> => !!r);
-  const f = (k: string, v: number) => (k === "kcal" ? fmtKcal(v) : Math.round(v).toLocaleString("en-IE"));
-  const unit = (k: string) => (k === "kcal" ? "" : " g");
-  const lastDay = days[6];
-  const span = open.length === 1 ? "today" : `${open.length} days, today–${fmtDay(lastDay, { weekday: "short" })}`;
-  return (
-    <section className="panel">
-      <div className="page-head" style={{ marginBottom: 4 }}>
-        <h2>This week</h2>
-        <span className="small muted">{fmtDay(mon, { day: "numeric", month: "short" })} – {fmtDay(lastDay, { day: "numeric", month: "short" })}</span>
-      </div>
-      {open.length === 0 ? (
-        <p className="small muted">Every day left this week is planned. Here's where the week lands against your targets.</p>
-      ) : (
-        <p className="small muted" style={{ marginTop: 0 }}>To average your targets, eat this per day for the rest of the week ({span}){open.includes(today) && logged.some((d) => d.day === today) ? ", counting what you've already had today" : ""}:</p>
-      )}
-      <div className="wk-grid">
-        {rows.map((r) => {
-          const v = r.perDay ?? r.left;
-          const off = r.perDay != null ? r.perDay - r.daily : -r.left;
-          const close = Math.abs(off) <= r.daily * 0.02;
-          return (
-            <div key={r.k} className="wk-cell">
-              <span className="small muted">{r.cls !== "k" && <i className={`mk ${r.cls}`} />}{r.name}</span>
-              <span className={`ntr-mid num${r.perDay != null && r.perDay < 0 ? " warn" : ""}`}>{r.perDay != null ? f(r.k, Math.max(0, v)) : `${r.left >= 0 ? "" : "+"}${f(r.k, Math.abs(r.left))}`}<small>{unit(r.k)}</small></span>
-              <span className={`small wk-vs ${close ? "ok" : "muted"}`}>{r.perDay != null ? (close ? `on target (${f(r.k, r.daily)})` : `${off > 0 ? "+" : "−"}${f(r.k, Math.abs(off))} vs ${f(r.k, r.daily)}`) : r.left >= 0 ? "under for the week" : "over for the week"}</span>
-              <span className="small muted wk-left" title={`${f(r.k, Math.max(0, r.left))}${unit(r.k)} left of ${f(r.k, r.budget)}${unit(r.k)} for the week`}>{f(r.k, Math.max(0, r.left))}{unit(r.k)} left</span>
-            </div>
-          );
-        })}
-      </div>
-      <p className="small muted" style={{ marginBottom: 0 }}>
-        {planned.length > 0 && `Planned ahead (${planned.map((d) => fmtDay(d, { weekday: "short" })).join(", ")}) is counted as eaten. `}
-        {unlogged > 0 && `${unlogged} earlier day${unlogged === 1 ? " has" : "s have"} nothing logged, so ${unlogged === 1 ? "it counts" : "they count"} as zero. `}
-        {rows.some((r) => r.perDay != null && r.perDay < 0) && "You're already past the week's target for some macros: keep the other days near target rather than trying to make it all back."}
-      </p>
-    </section>
-  );
 }
 
 function Habits({ nutri, totals, today }: { nutri: NutritionData; totals: Map<string, DayTotal>; today: string }) {
