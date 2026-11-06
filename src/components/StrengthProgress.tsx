@@ -4,6 +4,7 @@ import { MUSCLE_LABEL, bestE1rm, fmtKg, fmtTonnage, hardSetsByMuscle, pctChange,
 import { addDays, startOfWeek, weekKey } from "../lib/dates";
 import { WeeklyBars } from "./Charts";
 import { Delta } from "./WorkoutLogger";
+import StrengthReport from "./StrengthReport";
 
 const DAY = 86400000;
 // Common evidence-based range for weekly hard sets per muscle for growth (e.g. Schoenfeld et al.; RP volume landmarks).
@@ -69,6 +70,7 @@ export default function StrengthProgress({ data, onLog, onOpenExercise }: { data
   const lastFull = weeks[weeks.length - 2];
   return (
     <>
+      <StrengthReport data={data} onOpenExercise={onOpenExercise} />
       <section className="panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
           <h2>Weekly volume</h2>
