@@ -26,7 +26,7 @@ function dayTitle(d: string) {
   return fromYmd(d).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" });
 }
 
-const amountText = (e: LogEntry, foods: Food[]) => (e.kind === "quick" ? "quick add" : e.kind === "import" ? "imported day total" : e.kind === "food" ? amountLabel(foods.find((f) => f.id === e.food_id) ?? null, e.amount, e.unit) : e.unit !== "serving" ? `${fmtG(e.amount)} ${UNIT_LABEL[e.unit]}` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
+const amountText = (e: LogEntry, foods: Food[]) => (e.kind === "quick" ? (e.amount !== 1 ? `${fmtG(e.amount)} portion${e.amount === 1 ? "" : "s"} · quick add` : "quick add") : e.kind === "import" ? "imported day total" : e.kind === "food" ? amountLabel(foods.find((f) => f.id === e.food_id) ?? null, e.amount, e.unit) : e.unit !== "serving" ? `${fmtG(e.amount)} ${UNIT_LABEL[e.unit]}` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
 
 function PencilIcon() {
   return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M4 17.2V20h2.8l8.3-8.3-2.8-2.8L4 17.2zm13.7-7.6a1 1 0 0 0 0-1.4l-1.9-1.9a1 1 0 0 0-1.4 0l-1.5 1.5 2.8 2.8 2-1z" /></svg>;
@@ -436,7 +436,9 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
   const [amount, setAmount] = useState(String(e.amount));
   const [unit, setUnit] = useState(e.unit);
   const [time, setTime] = useState(hourTime(hourOf(e.eaten_time)));
-  const [q, setQ] = useState<MacroForm>(() => macroForm(e));
+  // Quick adds: the macros are for one portion, times the portions (a whole pizza, then 0.5 of it)
+  const isQuick = e.kind === "quick";
+  const [q, setQ] = useState<MacroForm>(() => macroForm(isQuick && e.amount > 0 && e.amount !== 1 ? scaleMacros(e, 1 / e.amount) : e));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const a = num(amount);
@@ -445,7 +447,8 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
   const macroOnly = e.kind === "quick" || e.kind === "import";
   if (macroOnly) {
     const k = formKcal(q);
-    macros = k != null && k > 0 ? { kcal: k, protein: num(q.protein) ?? 0, carbs: num(q.carbs) ?? 0, fat: num(q.fat) ?? 0 } : null;
+    const one = k != null && k > 0 ? { kcal: k, protein: num(q.protein) ?? 0, carbs: num(q.carbs) ?? 0, fat: num(q.fat) ?? 0 } : null;
+    macros = one && isQuick ? (a != null && a > 0 ? scaleMacros(one, a) : null) : one;
   } else if (a != null && a > 0) {
     if (food) macros = macrosFor(food, a, unit);
     else if (recipe) macros = scaleMacros(perServing(recipe, nutri.foods), a);
@@ -461,7 +464,7 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
   const save = () => run(async () => {
     if (!macros) return;
     if (!isTime(time)) return;
-    const next: NewEntry = { eaten_on: e.eaten_on, eaten_time: time, kind: e.kind, food_id: e.food_id, recipe_id: e.recipe_id, name: e.name, amount: macroOnly ? 1 : a!, unit: macroOnly ? "serving" : unit, ...macros };
+    const next: NewEntry = { eaten_on: e.eaten_on, eaten_time: time, kind: e.kind, food_id: e.food_id, recipe_id: e.recipe_id, name: e.name, amount: isQuick ? a! : macroOnly ? 1 : a!, unit: macroOnly ? "serving" : unit, ...macros };
     const saved = await updateEntry(e.id, next);
     setNutri((n) => ({ ...n, log: n.log.map((x) => (x.id === e.id ? saved : x)) }));
   });
@@ -477,7 +480,23 @@ function EntryEditor({ entry: e, nutri, setNutri, onClose }: { entry: LogEntry; 
         <button className="link small" onClick={onClose}>Close</button>
       </div>
       {macroOnly ? (
-        <MacroInputs v={q} set={setQ} />
+        <>
+          {isQuick && (
+            <>
+              <div className="amount-row">
+                <label className="field" style={{ flex: 1 }}>
+                  <span>Portions</span>
+                  <input className="input" inputMode="decimal" value={amount} onChange={(ev) => setAmount(ev.target.value)} onFocus={(ev) => ev.target.select()} aria-label="Portions" />
+                </label>
+              </div>
+              <div className="chip-row" style={{ marginTop: 6 }}>
+                {[0.25, 0.5, 0.75, 1, 1.5, 2].map((v) => <button key={v} className={`fchip${a === v ? " on" : ""}`} onClick={() => setAmount(String(v))}>{v === 0.25 ? "¼" : v === 0.5 ? "½" : v === 0.75 ? "¾" : v === 1.5 ? "1½" : String(v)}</button>)}
+              </div>
+              <p className="small muted" style={{ margin: "10px 0 4px" }}>Macros for 1 portion</p>
+            </>
+          )}
+          <MacroInputs v={q} set={setQ} />
+        </>
       ) : (
         <div className="amount-row">
           <label className="field" style={{ flex: 1 }}>

@@ -78,8 +78,8 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
 
   const macrosOfItem = (it: PlateItem): Macros | null => {
     const a = num(it.amount);
-    if (it.kind === "quick") return it.quick ?? null;
     if (a == null || a <= 0) return null;
+    if (it.kind === "quick") return it.quick ? scaleMacros(it.quick, a) : null; // quick add: macros are one portion
     if (it.kind === "recipe") { const r = it.recipeId ? recipesById.get(it.recipeId) : undefined; return r ? scaleMacros(perServing(r, nutri.foods), a) : null; }
     const f = (it.foodId && foodsById.get(it.foodId)) || it.db;
     return f ? macrosFor(f, a, it.unit) : null;
@@ -107,7 +107,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
   function pushRecent(r: RecentItem) {
     if (r.kind === "food") { const f = r.id ? foodsById.get(r.id) : undefined; if (f) pushFood(f, r.amount, r.unit); }
     else if (r.kind === "recipe") { const rec = r.id ? recipesById.get(r.id) : undefined; if (rec) pushRecipe(rec, r.amount); }
-    else push({ kind: "quick", name: r.name, amount: "1", unit: "serving", quick: r.macros });
+    else push({ kind: "quick", name: r.name, amount: String(r.amount > 0 ? r.amount : 1), unit: "serving", quick: r.macros });
   }
   function openRecent(r: RecentItem) {
     if (r.kind === "food") { const f = r.id ? foodsById.get(r.id) : undefined; if (f) setSel({ item: { type: "food", food: f, id: f.id } }); }
@@ -172,8 +172,8 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
       const entries: NewEntry[] = [];
       for (const it of items) {
         const a = num(it.amount) ?? 1;
-        const base = { eaten_on: day, eaten_time: time, name: it.name, amount: it.kind === "quick" ? 1 : a, unit: it.kind === "quick" ? ("serving" as const) : it.unit };
-        if (it.kind === "quick") { entries.push({ ...base, kind: "quick", food_id: null, recipe_id: null, ...it.quick! }); continue; }
+        const base = { eaten_on: day, eaten_time: time, name: it.name, amount: a, unit: it.kind === "quick" ? ("serving" as const) : it.unit };
+        if (it.kind === "quick") { entries.push({ ...base, kind: "quick", food_id: null, recipe_id: null, ...scaleMacros(it.quick!, a) }); continue; }
         if (it.kind === "recipe") { entries.push({ ...base, kind: "recipe", food_id: null, recipe_id: it.recipeId!, ...macrosOfItem(it)! }); continue; }
         let f = it.foodId ? foods.find((x) => x.id === it.foodId) : undefined;
         if (!f && it.db) {
@@ -224,7 +224,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
                     <span className="entry-name">{it.name}</span>
                     <span className="small muted" style={{ display: "block" }}>{m ? <MacroSub m={m} /> : "Enter an amount"}</span>
                   </span>
-                  {it.kind !== "quick" && (
+                  {(
                     <span className="plate-amt">
                       <input className="cell" inputMode="decimal" value={it.amount} aria-label={`Amount of ${it.name}`} onFocus={(e) => e.target.select()} onChange={(e) => setItems(items.map((x) => (x.key === it.key ? { ...x, amount: e.target.value } : x)))} />
                       {it.kind === "food" && f ? (
@@ -237,7 +237,7 @@ export default function FoodAdd({ nutri, day, time: time0, setNutri, onDone, onN
                           {(f.liquid ? [...VOLUME_UNITS, ...WEIGHT_UNITS] : [...WEIGHT_UNITS, ...VOLUME_UNITS]).map((u) => <option key={u} value={u}>{UNIT_LABEL[u]}</option>)}
                           {f.serving_g ? <option value="serving">srv</option> : null}
                         </select>
-                      ) : <span className="small muted unit-lbl">{it.unit === "serving" ? "srv" : UNIT_LABEL[it.unit]}</span>}
+                      ) : <span className="small muted unit-lbl">{it.kind === "quick" ? "portion" : it.unit === "serving" ? "srv" : UNIT_LABEL[it.unit]}</span>}
                     </span>
                   )}
                   <button className="icon-btn" aria-label={`Remove ${it.name}`} onClick={() => setItems(items.filter((x) => x.key !== it.key))}>✕</button>

@@ -148,11 +148,13 @@ export function recentItems(log: LogEntry[], foods: Food[], recipes: Recipe[], l
     let key: string | null = null;
     if (e.kind === "food" && e.food_id && foodIds.has(e.food_id)) key = "f:" + e.food_id;
     else if (e.kind === "recipe" && e.recipe_id && recipeIds.has(e.recipe_id)) key = "r:" + e.recipe_id;
-    else if (e.kind === "quick") key = `q:${e.name.toLowerCase()}:${Math.round(e.kcal)}`;
+    else if (e.kind === "quick") key = `q:${e.name.toLowerCase()}:${Math.round(e.kcal / (e.amount > 0 ? e.amount : 1))}`;
     if (!key) continue;
     const had = seen.get(key);
     if (had) { had.uses++; continue; }
-    seen.set(key, { key, kind: e.kind as RecentItem["kind"], id: e.kind === "food" ? e.food_id : e.kind === "recipe" ? e.recipe_id : null, name: e.name, amount: e.amount, unit: e.unit, macros: { kcal: e.kcal, protein: e.protein, carbs: e.carbs, fat: e.fat }, lastUsed: e.eaten_on, uses: 1 });
+    seen.set(key, { key, kind: e.kind as RecentItem["kind"], id: e.kind === "food" ? e.food_id : e.kind === "recipe" ? e.recipe_id : null, name: e.name, amount: e.amount, unit: e.unit,
+      // Quick adds: macros for one portion (the entry holds amount × that)
+      macros: e.kind === "quick" && e.amount > 0 && e.amount !== 1 ? scaleMacros(e, 1 / e.amount) : { kcal: e.kcal, protein: e.protein, carbs: e.carbs, fat: e.fat }, lastUsed: e.eaten_on, uses: 1 });
   }
   return [...seen.values()].slice(0, limit);
 }
