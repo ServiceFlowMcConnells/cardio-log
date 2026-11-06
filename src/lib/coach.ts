@@ -266,7 +266,7 @@ function dropBy(top: number, pct: number, inc: number): number | null {
   return (top - inc) / top >= 0.85 ? top - inc : null;
 }
 
-const repsText = (reps: number[]) => (reps.every((r) => r === reps[0]) ? `${reps.length} × ${reps[0]}` : reps.join(", "));
+const repsText = (reps: number[]) => (reps.length === 1 ? `${reps[0]} (1 set)` : reps.every((r) => r === reps[0]) ? `${reps.length} × ${reps[0]}` : reps.join(", "));
 /** "70.5 kg × 11, then 68 kg × 11, 11, 10" */
 const groupedText = (weights: number[], reps: number[]) => {
   const g: { w: number; r: number[] }[] = [];

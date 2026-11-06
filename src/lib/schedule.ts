@@ -333,6 +333,10 @@ export function applyChanges(templates: Template[], changes: TemplateChange[]): 
 
 /** The template as planned for `date`: with that week's set adjustments applied, if any. */
 export function plannedTemplate(t: Template, planned: PlannedWorkout[], date = ymd(new Date())): Template {
+  // Only once: the Dashboard's Start passes an already-adjusted template on to the workout start
+  if ((t as Template & { plannedFor?: string }).plannedFor === date) return t;
   const p = planned.find((x) => x.planned_on === date && x.template_id === t.id);
-  return p?.changes?.length ? applyChanges([t], p.changes)[0] ?? t : t;
+  if (!p?.changes?.length) return t;
+  const out = applyChanges([t], p.changes)[0] ?? t;
+  return Object.assign(out, { plannedFor: date });
 }
