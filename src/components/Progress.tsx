@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PhotosCard } from "./photos/ProgressPhotos";
 import type { AppData } from "../App";
 import type { Block, Machine, Session, Settings } from "../lib/types";
 import StrengthProgress from "./StrengthProgress";
@@ -218,7 +219,7 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
 type Mode = "cardio" | "strength" | "body" | "nutrition" | "weight";
 const MODE_KEY = "cardio-log:progress-mode";
 
-export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onMobility, onOpenFoodDay, setNutri }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onMobility: () => void; onOpenFoodDay: (day: string) => void; setNutri: (f: (n: NutritionData) => NutritionData) => void }) {
+export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onMobility, onOpenFoodDay, setNutri, onPhotos }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onMobility: () => void; onOpenFoodDay: (day: string) => void; setNutri: (f: (n: NutritionData) => NutritionData) => void; onPhotos: (add?: boolean) => void }) {
   const [mode, setMode] = useState<Mode>(() => {
     try { return (localStorage.getItem(MODE_KEY) as Mode) || "strength"; } catch { return "strength"; }
   });
@@ -237,6 +238,7 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, o
         <button className={mode === "body" ? "on" : ""} aria-pressed={mode === "body"} onClick={() => pick("body")}>Recovery</button>
       </div>
       {mode === "nutrition" && <NutritionTrends nutri={data.nutrition} onOpenDay={onOpenFoodDay} />}
+      {mode === "weight" && <PhotosCard onOpen={() => onPhotos()} onAdd={() => onPhotos(true)} />}
       {mode === "weight" && <WeightView nutri={data.nutrition} checkins={data.checkins} setNutri={setNutri} embedded />}
       <div className="progress-body">
       {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}

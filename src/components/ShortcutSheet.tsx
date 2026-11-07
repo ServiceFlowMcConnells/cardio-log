@@ -21,6 +21,7 @@ export const ShortcutIcons = {
   barcode: sv(<path d="M3 7V4h3M18 4h3v3M21 17v3h-3M6 20H3v-3M7 8v8M10 8v8M13 8v8M16.5 8v8" />),
   quick: sv(<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6l1-8z" />),
   weight: sv(<><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><path d="M8.5 9.5a5 5 0 0 1 7 0L13 12" /></>),
+  photos: sv(<><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>),
   programs: sv(<path d="M4 6h16M4 12h16M4 18h10" />),
   plan: sv(<><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>),
   trends: sv(<><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>),

@@ -40,6 +40,7 @@ import Train from "./components/Train";
 import WorkoutLogger, { hasWorkoutDraft, readWorkoutDraft } from "./components/WorkoutLogger";
 import ShortcutSheet, { ShortcutIcons } from "./components/ShortcutSheet";
 import WeighInSheet from "./components/WeighInSheet";
+import ProgressPhotos from "./components/photos/ProgressPhotos";
 import WorkoutSummary from "./components/WorkoutSummary";
 import TemplateEditor from "./components/TemplateEditor";
 import ExerciseLibrary from "./components/ExerciseLibrary";
@@ -74,7 +75,8 @@ export type View =
   | { k: "recipe"; recipe: Recipe | null; items?: { food_id: string; grams: number }[] }
   | { k: "targets" }
   | { k: "nutrition" }
-  | { k: "weight" };
+  | { k: "weight" }
+  | { k: "photos"; add?: boolean };
 
 function initialView(): View {
   const desktop = window.matchMedia?.("(min-width: 1024px)").matches && !(window as unknown as { Capacitor?: unknown }).Capacitor;
@@ -382,6 +384,8 @@ export default function App() {
     );
   } else if (view.k === "targets") {
     body = <TargetsEditor nutri={data.nutrition} setNutri={setNutri} onClose={() => home("food")} />;
+  } else if (view.k === "photos") {
+    body = <ProgressPhotos key={view.add ? "add" : "list"} weights={data.nutrition.weights} startAdd={view.add} onBack={() => back()} onToast={(t) => { setToast(t); window.setTimeout(() => setToast(null), 2500); }} />;
   } else if (view.k === "weight") {
     body = <WeightView nutri={data.nutrition} checkins={checkins} setNutri={setNutri} onClose={() => back()} />;
   } else if (view.k === "settings") {
@@ -459,7 +463,7 @@ export default function App() {
   } else if (tab === "exercises") {
     body = <ExerciseLibrary data={data} onOpen={(id) => go({ k: "exercise", id })} onChanged={refresh} />;
   } else {
-    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} setNutri={setNutri} />;
+    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} setNutri={setNutri} onPhotos={(add) => go({ k: "photos", add })} />;
   }
 
   const FOOD_VIEWS = new Set<View["k"]>(["food-add", "food-edit", "recipe", "targets", "weight", "nutrition"]);
@@ -518,6 +522,7 @@ export default function App() {
         { key: "barcode", label: "Barcode", icon: ShortcutIcons.barcode, onClick: () => logFood("scan") },
         { key: "quick", label: "Quick add", icon: ShortcutIcons.quick, onClick: () => logFood("quick") },
         { key: "weight", label: "Weigh in", icon: ShortcutIcons.weight, onClick: () => setWeighIn(true) },
+        { key: "photos", label: "Photos", icon: ShortcutIcons.photos, onClick: () => go({ k: "photos", add: true }) },
       ],
     },
   ];
