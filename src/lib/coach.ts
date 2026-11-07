@@ -332,7 +332,9 @@ export function coachExercise(
   // the weight but isn't judged against this range's targets
   const lastTe = last ? templates.find((t) => t.id === workouts.find((w) => w.id === last.workoutId)?.template_id)?.exercises.find((e) => e.exercise_id === exerciseId) : undefined;
   const sameRange = !lastTe || (lastTe.rep_min === plan.rep_min && lastTe.rep_max === plan.rep_max);
-  const comparable = last && sameRange && last.topReps.every((r) => r >= plan.rep_min - 2 && r <= plan.rep_max + 2);
+  // Reps well above the range (e.g. after the range was edited from 8–10 down to 4–6) mean the weight is now too
+  // light for it: start again from estimated 1RM rather than nudging up one jump
+  const comparable = last && sameRange && last.topReps.every((r) => r >= plan.rep_min - 2 && r <= plan.rep_max + 1);
   const recentE1rm = trainingE1rm(exerciseId, workouts, before, formula, excludeId);
 
   if (deload) {
