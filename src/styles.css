@@ -1166,6 +1166,7 @@ select.input { appearance: auto; }
 .photo-slot.full { border-style: solid; border-color: transparent; }
 .photo-slot.on { border-color: var(--ink); border-style: solid; }
 .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+.photo-crop-prev { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; background: #000; }
 .photo-ph { width: 100%; height: 100%; background: linear-gradient(90deg, var(--ground), var(--line), var(--ground)); background-size: 200% 100%; animation: pp-shimmer 1.2s linear infinite; }
 @keyframes pp-shimmer { to { background-position: -200% 0; } }
 .photo-menu { display: grid; margin: 6px 16px 0; border-radius: 12px; overflow: hidden; background: var(--ground); }

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Cropped, PhotoDay, Pose } from "../../lib/photos";
+import type { CropJob, Cropped, PhotoDay, Pose } from "../../lib/photos";
 import { POSES, POSE_LABEL, deleteDay, saveDay, useSignedUrls } from "../../lib/photos";
 import { todayYmd, fromYmd } from "../../lib/nutrition";
 import { DateSheet } from "../food/Pickers";
@@ -16,8 +16,7 @@ export default function PhotoDayEditor({ open, day: initialDay, all, onClose, on
   onSaved?: (text: string) => void;
 }) {
   const [day, setDay] = useState(initialDay);
-  const [changes, setChanges] = useState<Partial<Record<Pose, Cropped | null>>>({});
-  const [previews, setPreviews] = useState<Partial<Record<Pose, string>>>({});
+  const [changes, setChanges] = useState<Partial<Record<Pose, CropJob | null>>>({});
   const [menu, setMenu] = useState<Pose | null>(null);
   const [crop, setCrop] = useState<{ pose: Pose; file: File } | null>(null);
   const [dateOpen, setDateOpen] = useState(false);
@@ -28,7 +27,10 @@ export default function PhotoDayEditor({ open, day: initialDay, all, onClose, on
   const pending = useRef<Pose | null>(null);
 
   const existing = all.find((d) => d.day === day) ?? null;
-  const reset = () => { setChanges({}); setPreviews({}); setMenu(null); setCrop(null); setError(null); setBusy(false); setConfirmDel(false); };
+  const jobs = useRef<CropJob[]>([]);
+  const dropJobs = () => { jobs.current.forEach((j) => URL.revokeObjectURL(j.src)); jobs.current = []; };
+  useEffect(() => dropJobs, []);
+  const reset = () => { dropJobs(); setChanges({}); setMenu(null); setCrop(null); setError(null); setBusy(false); setConfirmDel(false); };
   useEffect(() => {
     if (!open) return;
     setDay(initialDay); reset();
@@ -40,7 +42,7 @@ export default function PhotoDayEditor({ open, day: initialDay, all, onClose, on
   const closeFromBackdrop = () => { if (!crop && !dateOpen && !busy && Date.now() - guard.current > 700) onClose(); };
 
   const thumbs = useSignedUrls(existing ? POSES.map((p) => existing.photos[p]?.thumb_path).filter((x): x is string => !!x) : []);
-  const shown = (p: Pose) => (p in changes ? (changes[p] ? previews[p] : null) : existing?.photos[p] ? thumbs.get(existing.photos[p]!.thumb_path) || "" : null);
+  const shown = (p: Pose): string | CropJob | null => (p in changes ? changes[p] ?? null : existing?.photos[p] ? thumbs.get(existing.photos[p]!.thumb_path) || "" : null);
   const has = (p: Pose) => shown(p) != null;
 
   const pick = (p: Pose, how: "upload" | "camera") => {
@@ -61,7 +63,9 @@ export default function PhotoDayEditor({ open, day: initialDay, all, onClose, on
     setBusy(true);
     setError(null);
     try {
-      await saveDay(day, changes, existing);
+      const out: Partial<Record<Pose, Cropped | null>> = {};
+      for (const [p, j] of Object.entries(changes) as [Pose, CropJob | null][]) out[p] = j ? await j.result : null;
+      await saveDay(day, out, existing);
       onClose();
       onSaved?.(day === todayYmd() ? "Today's progress photos saved" : `Progress photos saved for ${fromYmd(day).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}`);
     } catch (e) {
@@ -104,7 +108,7 @@ export default function PhotoDayEditor({ open, day: initialDay, all, onClose, on
                 <span className="small">{POSE_LABEL[p]}</span>
                 <button type="button" className={`photo-slot${u != null ? " full" : ""}${menu === p ? " on" : ""}`} onClick={() => setMenu(menu === p ? null : p)} tabIndex={open ? 0 : -1}
                   aria-label={`${POSE_LABEL[p]} photo${u != null ? " (added). Change" : ". Add"}`}>
-                  {u ? <img src={u} alt="" /> : u === "" ? <span className="photo-ph" /> : <PoseIcon pose={p} />}
+                  {u && typeof u === "object" ? <CropPreview job={u} /> : u ? <img src={u} alt="" /> : u === "" ? <span className="photo-ph" /> : <PoseIcon pose={p} />}
                 </button>
               </div>
             );
@@ -138,11 +142,29 @@ export default function PhotoDayEditor({ open, day: initialDay, all, onClose, on
       </div>
       {crop && (
         <PhotoCrop file={crop.file} pose={crop.pose} onCancel={() => { guard.current = Date.now(); setCrop(null); }}
-          onDone={(c, preview) => { guard.current = Date.now(); setChanges((x) => ({ ...x, [crop.pose]: c })); setPreviews((x) => ({ ...x, [crop.pose]: preview })); setCrop(null); }} />
+          onDone={(job) => { guard.current = Date.now(); jobs.current.push(job); setChanges((x) => ({ ...x, [crop.pose]: job })); setCrop(null); }} />
       )}
       <DateSheet open={dateOpen} value={day} max={todayYmd()} onPick={pickDate} onClose={() => { guard.current = Date.now(); setDateOpen(false); }} title={dirty ? "Photo date (unsaved changes will be dropped)" : "Photo date"} />
     </>,
     document.body,
+  );
+}
+
+/** The accepted crop, drawn from the source photo with the same transform as the crop screen, scaled to the slot. */
+function CropPreview({ job }: { job: CropJob }) {
+  const box = useRef<HTMLSpanElement>(null);
+  const [w, setW] = useState(0);
+  useLayoutEffect(() => { setW(box.current?.clientWidth ?? 0); }, []);
+  const k = w / job.fw;
+  return (
+    <span ref={box} className="photo-crop-prev">
+      {w > 0 && (
+        <span style={{ position: "absolute", left: "50%", top: "50%", width: job.fw, height: job.fw * 1.25, overflow: "hidden", transform: `translate(-50%, -50%) scale(${k})` }}>
+          <img src={job.src} alt="" className="crop-img" style={{ width: job.nw, height: job.nh, marginLeft: -job.nw / 2, marginTop: -job.nh / 2, objectFit: "fill",
+            transform: `translate(${job.ox}px, ${job.oy}px) rotate(${job.rot}deg) scale(${job.scale})` }} />
+        </span>
+      )}
+    </span>
   );
 }
 

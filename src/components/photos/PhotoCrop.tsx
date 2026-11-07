@@ -1,24 +1,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Cropped, Pose } from "../../lib/photos";
-import { POSE_LABEL, openPhoto, renderCrop } from "../../lib/photos";
+import type { CropJob, Pose } from "../../lib/photos";
+import { POSE_LABEL, loadImage, renderCrop } from "../../lib/photos";
 
 /** Full-screen crop to the 4:5 frame (MacroFactor style): drag to move, pinch or the slider to zoom, ↻ to rotate. */
-export default function PhotoCrop({ file, pose, onDone, onCancel }: { file: File; pose: Pose; onDone: (c: Cropped, preview: string) => void; onCancel: () => void }) {
+export default function PhotoCrop({ file, pose, onDone, onCancel }: { file: File; pose: Pose; onDone: (job: CropJob) => void; onCancel: () => void }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [src, setSrc] = useState("");
   const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [rot, setRot] = useState(0);
   const [zoom, setZoom] = useState(1); // 1 = just covers the frame
   const [off, setOff] = useState({ x: 0, y: 0 });
   const stage = useRef<HTMLDivElement>(null);
   const [fw, setFw] = useState(300);
 
+  const handed = useRef(false); // once accepted, the editor owns the photo's link
   useEffect(() => {
-    let u = "", live = true;
-    openPhoto(file).then((r) => { u = r.src; if (!live) { URL.revokeObjectURL(u); return; } setSrc(r.src); setImg(r.img); }).catch((e) => setErr(e.message));
-    return () => { live = false; if (u) URL.revokeObjectURL(u); };
+    const u = URL.createObjectURL(file);
+    let live = true;
+    setSrc(u);
+    loadImage(u).then((i) => { if (live) setImg(i); }).catch((e) => setErr(e.message));
+    return () => { live = false; if (!handed.current) URL.revokeObjectURL(u); };
   }, [file]);
 
   // Frame size: as large as fits, 4:5
@@ -82,17 +84,14 @@ export default function PhotoCrop({ file, pose, onDone, onCancel }: { file: File
     g0.current = pts.current.size ? { off, zoom, d, c } : null;
   };
 
-  const done = async () => {
-    if (!img || busy) return;
-    setBusy(true);
-    await new Promise((r) => requestAnimationFrame(() => r(null))); // let "Saving…" show first
-    try {
-      const c = await renderCrop(img, rot, s, off.x, off.y, fw);
-      onDone(c, URL.createObjectURL(c.thumb));
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Couldn't crop that photo.");
-      setBusy(false);
-    }
+  // Accept straight away; the JPEGs render after the crop screen has closed
+  const done = () => {
+    if (!img || handed.current) return;
+    handed.current = true;
+    const job = { src, nw: img.naturalWidth, nh: img.naturalHeight, rot, scale: s, ox: off.x, oy: off.y, fw };
+    const result = new Promise<void>((r) => setTimeout(r, 350)).then(() => renderCrop(img, rot, s, off.x, off.y, fw));
+    result.catch(() => { /* reported when saving */ });
+    onDone({ ...job, result });
   };
 
   return createPortal(
@@ -102,11 +101,9 @@ export default function PhotoCrop({ file, pose, onDone, onCancel }: { file: File
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </button>
         <strong>Crop {POSE_LABEL[pose].toLowerCase()} photo</strong>
-        {busy ? <span className="crop-busy small" role="status">Saving…</span> : (
-          <button className="icon-btn" aria-label="Use this crop" disabled={!img} onClick={done}>
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-          </button>
-        )}
+        <button className="icon-btn" aria-label="Use this crop" disabled={!img} onClick={done}>
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+        </button>
       </div>
       <div className="crop-stage" ref={stage} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
         {err ? <p className="error">{err}</p> : !img ? <p className="muted">Opening…</p> : (

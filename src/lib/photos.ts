@@ -84,6 +84,9 @@ export function useSignedUrls(paths: string[]): Map<string, string> {
 
 // ---------- saving ----------
 export interface Cropped { full: Blob; thumb: Blob; tint: string }
+/** A crop the user has accepted: shown straight away from the source photo with CSS, while the JPEGs render in
+ *  the background (they're only needed when Save is tapped). */
+export interface CropJob { src: string; nw: number; nh: number; rot: number; scale: number; ox: number; oy: number; fw: number; result: Promise<Cropped> }
 
 async function userId() {
   const { data } = await supabase.auth.getUser();
@@ -136,24 +139,6 @@ export async function deleteDay(d: PhotoDay) {
 }
 
 // ---------- image helpers ----------
-/** Opens a photo, scaled down so its long side is at most `max` px (phone photos are 12 MP+, which makes cropping
- *  slow). Keeps the camera's orientation. */
-export async function openPhoto(file: File, max = 2200): Promise<{ img: HTMLImageElement; src: string }> {
-  let bmp: ImageBitmap | null = null;
-  try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" } as ImageBitmapOptions); } catch { bmp = null; }
-  if (!bmp) { const src = URL.createObjectURL(file); return { img: await loadImage(src), src }; }
-  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
-  const c = document.createElement("canvas");
-  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-  const ctx = c.getContext("2d")!;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bmp, 0, 0, c.width, c.height);
-  bmp.close?.();
-  const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("Couldn't open that photo."))), "image/jpeg", 0.92));
-  const src = URL.createObjectURL(blob);
-  return { img: await loadImage(src), src };
-}
-
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => {
     const img = new Image();
@@ -181,11 +166,20 @@ export async function renderCrop(img: HTMLImageElement, rot: number, scale: numb
     ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
     return c;
   };
-  const full = draw(OUT_W, OUT_H), thumb = draw(THUMB_W, THUMB_H);
-  // Average colour, darkened, for the viewer's background
-  const px = thumb.getContext("2d")!.getImageData(0, 0, THUMB_W, THUMB_H).data;
+  const pause = () => new Promise((r) => setTimeout(r, 0)); // keep the screen responsive between steps
+  const thumb = draw(THUMB_W, THUMB_H);
+  // Average colour, darkened, for the viewer's background (from a tiny copy: reading pixels is slow on phones)
+  const tiny = document.createElement("canvas");
+  tiny.width = 12; tiny.height = 15;
+  const tctx = tiny.getContext("2d", { willReadFrequently: true })!;
+  tctx.drawImage(thumb, 0, 0, 12, 15);
+  const px = tctx.getImageData(0, 0, 12, 15).data;
   let r = 0, g = 0, b = 0, n = 0;
-  for (let i = 0; i < px.length; i += 16) { r += px[i]; g += px[i + 1]; b += px[i + 2]; n++; }
+  for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; b += px[i + 2]; n++; }
   const dk = (v: number) => Math.round((v / n) * 0.45).toString(16).padStart(2, "0");
-  return { full: await toBlob(full, 0.86), thumb: await toBlob(thumb, 0.8), tint: `#${dk(r)}${dk(g)}${dk(b)}` };
+  const thumbBlob = await toBlob(thumb, 0.8);
+  await pause();
+  const full = draw(OUT_W, OUT_H);
+  await pause();
+  return { full: await toBlob(full, 0.86), thumb: thumbBlob, tint: `#${dk(r)}${dk(g)}${dk(b)}` };
 }
