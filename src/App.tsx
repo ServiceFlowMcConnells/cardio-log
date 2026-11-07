@@ -166,7 +166,17 @@ export default function App() {
   // sit just above it, on top of whatever field you're typing in
   useEffect(() => {
     const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.tagName === "TEXTAREA" || el.isContentEditable || (el.tagName === "INPUT" && !["checkbox", "radio", "button", "submit", "range", "date", "datetime-local", "file"].includes((el as HTMLInputElement).type)));
-    const on = (e: FocusEvent) => { if (typing(e.target)) document.body.classList.add("kb-open"); };
+    const on = (e: FocusEvent) => {
+      if (!typing(e.target)) return;
+      document.body.classList.add("kb-open");
+      // Once the keyboard has opened, make sure the field is visible above it (and not under anything pinned)
+      const el = e.target as HTMLElement;
+      window.setTimeout(() => {
+        if (document.activeElement !== el) return;
+        const r = el.getBoundingClientRect(), vh = window.visualViewport?.height ?? window.innerHeight;
+        if (r.bottom > vh - 16 || r.top < 0) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 320);
+    };
     const off = () => window.setTimeout(() => { if (!typing(document.activeElement)) document.body.classList.remove("kb-open"); }, 50);
     document.addEventListener("focusin", on);
     document.addEventListener("focusout", off);

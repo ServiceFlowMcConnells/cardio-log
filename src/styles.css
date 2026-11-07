@@ -958,6 +958,8 @@ select.input { appearance: auto; }
 @media (max-width: 1023px) {
   body.kb-open .tabbar, body.kb-open .food-searchbar.docked, body.kb-open .sel-bar, body.kb-open .plate-float { display: none; }
   body.kb-open .app { padding-bottom: 24px; }
+  /* Save / action bars stop floating and sit at the end of the form, so they never cover a field */
+  body.kb-open .save-bar { position: static; }
 }
 /* Food log on phones: pinned header + macros; swipe between days */
 @media (max-width: 1023px) {
