@@ -88,7 +88,7 @@ export default function PhotoCrop({ file, pose, onDone, onCancel }: { file: File
   const done = () => {
     if (!img || handed.current) return;
     handed.current = true;
-    const job = { src, nw: img.naturalWidth, nh: img.naturalHeight, rot, scale: s, ox: off.x, oy: off.y, fw };
+    const job = { src, img, nw: img.naturalWidth, nh: img.naturalHeight, rot, scale: s, ox: off.x, oy: off.y, fw };
     const result = new Promise<void>((r) => setTimeout(r, 350)).then(() => renderCrop(img, rot, s, off.x, off.y, fw));
     result.catch(() => { /* reported when saving */ });
     onDone({ ...job, result });

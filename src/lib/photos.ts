@@ -60,19 +60,19 @@ const urls = new Map<string, { url: string; exp: number }>();
 const TTL = 3600;
 export async function signedUrls(paths: string[]): Promise<Map<string, string>> {
   const now = Date.now();
-  const need = [...new Set(paths)].filter((p) => { const u = urls.get(p); return !u || u.exp < now + 60_000; });
+  const need = [...new Set(paths)].filter((p) => !p.startsWith("blob:")).filter((p) => { const u = urls.get(p); return !u || u.exp < now + 60_000; });
   for (let i = 0; i < need.length; i += 100) {
     const chunk = need.slice(i, i + 100);
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(chunk, TTL);
     if (error) throw error;
     for (const d of data ?? []) if (d.signedUrl && d.path) urls.set(d.path, { url: d.signedUrl, exp: now + TTL * 1000 });
   }
-  return new Map(paths.map((p) => [p, urls.get(p)?.url ?? ""]));
+  return new Map(paths.map((p) => [p, p.startsWith("blob:") ? p : urls.get(p)?.url ?? ""]));
 }
 /** Signed links for these paths, filled in as they arrive. */
 export function useSignedUrls(paths: string[]): Map<string, string> {
   const key = paths.join("|");
-  const [m, setM] = useState<Map<string, string>>(() => new Map(paths.map((p) => [p, urls.get(p)?.url ?? ""])));
+  const [m, setM] = useState<Map<string, string>>(() => new Map(paths.map((p) => [p, p.startsWith("blob:") ? p : urls.get(p)?.url ?? ""])));
   useEffect(() => {
     let live = true;
     if (paths.length) signedUrls(paths).then((r) => { if (live) setM(r); }).catch(() => { /* shows the placeholder */ });
@@ -86,7 +86,7 @@ export function useSignedUrls(paths: string[]): Map<string, string> {
 export interface Cropped { full: Blob; thumb: Blob; tint: string }
 /** A crop the user has accepted: shown straight away from the source photo with CSS, while the JPEGs render in
  *  the background (they're only needed when Save is tapped). */
-export interface CropJob { src: string; nw: number; nh: number; rot: number; scale: number; ox: number; oy: number; fw: number; result: Promise<Cropped> }
+export interface CropJob { src: string; img: HTMLImageElement; nw: number; nh: number; rot: number; scale: number; ox: number; oy: number; fw: number; result: Promise<Cropped> }
 
 async function userId() {
   const { data } = await supabase.auth.getUser();
@@ -94,30 +94,44 @@ async function userId() {
   return data.user.id;
 }
 
-/** Saves a day's changes: new or replaced photos, and poses removed. */
+/** Shows a day's changes in the list and viewer straight away (from local copies) while they upload. */
+export function showLocally(day: string, changes: Partial<Record<Pose, Cropped | null>>) {
+  const keep = (cache ?? []).filter((p) => !(p.taken_on === day && p.pose in changes));
+  const add: ProgressPhoto[] = [];
+  for (const pose of POSES) {
+    const c = changes[pose];
+    if (c) add.push({ id: `local-${day}-${pose}`, taken_on: day, pose, path: URL.createObjectURL(c.full), thumb_path: URL.createObjectURL(c.thumb), tint: c.tint });
+  }
+  cache = [...add, ...keep].sort((a, b) => b.taken_on.localeCompare(a.taken_on));
+  emit();
+  setTimeout(() => add.forEach((p) => { URL.revokeObjectURL(p.path); URL.revokeObjectURL(p.thumb_path); }), 120_000);
+}
+
+/** Saves a day's changes: new or replaced photos, and poses removed. Poses upload side by side. */
 export async function saveDay(day: string, changes: Partial<Record<Pose, Cropped | null>>, existing: PhotoDay | null) {
   const uid = await userId();
   const stale: string[] = [];
-  for (const pose of POSES) {
-    if (!(pose in changes)) continue;
+  await Promise.all(POSES.filter((pose) => pose in changes).map(async (pose) => {
     const c = changes[pose];
     const old = existing?.photos[pose];
-    if (old) stale.push(old.path, old.thumb_path);
+    if (old && !old.path.startsWith("blob:")) stale.push(old.path, old.thumb_path);
     if (c === null) {
-      if (old) { const { error } = await supabase.from("progress_photos").delete().eq("id", old.id); if (error) throw error; }
-      continue;
+      if (old && !old.id.startsWith("local-")) { const { error } = await supabase.from("progress_photos").delete().eq("id", old.id); if (error) throw error; }
+      return;
     }
-    if (!c) continue;
+    if (!c) return;
     const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const path = `${uid}/${day}/${pose}-${stamp}.jpg`, thumb = `${uid}/${day}/${pose}-${stamp}-t.jpg`;
-    const up1 = await supabase.storage.from(BUCKET).upload(path, c.full, { contentType: "image/jpeg", upsert: true });
+    const [up1, up2] = await Promise.all([
+      supabase.storage.from(BUCKET).upload(path, c.full, { contentType: "image/jpeg", upsert: true }),
+      supabase.storage.from(BUCKET).upload(thumb, c.thumb, { contentType: "image/jpeg", upsert: true }),
+    ]);
     if (up1.error) throw up1.error;
-    const up2 = await supabase.storage.from(BUCKET).upload(thumb, c.thumb, { contentType: "image/jpeg", upsert: true });
     if (up2.error) throw up2.error;
     const { error } = await supabase.from("progress_photos").upsert({ user_id: uid, taken_on: day, pose, path, thumb_path: thumb, tint: c.tint }, { onConflict: "user_id,taken_on,pose" });
     if (error) throw error;
-  }
-  if (stale.length) await supabase.storage.from(BUCKET).remove(stale); // best effort
+  }));
+  if (stale.length) void supabase.storage.from(BUCKET).remove(stale); // best effort, in the background
   await loadPhotos(true);
 }
 
@@ -152,6 +166,18 @@ const toBlob = (c: HTMLCanvasElement, q: number) => new Promise<Blob>((res, rej)
 /** Renders the crop: the image rotated `rot` degrees, scaled by `scale` (screen px per image px) and offset (ox, oy)
  *  from the centre of a frame `fw` px wide, into a 1080 × 1350 JPEG plus thumbnail and average colour. */
 export async function renderCrop(img: HTMLImageElement, rot: number, scale: number, ox: number, oy: number, fw: number): Promise<Cropped> {
+  // Phone photos are 12 MP+; drawing that full size is what made saving slow. Shrink it first to just the detail the
+  // 1080 px output can use (the browser does this off the main thread).
+  const f = Math.min(1, (scale * OUT_W) / fw);
+  let src: CanvasImageSource = img, sw = img.naturalWidth, sh = img.naturalHeight;
+  if (f < 0.95 && typeof createImageBitmap === "function") {
+    try {
+      const bw = Math.max(1, Math.round(sw * f)), bh = Math.max(1, Math.round(sh * f));
+      src = await createImageBitmap(img, { resizeWidth: bw, resizeHeight: bh, resizeQuality: "high" });
+      sw = bw; sh = bh;
+    } catch { src = img; }
+  }
+  const per = sw / img.naturalWidth; // bitmap px per source px
   const draw = (w: number, h: number) => {
     const c = document.createElement("canvas");
     c.width = w; c.height = h;
@@ -162,8 +188,8 @@ export async function renderCrop(img: HTMLImageElement, rot: number, scale: numb
     const k = w / fw;
     ctx.translate(w / 2 + ox * k, h / 2 + oy * k);
     ctx.rotate((rot * Math.PI) / 180);
-    ctx.scale(scale * k, scale * k);
-    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+    ctx.scale((scale * k) / per, (scale * k) / per);
+    ctx.drawImage(src, -sw / 2, -sh / 2);
     return c;
   };
   const pause = () => new Promise((r) => setTimeout(r, 0)); // keep the screen responsive between steps
@@ -180,6 +206,7 @@ export async function renderCrop(img: HTMLImageElement, rot: number, scale: numb
   const thumbBlob = await toBlob(thumb, 0.8);
   await pause();
   const full = draw(OUT_W, OUT_H);
+  if (src !== img) (src as ImageBitmap).close?.();
   await pause();
   return { full: await toBlob(full, 0.86), thumb: thumbBlob, tint: `#${dk(r)}${dk(g)}${dk(b)}` };
 }

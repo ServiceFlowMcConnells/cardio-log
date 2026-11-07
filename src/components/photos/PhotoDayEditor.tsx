@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CropJob, Cropped, PhotoDay, Pose } from "../../lib/photos";
-import { POSES, POSE_LABEL, deleteDay, saveDay, useSignedUrls } from "../../lib/photos";
+import { POSES, POSE_LABEL, deleteDay, loadPhotos, saveDay, showLocally, useSignedUrls } from "../../lib/photos";
 import { todayYmd, fromYmd } from "../../lib/nutrition";
 import { DateSheet } from "../food/Pickers";
 import PhotoCrop from "./PhotoCrop";
@@ -59,18 +59,34 @@ export default function PhotoDayEditor({ open, day: initialDay, all, onClose, on
   const dirty = Object.keys(changes).length > 0;
   const canSave = !busy && dirty;
 
+  // Save closes the sheet straight away: the photos show in the list from local copies and upload in the background
   async function save() {
     setBusy(true);
     setError(null);
+    const d = day, ex = existing, ch = changes, mine = jobs.current;
+    jobs.current = []; // the background save owns these now
+    let out: Partial<Record<Pose, Cropped | null>>;
     try {
-      const out: Partial<Record<Pose, Cropped | null>> = {};
-      for (const [p, j] of Object.entries(changes) as [Pose, CropJob | null][]) out[p] = j ? await j.result : null;
-      await saveDay(day, out, existing);
-      onClose();
-      onSaved?.(day === todayYmd() ? "Today's progress photos saved" : `Progress photos saved for ${fromYmd(day).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}`);
+      const entries = Object.entries(ch) as [Pose, CropJob | null][];
+      const done = await Promise.all(entries.map(async ([p, j]) => [p, j ? await j.result : null] as const));
+      out = Object.fromEntries(done);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't save the photos.");
+      jobs.current = mine;
+      setError(e instanceof Error ? e.message : "Couldn't prepare the photos.");
       setBusy(false);
+      return;
+    }
+    showLocally(d, out);
+    onClose();
+    const when = d === todayYmd() ? "Today's progress photos" : `Progress photos for ${fromYmd(d).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}`;
+    try {
+      await saveDay(d, out, ex);
+      onSaved?.(`${when} saved`);
+    } catch (e) {
+      onSaved?.(`${when} didn't upload: ${e instanceof Error ? e.message : "check your connection"}. Try again.`);
+      loadPhotos(true).catch(() => undefined);
+    } finally {
+      mine.forEach((j) => URL.revokeObjectURL(j.src));
     }
   }
   async function remove() {
