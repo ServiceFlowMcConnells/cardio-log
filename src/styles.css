@@ -1231,3 +1231,4 @@ select.input { appearance: auto; }
 .pv-w span { white-space: nowrap; }
 .pv-main.two .pv-img { height: min(30vh, 46vw * 1.25); }
 .pv-main.two .pv-w { font-size: 0.8rem; }
+.crop-busy { min-width: 40px; text-align: right; padding-right: 6px; color: #8fc7ff; }

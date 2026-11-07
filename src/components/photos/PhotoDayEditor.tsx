@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Cropped, PhotoDay, Pose } from "../../lib/photos";
-import { POSES, POSE_LABEL, deleteDay, moveDay, saveDay, useSignedUrls } from "../../lib/photos";
+import { POSES, POSE_LABEL, deleteDay, saveDay, useSignedUrls } from "../../lib/photos";
 import { todayYmd, fromYmd } from "../../lib/nutrition";
 import { DateSheet } from "../food/Pickers";
 import PhotoCrop from "./PhotoCrop";
 
 /** Add or edit one day's progress photos: a date, and Front / Side / Back slots (upload or take, then crop). */
-export default function PhotoDayEditor({ open, day: initialDay, existing, days, onClose, onSaved }: {
+export default function PhotoDayEditor({ open, day: initialDay, all, onClose, onSaved }: {
   open: boolean;
   day: string;
-  existing: PhotoDay | null;
-  /** Days that already have photos (to stop moving onto one). */
-  days: Set<string>;
+  /** Every day with photos: the slots show whichever date is picked. */
+  all: PhotoDay[];
   onClose: () => void;
   onSaved?: (text: string) => void;
 }) {
@@ -28,10 +27,17 @@ export default function PhotoDayEditor({ open, day: initialDay, existing, days, 
   const upload = useRef<HTMLInputElement>(null), camera = useRef<HTMLInputElement>(null);
   const pending = useRef<Pose | null>(null);
 
+  const existing = all.find((d) => d.day === day) ?? null;
+  const reset = () => { setChanges({}); setPreviews({}); setMenu(null); setCrop(null); setError(null); setBusy(false); setConfirmDel(false); };
   useEffect(() => {
     if (!open) return;
-    setDay(initialDay); setChanges({}); setPreviews({}); setMenu(null); setCrop(null); setError(null); setBusy(false); setConfirmDel(false);
+    setDay(initialDay); reset();
   }, [open, initialDay]);
+  // Picking another date edits that day instead (its own photos, or empty slots)
+  const pickDate = (d: string) => { if (d !== day) { setDay(d); reset(); } };
+  // A tap that lands on the backdrop just after the crop screen closes shouldn't close this too
+  const guard = useRef(0);
+  const closeFromBackdrop = () => { if (!crop && !dateOpen && !busy && Date.now() - guard.current > 700) onClose(); };
 
   const thumbs = useSignedUrls(existing ? POSES.map((p) => existing.photos[p]?.thumb_path).filter((x): x is string => !!x) : []);
   const shown = (p: Pose) => (p in changes ? (changes[p] ? previews[p] : null) : existing?.photos[p] ? thumbs.get(existing.photos[p]!.thumb_path) || "" : null);
@@ -48,19 +54,16 @@ export default function PhotoDayEditor({ open, day: initialDay, existing, days, 
     if (f && pending.current) setCrop({ pose: pending.current, file: f });
   };
 
-  const dirty = Object.keys(changes).length > 0 || day !== (existing?.day ?? initialDay);
-  const clash = existing ? day !== existing.day && days.has(day) : days.has(day);
-  const canSave = !busy && dirty && !clash && (POSES.some(has));
+  const dirty = Object.keys(changes).length > 0;
+  const canSave = !busy && dirty;
 
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      let base = existing;
-      if (existing && day !== existing.day) { await moveDay(existing.day, day); base = { ...existing, day }; }
-      if (Object.keys(changes).length) await saveDay(day, changes, base);
+      await saveDay(day, changes, existing);
       onClose();
-      onSaved?.(`Progress photos saved for ${label(day).toLowerCase()}`);
+      onSaved?.(day === todayYmd() ? "Today's progress photos saved" : `Progress photos saved for ${fromYmd(day).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save the photos.");
       setBusy(false);
@@ -78,7 +81,7 @@ export default function PhotoDayEditor({ open, day: initialDay, existing, days, 
 
   return createPortal(
     <>
-      <div className={`sheet-backdrop photo-backdrop${open ? " open" : ""}`} onClick={onClose} aria-hidden="true" />
+      <div className={`sheet-backdrop photo-backdrop${open ? " open" : ""}`} onClick={closeFromBackdrop} aria-hidden="true" />
       <div className={`sheet photo-sheet${open ? " open" : ""}`} role="dialog" aria-modal="true" aria-label="Progress photos" aria-hidden={!open}>
         <span className="sheet-handle" aria-hidden="true" />
         <div className="sheet-head">
@@ -126,7 +129,6 @@ export default function PhotoDayEditor({ open, day: initialDay, existing, days, 
           </div>
         )}
         <div className="photo-foot">
-          {clash && <p className="small error" style={{ margin: 0 }}>{label(day)} already has photos. Pick another date, or edit that day instead.</p>}
           {error && <p className="small error" style={{ margin: 0 }}>{error}</p>}
           <button className="btn primary block" disabled={!canSave} onClick={save} tabIndex={open ? 0 : -1}>{busy ? "Saving…" : "Save"}</button>
           <p className="small muted" style={{ margin: 0, textAlign: "center" }}>Same spot, light and time of day each week makes the comparison fair. Photos are private to you.</p>
@@ -135,10 +137,10 @@ export default function PhotoDayEditor({ open, day: initialDay, existing, days, 
         <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={onFile} />
       </div>
       {crop && (
-        <PhotoCrop file={crop.file} pose={crop.pose} onCancel={() => setCrop(null)}
-          onDone={(c, preview) => { setChanges((x) => ({ ...x, [crop.pose]: c })); setPreviews((x) => ({ ...x, [crop.pose]: preview })); setCrop(null); }} />
+        <PhotoCrop file={crop.file} pose={crop.pose} onCancel={() => { guard.current = Date.now(); setCrop(null); }}
+          onDone={(c, preview) => { guard.current = Date.now(); setChanges((x) => ({ ...x, [crop.pose]: c })); setPreviews((x) => ({ ...x, [crop.pose]: preview })); setCrop(null); }} />
       )}
-      <DateSheet open={dateOpen} value={day} max={todayYmd()} onPick={setDay} onClose={() => setDateOpen(false)} title="Photo date" />
+      <DateSheet open={dateOpen} value={day} max={todayYmd()} onPick={pickDate} onClose={() => { guard.current = Date.now(); setDateOpen(false); }} title={dirty ? "Photo date (unsaved changes will be dropped)" : "Photo date"} />
     </>,
     document.body,
   );

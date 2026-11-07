@@ -26,7 +26,7 @@ export async function loadPhotos(force = false): Promise<ProgressPhoto[]> {
   loading = (async () => {
     const { data, error } = await supabase.from("progress_photos").select("id, taken_on, pose, path, thumb_path, tint").order("taken_on", { ascending: false });
     if (error) throw error;
-    cache = (data ?? []) as ProgressPhoto[];
+    cache = [...((data ?? []) as ProgressPhoto[])];
     emit();
     return cache;
   })().finally(() => { loading = null; });
@@ -136,6 +136,24 @@ export async function deleteDay(d: PhotoDay) {
 }
 
 // ---------- image helpers ----------
+/** Opens a photo, scaled down so its long side is at most `max` px (phone photos are 12 MP+, which makes cropping
+ *  slow). Keeps the camera's orientation. */
+export async function openPhoto(file: File, max = 2200): Promise<{ img: HTMLImageElement; src: string }> {
+  let bmp: ImageBitmap | null = null;
+  try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" } as ImageBitmapOptions); } catch { bmp = null; }
+  if (!bmp) { const src = URL.createObjectURL(file); return { img: await loadImage(src), src }; }
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const ctx = c.getContext("2d")!;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close?.();
+  const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("Couldn't open that photo."))), "image/jpeg", 0.92));
+  const src = URL.createObjectURL(blob);
+  return { img: await loadImage(src), src };
+}
+
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => {
     const img = new Image();

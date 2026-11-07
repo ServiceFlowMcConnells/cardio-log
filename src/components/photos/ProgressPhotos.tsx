@@ -10,7 +10,7 @@ import PhotoViewer from "./PhotoViewer";
 export default function ProgressPhotos({ weights, onBack, startAdd, onToast }: { weights: BodyWeight[]; onBack: () => void; startAdd?: boolean; onToast: (t: string) => void }) {
   const { photos, error } = usePhotos();
   const days = useMemo(() => byDay(photos ?? []), [photos]);
-  const [edit, setEdit] = useState<{ day: string; existing: PhotoDay | null } | null>(() => (startAdd ? { day: todayYmd(), existing: null } : null));
+  const [edit, setEdit] = useState<{ day: string } | null>(() => (startAdd ? { day: todayYmd() } : null));
   const [view, setView] = useState<{ start?: string; compare?: boolean } | null>(null);
   const thumbs = useSignedUrls(days.flatMap((d) => POSES.map((p) => d.photos[p]?.thumb_path).filter((x): x is string => !!x)));
   const months = useMemo(() => {
@@ -18,11 +18,7 @@ export default function ProgressPhotos({ weights, onBack, startAdd, onToast }: {
     for (const d of days) m.set(d.day.slice(0, 7), [...(m.get(d.day.slice(0, 7)) ?? []), d]);
     return [...m];
   }, [days]);
-  const addNew = () => {
-    const t = todayYmd();
-    const today = days.find((d) => d.day === t) ?? null;
-    setEdit({ day: t, existing: today });
-  };
+  const addNew = () => setEdit({ day: todayYmd() });
 
   return (
     <>
@@ -73,7 +69,7 @@ export default function ProgressPhotos({ weights, onBack, startAdd, onToast }: {
                   </span>
                   <span className="pp-date small">{fromYmd(d.day).toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}</span>
                 </button>
-                <button className="icon-btn pp-edit" aria-label="Edit these photos" onClick={() => setEdit({ day: d.day, existing: d })}>
+                <button className="icon-btn pp-edit" aria-label="Edit these photos" onClick={() => setEdit({ day: d.day })}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z" /></svg>
                 </button>
               </div>
@@ -82,10 +78,10 @@ export default function ProgressPhotos({ weights, onBack, startAdd, onToast }: {
         </section>
       ))}
 
-      <PhotoDayEditor open={!!edit} day={edit?.day ?? todayYmd()} existing={edit?.existing ?? null} days={new Set(days.map((d) => d.day))} onClose={() => setEdit(null)} onSaved={onToast} />
+      <PhotoDayEditor open={!!edit} day={edit?.day ?? todayYmd()} all={days} onClose={() => setEdit(null)} onSaved={onToast} />
       {view && days.length > 0 && (
         <PhotoViewer days={days} weights={weights} start={view.start} compare={view.compare} onClose={() => setView(null)}
-          onEdit={(d) => setEdit({ day: d.day, existing: d })} />
+          onEdit={(d) => setEdit({ day: d.day })} />
       )}
     </>
   );
