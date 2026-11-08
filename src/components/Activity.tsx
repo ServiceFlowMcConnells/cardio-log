@@ -13,7 +13,7 @@ export function ActivityCard({ activity, target }: { activity: DayActivity[]; ta
   if (!week.length) return null;
   const t = activity.find((d) => d.day === today);
   const steps = t?.steps ?? 0;
-  const past = week.filter((d) => d.day < today && d.steps != null).map((d) => d.steps!);
+  const past = week.filter((d) => d.steps != null).map((d) => d.steps!); // last 7 days including today
   const a7 = avg(past);
   const night = t?.sleep_minutes != null ? t : null;
   return (
@@ -60,7 +60,7 @@ export function StepsChart({ activity, target }: { activity: DayActivity[]; targ
 export function ActivitySections({ activity, target }: { activity: DayActivity[]; target: number }) {
   const today = todayYmd();
   const recent = (n: number) => activity.filter((d) => d.day > addDays(today, -n));
-  const steps7 = avg(recent(8).filter((d) => d.day < today && d.steps != null).map((d) => d.steps!));
+  const steps7 = avg(recent(7).filter((d) => d.steps != null).map((d) => d.steps!)); // today and the 6 days before
   const steps30 = avg(recent(31).filter((d) => d.day < today && d.steps != null).map((d) => d.steps!));
   const hit = recent(31).filter((d) => d.day < today && d.steps != null);
   const sleeps = recent(8).filter((d) => d.sleep_minutes != null);

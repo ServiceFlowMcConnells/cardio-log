@@ -357,7 +357,7 @@ function StepsStrip({ data, onOpen }: { data: AppData; onOpen?: () => void }) {
   if (!act.some((d) => d.steps != null)) return null;
   const target = data.settings.step_target || 15000;
   const steps = act.find((d) => d.day === today)?.steps ?? 0;
-  const past = act.filter((d) => d.day < today && d.day >= addYmd(today, -7) && d.steps != null).map((d) => d.steps!);
+  const past = act.filter((d) => d.day <= today && d.day > addYmd(today, -7) && d.steps != null).map((d) => d.steps!); // last 7 days including today
   const avg7 = past.length ? past.reduce((a, b) => a + b, 0) / past.length : null;
   const hit = steps >= target;
   const pct = Math.min(1, steps / target);
