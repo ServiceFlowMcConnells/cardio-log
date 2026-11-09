@@ -6,7 +6,7 @@ import type { Point } from "./Charts";
 import { DayChartCard } from "./DayChart";
 import { hm } from "../lib/health";
 import { ymd } from "../lib/nutrition";
-import { ActivitySections } from "./Activity";
+import { ActivitySections, MeditationChart } from "./Activity";
 
 const DAY = 86400000;
 export default function BodyProgress({ data, onScan }: { data: AppData; onScan: (c: Checkin | null) => void }) {
@@ -15,6 +15,7 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
     return (
       <>
       <ActivitySections activity={data.activity} target={data.settings.step_target} />
+      <MeditationChart />
       <div className="empty">
         <p>Readiness, sleep and bodyweight trends appear here after your first readiness scan.</p>
         <button className="btn primary" onClick={() => onScan(null)}>Take a readiness scan</button>
@@ -61,6 +62,7 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
       )}
 
       <ActivitySections activity={data.activity} target={data.settings.step_target} />
+      <MeditationChart />
 
       <section className="section">
         <h2>Recent scans</h2>

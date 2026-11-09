@@ -1,3 +1,4 @@
+import { minutesByDay, streak, useMeditation } from "../lib/meditation";
 import type { DayActivity } from "../lib/health";
 import { hm } from "../lib/health";
 import { addDays, fromYmd, todayYmd } from "../lib/nutrition";
@@ -53,6 +54,26 @@ export function StepsChart({ activity, target }: { activity: DayActivity[]; targ
       ))}
       {[0, 14, 29].map((i) => <text key={i} x={padL + i * slot + slot / 2} y={H - 4} textAnchor={i === 0 ? "start" : i === 29 ? "end" : "middle"}>{fromYmd(days[i]).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</text>)}
     </svg>
+  );
+}
+
+/** Recovery page: minutes meditated per day, this week's total and the current streak. */
+export function MeditationChart() {
+  const sessions = useMeditation();
+  if (!sessions?.length) return null;
+  const byDay = minutesByDay(sessions);
+  const today = todayYmd();
+  const week = [...byDay].filter(([d]) => d > addDays(today, -7)).reduce((a, [, v]) => a + v, 0);
+  const days7 = [...byDay.keys()].filter((d) => d > addDays(today, -7)).length;
+  const run = streak(byDay);
+  return (
+    <DayChartCard
+      title="Meditation" kind="bar" color="var(--lift)" initial={7}
+      sub={`${week} min in 7 days${run > 1 ? ` · ${run}-day streak` : ""}`}
+      values={byDay} fmt={(v) => `${Math.round(v)} min`} axis={(v) => `${Math.round(v)}`}
+      extra={({ vals }) => (vals.length > 1 ? `${vals.length} days meditated` : null)}
+      note={`${days7} of the last 7 days. Log a session from the + menu → Meditation.`}
+    />
   );
 }
 

@@ -40,6 +40,7 @@ import Train from "./components/Train";
 import WorkoutLogger, { hasWorkoutDraft, readWorkoutDraft } from "./components/WorkoutLogger";
 import ShortcutSheet, { ShortcutIcons } from "./components/ShortcutSheet";
 import WeighInSheet from "./components/WeighInSheet";
+import MeditationSheet from "./components/MeditationSheet";
 import ProgressPhotos from "./components/photos/ProgressPhotos";
 import WorkoutSummary from "./components/WorkoutSummary";
 import TemplateEditor from "./components/TemplateEditor";
@@ -112,6 +113,7 @@ export default function App() {
   const [foodDay, setFoodDay] = useState(todayYmd);
   const [sheet, setSheet] = useState(false);
   const [weighIn, setWeighIn] = useState(false);
+  const [meditate, setMeditate] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -523,6 +525,7 @@ export default function App() {
         { key: "cardio", label: "Log cardio", icon: ShortcutIcons.cardio, onClick: () => go({ k: "cardio", session: null }) },
         { key: "scan", label: "Readiness", sub: today ? "Done today" : undefined, icon: ShortcutIcons.readiness, onClick: () => go({ k: "readiness", checkin: today ?? null, next: "home" }) },
         { key: "mobility", label: "Mobility", sub: "Daily routine", icon: ShortcutIcons.mobility, onClick: () => go({ k: "mobility-play", kind: "daily", template: null, next: "home" }) },
+        { key: "meditation", label: "Meditation", icon: ShortcutIcons.meditation, onClick: () => setMeditate(true) },
       ],
     },
     {
@@ -552,6 +555,8 @@ export default function App() {
       <TabBar tab={activeTab} plusOpen={sheet} onTab={(t) => (t === "train" ? setSheet((o) => !o) : home(t))} />
       <ShortcutSheet open={sheet} onClose={() => setSheet(false)} quick={quick} links={links} />
       <WeighInSheet open={weighIn} onClose={() => setWeighIn(false)} nutri={data.nutrition} setNutri={setNutri}
+        onSaved={(t) => { setToast(t); window.setTimeout(() => setToast(null), 2500); }} />
+      <MeditationSheet open={meditate} onClose={() => setMeditate(false)}
         onSaved={(t) => { setToast(t); window.setTimeout(() => setToast(null), 2500); }} />
       {toast && <div className="toast" role="status">{toast}</div>}
     </>
