@@ -63,13 +63,12 @@ export function MeditationChart() {
   if (!sessions?.length) return null;
   const byDay = minutesByDay(sessions);
   const today = todayYmd();
-  const week = [...byDay].filter(([d]) => d > addDays(today, -7)).reduce((a, [, v]) => a + v, 0);
   const days7 = [...byDay.keys()].filter((d) => d > addDays(today, -7)).length;
   const run = streak(byDay);
   return (
     <DayChartCard
       title="Meditation" kind="bar" color="var(--lift)" initial={7}
-      sub={`${week} min in 7 days${run > 1 ? ` · ${run}-day streak` : ""}`}
+      sub={({ total, days, end }) => `${Math.round(total)} min in ${days} days${run > 1 && end >= today ? ` · ${run}-day streak` : ""}`}
       values={byDay} fmt={(v) => `${Math.round(v)} min`} axis={(v) => `${Math.round(v)}`}
       extra={({ vals }) => (vals.length > 1 ? `${vals.length} days meditated` : null)}
       note={`${days7} of the last 7 days. Log a session from the + menu → Meditation.`}
@@ -81,7 +80,6 @@ export function MeditationChart() {
 export function ActivitySections({ activity, target }: { activity: DayActivity[]; target: number }) {
   const today = todayYmd();
   const recent = (n: number) => activity.filter((d) => d.day > addDays(today, -n));
-  const steps7 = avg(recent(7).filter((d) => d.steps != null).map((d) => d.steps!)); // today and the 6 days before
   const steps30 = avg(recent(31).filter((d) => d.day < today && d.steps != null).map((d) => d.steps!));
   const hit = recent(31).filter((d) => d.day < today && d.steps != null);
   const sleeps = recent(8).filter((d) => d.sleep_minutes != null);
@@ -92,7 +90,7 @@ export function ActivitySections({ activity, target }: { activity: DayActivity[]
       {activity.some((d) => d.steps != null) && (
         <DayChartCard
           title="Steps" kind="bar" target={target}
-          sub={steps7 != null ? `7-day average ${fmt(steps7)}` : undefined}
+          sub={({ avg: a, label }) => (a != null ? `${label} ${fmt(a)}` : undefined)}
           values={new Map(activity.filter((d) => d.steps != null).map((d) => [d.day, d.steps!]))}
           fmt={fmt} axis={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}k` : String(v))}
           barClass={(v) => `steps-bar${v >= target ? " hit" : ""}`}

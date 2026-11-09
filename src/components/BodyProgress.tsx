@@ -2,13 +2,11 @@ import type { AppData } from "../App";
 import type { Checkin } from "../lib/readiness";
 import { BAND_LABEL, PHASE_LABEL, bandFor } from "../lib/readiness";
 import { formatShort } from "../lib/dates";
-import type { Point } from "./Charts";
 import { DayChartCard } from "./DayChart";
 import { hm } from "../lib/health";
 import { ymd } from "../lib/nutrition";
 import { ActivitySections, MeditationChart } from "./Activity";
 
-const DAY = 86400000;
 export default function BodyProgress({ data, onScan }: { data: AppData; onScan: (c: Checkin | null) => void }) {
   const { checkins } = data;
   if (!checkins.length) {
@@ -24,14 +22,6 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
     );
   }
   const asc = [...checkins].sort((a, b) => a.checked_at.localeCompare(b.checked_at));
-  const pts = (f: (c: Checkin) => number | null) =>
-    asc.filter((c) => f(c) != null).map((c) => ({ t: new Date(c.checked_at).getTime(), v: f(c) as number }));
-  const score = pts((c) => c.score);
-  const sleep = pts((c) => c.sleep_hours);
-  const recent = (p: Point[], days: number) => p.filter((q) => Date.now() - q.t < days * DAY);
-  const avg = (p: Point[]) => (p.length ? p.reduce((a, q) => a + q.v, 0) / p.length : null);
-  const score7 = avg(recent(score, 7));
-  const sleep7 = avg(recent(sleep, 7));
   // One value per day: the day's last scan; sleep falls back to Health Connect
   const scoreByDay = new Map<string, number>();
   const sleepByDay = new Map<string, number>();
@@ -46,7 +36,7 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
     <>
       <DayChartCard
         title="Readiness" kind="line" color="var(--lift)" band={[70, 100]} floor={40} clamp={[0, 100]}
-        sub={score7 != null ? `7-day average ${Math.round(score7)} (${BAND_LABEL[bandFor(score7)]})` : undefined}
+        sub={({ avg, label }) => (avg != null ? `${label} ${Math.round(avg)} (${BAND_LABEL[bandFor(avg)]})` : undefined)}
         values={scoreByDay} fmt={(v) => String(Math.round(v))} axis={(v) => String(Math.round(v))}
         extra={({ avg }) => BAND_LABEL[bandFor(avg)]}
         note='The shaded band is "Ready" or better. A run of low scores in a deficit is a sign to talk to your coach about a diet break or a deload.'
@@ -55,7 +45,7 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
       {sleepByDay.size > 0 && (
         <DayChartCard
           title="Sleep" kind="line" color="var(--bike)" band={[7, 9]}
-          sub={sleep7 != null ? `7-day average ${sleep7.toFixed(1)} h` : undefined}
+          sub={({ avg, label }) => (avg != null ? `${label} ${avg.toFixed(1)} h` : undefined)}
           values={sleepByDay} fmt={(v) => hm(v * 60)} axis={(v) => `${Math.round(v * 10) / 10}h`}
           note="Hours from your readiness scans, or Health Connect on days without a scan. 7–9 hours is the recommended range for adults; under 6 cuts into strength and recovery."
         />

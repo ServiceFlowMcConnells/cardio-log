@@ -19,10 +19,14 @@ function niceStep(v: number) {
   return 10 * p;
 }
 
+export interface WindowStats { avg: number | null; total: number; logged: number; days: number; start: string; end: string; label: string }
+/** "7-day average" for windows up to a month, "Average" beyond that. */
+export const windowLabel = (days: number) => (days <= 31 ? `${days}-day average` : "Average");
+
 export interface DayChartProps {
   title: string;
-  /** Shown beside the title, e.g. "7-day average 72". */
-  sub?: string;
+  /** Shown beside the title. A function follows the window on screen (range, panning and zoom), e.g. "7-day average 72". */
+  sub?: string | ((w: WindowStats) => string | undefined);
   values: DayValues;
   kind: "bar" | "line";
   color?: string;
@@ -87,7 +91,13 @@ export function DayChartCard(p: DayChartProps) {
     <section className="section panel">
       <div className="page-head" style={{ marginBottom: 4 }}>
         <h2>{p.title}</h2>
-        {p.sub && <span className="muted small">{p.sub}</span>}
+        {(() => {
+          const days = buckets.reduce((a, x) => a + x.days, 0);
+          const t = typeof p.sub === "function"
+            ? p.sub({ avg: winAvg, total: all.reduce((a, x) => a + x, 0), logged: all.length, days, start: win.start, end: win.end, label: windowLabel(days) })
+            : p.sub;
+          return t ? <span className="muted small">{t}</span> : null;
+        })()}
       </div>
       <Chart {...p} buckets={buckets} agg={agg} active={shown} wide={wide} today={today}
         onPinch={pinch} onHover={setHover}
