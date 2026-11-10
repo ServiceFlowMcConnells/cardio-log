@@ -461,9 +461,9 @@ export function sessionE1rm(sets: WSet[], formula: E1rmFormula): number | null {
     .map((s) => ({ v: e1rm(s, formula), eff: s.reps + rirFromRpe(s.rpe) }))
     .filter((x): x is { v: number; eff: number } => x.v != null);
   if (!est.length) return null;
-  const reliable = est.filter((x) => x.eff <= RELIABLE_REPS);
-  const use = reliable.length ? reliable : est;
-  return use.reduce((a, x) => a + x.v, 0) / use.length;
+  // Every working set counts. Dropping the higher-rep ones (as this used to) threw away exactly the sets where you'd
+  // added a rep, so a lift gaining reps at the same weight looked flat.
+  return est.reduce((a, x) => a + x.v, 0) / est.length;
 }
 
 /** Recent training e1RM: the most recent session's average estimate (within 8 weeks). */
