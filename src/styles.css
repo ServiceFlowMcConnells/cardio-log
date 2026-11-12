@@ -1125,6 +1125,11 @@ select.input { appearance: auto; }
 .sr-lift.down { border-left-color: var(--signal); }
 .sr-lift.stalled { border-left-color: var(--m-f, #f5b83d); }
 .sr-lift-main { display: grid; min-width: 0; }
+.sr-group-head { grid-template-columns: minmax(0, 1fr) auto auto; }
+.sr-chev { color: var(--muted); transition: transform 0.18s; }
+.sr-group.open .sr-chev { transform: rotate(180deg); }
+.sr-group-body { display: grid; gap: 6px; margin: 6px 0 4px 12px; }
+.sr-group-body .sr-lift { background: var(--panel); box-shadow: inset 0 0 0 1px var(--line, rgba(0,0,0,0.08)); }
 .sr-lift-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sr-lift-main .small { font-size: 0.74rem; }
 .sr-lift-val { display: grid; justify-items: end; text-align: right; }

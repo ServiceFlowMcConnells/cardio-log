@@ -2,7 +2,18 @@ import { useMemo, useState } from "react";
 import type { AppData } from "../App";
 import type { LiftStatus, LiftTrend, Stat } from "../lib/strengthReport";
 import { STATUS_LABEL, strengthReport } from "../lib/strengthReport";
+import type { Muscle } from "../lib/strength";
 import { fmtKg } from "../lib/strength";
+
+type Group = "shoulders" | "chest" | "back" | "legs" | "arms" | "other";
+const GROUPS: Group[] = ["shoulders", "chest", "back", "legs", "arms", "other"];
+const GROUP_LABEL: Record<Group, string> = { shoulders: "Shoulders", chest: "Chest", back: "Back", legs: "Legs", arms: "Arms", other: "Core & other" };
+const GROUP_OF: Record<Muscle, Group> = {
+  shoulders: "shoulders", chest: "chest", back: "back",
+  quads: "legs", hamstrings: "legs", glutes: "legs", calves: "legs",
+  biceps: "arms", triceps: "arms", core: "other", full_body: "other", other: "other",
+};
+const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
 const ICON: Record<LiftStatus, string> = { up: "▲", hold: "●", stalled: "⏸", down: "▼", few: "·" };
 const sign = (n: number, d = 1) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toFixed(d)}`;
@@ -12,9 +23,24 @@ export default function StrengthReport({ data, onOpenExercise }: { data: AppData
   const [weeks, setWeeks] = useState(4);
   const r = useMemo(() => strengthReport({ workouts: data.workouts, exercises: data.exercises, templates: data.templates, checkins: data.checkins, nutrition: data.nutrition, activity: data.activity, formula: data.settings.e1rm_formula }, weeks),
     [data.workouts, data.exercises, data.templates, data.checkins, data.nutrition, data.activity, data.settings.e1rm_formula, weeks]);
-  const [showAll, setShowAll] = useState(false);
-  const lifts = showAll ? r.lifts : r.lifts.slice(0, 8);
+  const [open, setOpen] = useState<Set<Group>>(new Set());
   const c = r.context;
+  // Lifts grouped by primary muscle area; a group's status is its typical (median) lift trend
+  const groups = useMemo(() => {
+    const muscle = new Map(data.exercises.map((e) => [e.id, e.muscle as Muscle]));
+    const up = r.phase === "deficit" ? 0.25 : 0.5, down = r.phase === "deficit" ? -0.75 : -0.5;
+    return GROUPS.map((g) => {
+      const lifts = r.lifts.filter((l) => GROUP_OF[muscle.get(l.id) ?? "other"] === g);
+      const rates = lifts.filter((l) => l.status !== "few").map((l) => l.slope ?? (l.change != null ? l.change / r.weeks : null)).filter((x): x is number => x != null);
+      const rate = rates.length ? median(rates) : null;
+      const n = (s: LiftStatus) => lifts.filter((l) => l.status === s).length;
+      let status: LiftStatus = rate == null ? "few" : rate >= up ? "up" : rate <= down ? "down" : "hold";
+      if (status === "hold" && n("stalled") * 2 > rates.length) status = "stalled";
+      const tally = [n("up") && `${n("up")} up`, (n("hold") + n("stalled")) && `${n("hold") + n("stalled")} level`, n("down") && `${n("down")} down`, n("few") && `${n("few")} new`].filter(Boolean).join(" · ");
+      return { g, lifts, rate, status, tally };
+    }).filter((x) => x.lifts.length);
+  }, [r, data.exercises]);
+  const toggle = (g: Group) => setOpen((s) => { const n = new Set(s); if (n.has(g)) n.delete(g); else n.add(g); return n; });
 
   return (
     <section className="panel sr">
@@ -51,9 +77,27 @@ export default function StrengthReport({ data, onOpenExercise }: { data: AppData
         <>
           <h3 className="sr-h">Lifts</h3>
           <div className="sr-lifts">
-            {lifts.map((l) => <LiftRow key={l.id} l={l} from={r.from} onOpen={() => onOpenExercise(l.id)} />)}
+            {groups.map(({ g, lifts, rate, status, tally }) => (
+              <div key={g} className={`sr-group${open.has(g) ? " open" : ""}`}>
+                <button className={`sr-lift sr-group-head ${status}`} aria-expanded={open.has(g)} onClick={() => toggle(g)}>
+                  <span className="sr-lift-main">
+                    <span className="sr-lift-name">{GROUP_LABEL[g]} <span className="muted small">({lifts.length})</span></span>
+                    <span className="small muted">{tally}</span>
+                  </span>
+                  <span className="sr-lift-val">
+                    <strong className="num">{rate != null ? `${sign(rate)}%` : "–"}<small> /wk</small></strong>
+                    <span className={`sr-status ${status}`}>{ICON[status]} {STATUS_LABEL[status]}</span>
+                  </span>
+                  <svg className="sr-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                {open.has(g) && (
+                  <div className="sr-group-body">
+                    {lifts.map((l) => <LiftRow key={l.id} l={l} from={r.from} onOpen={() => onOpenExercise(l.id)} />)}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-          {r.lifts.length > 8 && <button className="link small" onClick={() => setShowAll((v) => !v)}>{showAll ? "Show fewer" : `Show all ${r.lifts.length} lifts`}</button>}
         </>
       )}
 
@@ -76,7 +120,7 @@ export default function StrengthReport({ data, onOpenExercise }: { data: AppData
         {r.flags.map((f, i) => <li key={i} className={f.tone}>{f.text}</li>)}
       </ul>
       <p className="chart-note" style={{ marginBottom: 0 }}>
-        Trends are a straight-line fit through each lift's estimated 1RM per session, as % per week. {r.phase === "deficit" ? "In a deficit, +0.25% a week counts as progressing and only below −0.75% as slipping." : "Above +0.5% a week is progressing; below −0.5% is slipping."}
+        Groups show the median trend of their lifts; tap one to see each exercise. Trends are a straight-line fit through each lift's estimated 1RM per session, as % per week. {r.phase === "deficit" ? "In a deficit, +0.25% a week counts as progressing and only below −0.75% as slipping." : "Above +0.5% a week is progressing; below −0.5% is slipping."}
       </p>
     </section>
   );
