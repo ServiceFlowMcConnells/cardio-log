@@ -39,7 +39,9 @@ echo "$HYD_JSON" | jq -c '{error, ok: (.refresh_token != null), web: (.web_sessi
 cleanup() { call cleanup "\"tokens\":[$(echo "$HYD_JSON" | jq -c '.web_session.access_token, .widget_access' | paste -sd,)]" | tee -a $OUT/widget.txt; }
 trap cleanup EXIT
 cdp hyd-web; sleep 20                 # the app's web view signed in (its own session)
-cdp hyd-session; sleep 8              # the widget's own session (the app also does this itself on sign-in)
+# The app must give the widget its own session by itself once signed in
+check "$(cdp hyd-state | grep -c 'signedIn[^a-z]*true')" "1" "app signed the widget in by itself"
+cdp hyd-session; sleep 8              # then the test's own widget session, so cleanup can sign it out
 cdp hyd-pin; sleep 5; shot w0-pin-dialog; ui > $OUT/w0-pin-dialog.xml
 tap_node 'text="(Add|ADD)( to home screen| automatically| AUTOMATICALLY)?"' || tap_node 'resource-id="[^"]*button1"'
 sleep 4
