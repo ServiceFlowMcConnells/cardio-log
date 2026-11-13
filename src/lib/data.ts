@@ -54,6 +54,8 @@ export async function loadSettings(): Promise<Settings> {
     deload_until: data.deload_until ?? null,
     week_start: data.week_start ?? DEFAULT_SETTINGS.week_start,
     step_target: data.step_target ?? DEFAULT_SETTINGS.step_target,
+    water_target_ml: data.water_target_ml ?? DEFAULT_SETTINGS.water_target_ml,
+    water_increment_ml: data.water_increment_ml ?? DEFAULT_SETTINGS.water_increment_ml,
   };
 }
 

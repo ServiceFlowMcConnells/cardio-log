@@ -37,6 +37,8 @@ export interface Settings {
   deload_until: string | null; // YYYY-MM-DD, last day of a deload week
   week_start: number; // 0 = Sunday, 1 = Monday …
   step_target: number; // daily steps
+  water_target_ml: number; // daily hydration target
+  water_increment_ml: number; // the + button on the card and the widget
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +52,8 @@ export const DEFAULT_SETTINGS: Settings = {
   deload_until: null,
   week_start: 1,
   step_target: 15000,
+  water_target_ml: 3000,
+  water_increment_ml: 250,
 };
 
 export const MACHINE_LABEL: Record<Machine, string> = {

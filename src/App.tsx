@@ -1,3 +1,5 @@
+import { startWidgetSync, widgetSettingsChanged } from "./lib/widget";
+import { writeWaterToHealth } from "./lib/health";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHistoryTrap } from "./lib/backNav";
 import { DesktopContext, useDesktopMedia } from "./lib/desktop";
@@ -199,6 +201,20 @@ export default function App() {
     document.addEventListener("visibilitychange", maybeSync);
     return () => document.removeEventListener("visibilitychange", maybeSync);
   }, [userId, reloadActivity]);
+
+  // Android water widget: session, queued taps and today's total kept in step with the app
+  const settingsRef = useRef(data.settings);
+  settingsRef.current = data.settings;
+  useEffect(() => {
+    if (!userId || !loaded) return;
+    startWidgetSync(() => settingsRef.current, () => {
+      stack.current = [];
+      setTab("week");
+      setView({ k: "tabs" });
+      window.setTimeout(() => document.getElementById("hydration")?.scrollIntoView({ behavior: "smooth", block: "center" }), 350);
+    }, (items) => { for (const i of items) void writeWaterToHealth(i.ml, i.logged_at); });
+  }, [userId, loaded]);
+  useEffect(() => { if (loaded) widgetSettingsChanged(data.settings); }, [loaded, data.settings]);
 
   if (auth === undefined) return <div className="center-load">Loading…</div>;
   if (!auth) return <Auth />;

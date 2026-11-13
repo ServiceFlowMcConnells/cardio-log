@@ -19,6 +19,7 @@
   --pr: #a86a00;
   /* Macro colours, as MacroFactor: calories blue, protein salmon, fat yellow, carbs green. -ink = for text on light */
   --m-k: #4a86ee;
+  --water: #2f80d8;
   --m-p: #f47a5a;
   --m-f: #f5bd3a;
   --m-c: #45ad72;
@@ -50,6 +51,7 @@
     --mob: #f0a050;
     --pr: #f2b544;
     --m-k: #6ea0f7;
+    --water: #5aa2f0;
     --m-p: #ff8a6c;
     --m-f: #ffc94d;
     --m-c: #5cc48a;
@@ -1255,3 +1257,34 @@ select.input { appearance: auto; }
 .pv-main.two .pv-w span { white-space: normal; }
 .pv-main.two .pv-w b { white-space: nowrap; }
 .crop-busy { min-width: 40px; text-align: right; padding-right: 6px; color: #8fc7ff; }
+
+/* Hydration */
+.hyd-card { display: grid; gap: 10px; margin-top: 10px; border-left: 6px solid var(--water); }
+.hyd-card.hit { border-left-color: var(--in); }
+.hyd-head { display: flex; align-items: baseline; justify-content: space-between; }
+.hyd-head h2 { margin: 0; }
+.hyd-figure { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.hyd-figure strong { font-family: var(--display); font-size: 1.6rem; }
+.hyd-pct { font-weight: 700; color: var(--water); }
+.hyd-pct.ok { color: var(--in); }
+.hyd-track { display: block; height: 8px; border-radius: 999px; background: var(--ground); overflow: hidden; }
+.hyd-fill { display: block; height: 100%; border-radius: inherit; background: var(--water); transition: width 0.3s; }
+.hyd-card.hit .hyd-fill { background: var(--in); }
+.hyd-plus { font-size: 1.15rem; padding: 14px; background: var(--water); border-color: var(--water); color: #fff; }
+.hyd-card.hit .hyd-plus { background: var(--in); border-color: var(--in); }
+.hyd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.hyd-chips .fchip { background: var(--ground); }
+.hyd-chips .fchip.on { background: var(--ink); color: var(--panel); }
+.hyd-custom { display: flex; gap: 8px; align-items: center; }
+.hyd-custom .weigh-input { flex: 1; }
+.hyd-undo { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--ground); font-size: 0.9rem; }
+.hyd-list-toggle { justify-self: start; }
+.hyd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.hyd-list li { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 8px; padding: 2px 0 2px 4px; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+.hyd-list li:last-child { border-bottom: 0; }
+.hyd-set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hyd-stepper { display: flex; align-items: center; gap: 6px; }
+.hyd-stepper .icon-btn { width: 40px; height: 40px; border-radius: 10px; background: var(--ground); font-size: 1.3rem; }
+.hyd-stepper strong { min-width: 64px; text-align: center; font-family: var(--display); font-size: 1.2rem; }
+.water-bar { fill: var(--water); opacity: 0.85; }
+.water-bar.hit { fill: var(--in); }

@@ -1,3 +1,4 @@
+import HydrationCard from "./HydrationCard";
 import type { AppData } from "../App";
 import type { Session } from "../lib/types";
 import type { Template, Workout } from "../lib/strength";
@@ -77,6 +78,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
       <div className="col">
       <ReadinessCard checkins={data.checkins} onScan={onScan} />
       <StepsStrip data={data} onOpen={onSteps} />
+      <HydrationCard settings={data.settings} onHistory={onSteps} />
 
       <StrengthWeek data={data} start={start} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} onPlan={onPlan} />
       </div>

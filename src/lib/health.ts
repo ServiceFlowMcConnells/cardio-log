@@ -79,6 +79,29 @@ export async function connectHealth(): Promise<HealthStatus> {
   return st;
 }
 export const openHealthSettings = () => call<void>("openHealthConnectSettings");
+
+// ---------- hydration: Kata writes each drink to Health Connect when allowed (APK 1.0.9+) ----------
+const WATER_KEY = "hc-water";
+export const hydrationWriteOn = () => ls.get(WATER_KEY) === "1";
+/** Whether Health Connect currently lets Kata write hydration. */
+export async function hydrationWriteAllowed(): Promise<boolean> {
+  if (!healthSupported()) return false;
+  const s = await call<{ writeAuthorized?: string[] }>("checkAuthorization", { read: [], write: ["dietaryWater"] }).catch(() => null);
+  return !!s?.writeAuthorized?.includes("dietaryWater");
+}
+/** Asks for the hydration write permission (Health Connect's own screen). */
+export async function connectHydration(): Promise<boolean> {
+  const r = await call<{ writeAuthorized?: string[] }>("requestAuthorization", { read: [], write: ["dietaryWater"] });
+  const ok = !!r.writeAuthorized?.includes("dietaryWater");
+  ls.set(WATER_KEY, ok ? "1" : null);
+  return ok;
+}
+export const stopHydrationWrite = () => ls.set(WATER_KEY, null);
+/** Writes one drink as a HydrationRecord. Best effort: never blocks logging. */
+export async function writeWaterToHealth(ml: number, at: string): Promise<void> {
+  if (!healthSupported() || !hydrationWriteOn() || !(ml > 0)) return;
+  await call("saveSample", { dataType: "dietaryWater", value: ml / 1000, unit: "liter", startDate: at, endDate: at }).catch(() => undefined);
+}
 export const disconnectHealth = () => { ls.set(LS.connected, null); ls.set(LS.last, null); };
 
 const midnight = (d: string) => { const [y, m, dd] = d.split("-").map(Number); return new Date(y, m - 1, dd); };

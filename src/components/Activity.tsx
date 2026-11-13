@@ -1,4 +1,5 @@
 import { minutesByDay, streak, useMeditation } from "../lib/meditation";
+import { dailyTotals, hitRate, litres, useWater } from "../lib/hydration";
 import type { DayActivity } from "../lib/health";
 import { hm } from "../lib/health";
 import { addDays, fromYmd, todayYmd } from "../lib/nutrition";
@@ -54,6 +55,27 @@ export function StepsChart({ activity, target }: { activity: DayActivity[]; targ
       ))}
       {[0, 14, 29].map((i) => <text key={i} x={padL + i * slot + slot / 2} y={H - 4} textAnchor={i === 0 ? "start" : i === 29 ? "end" : "middle"}>{fromYmd(days[i]).toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</text>)}
     </svg>
+  );
+}
+
+/** Recovery page: water per day against the target, with the hit rate. */
+export function HydrationChart({ target }: { target: number }) {
+  const entries = useWater();
+  if (!entries?.length) return null;
+  const totals = dailyTotals(entries);
+  const today = todayYmd();
+  const last30 = Array.from({ length: 30 }, (_, i) => addDays(today, -i - 1));
+  const r30 = hitRate(totals, target, last30);
+  const L = (v: number) => `${litres(v)} L`;
+  return (
+    <DayChartCard
+      title="Hydration" kind="bar" target={target} initial={7}
+      sub={({ avg, label }) => (avg != null ? `${label} ${L(avg)}` : undefined)}
+      values={totals} fmt={L} axis={(v) => `${Math.round(v / 100) / 10} L`}
+      barClass={(v) => `water-bar${v >= target ? " hit" : ""}`}
+      extra={({ vals }) => (vals.length > 1 ? `target hit ${vals.filter((v) => v >= target).length} of ${vals.length}` : null)}
+      note={`${r30.of ? `Target hit on ${r30.hit} of the ${r30.of} days you logged in the last 30. ` : ""}Daily target ${L(target)} (change it in Settings → Hydration).`}
+    />
   );
 }
 

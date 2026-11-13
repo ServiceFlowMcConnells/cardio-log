@@ -1,6 +1,7 @@
 import { WEEKDAY_NAMES } from "../lib/dates";
 import RestAlertSettings from "./RestAlertSettings";
 import HealthConnectSettings from "./HealthConnectSettings";
+import HydrationSettings from "./HydrationSettings";
 import type { DayActivity } from "../lib/health";
 import { useState } from "react";
 import type { Session, Settings } from "../lib/types";
@@ -52,7 +53,7 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
     if (!Number.isInteger(restN) || restN < 0 || restN > 900) return setMsg({ ok: false, text: "Rest should be 0 to 900 seconds." });
     const stepsN = Number(steps);
     if (!Number.isInteger(stepsN) || stepsN < 1000 || stepsN > 60000) return setMsg({ ok: false, text: "Step target should be a whole number from 1,000 to 60,000." });
-    const next: Settings = { weekly_target_min: t, max_hr: maxHr ? mh : null, zone_low_pct: lo, zone_high_pct: hi, weight_increment: incN, default_rest_sec: restN, e1rm_formula: formula, deload_until: settings.deload_until, week_start: weekStart, step_target: stepsN };
+    const next: Settings = { ...settings, weekly_target_min: t, max_hr: maxHr ? mh : null, zone_low_pct: lo, zone_high_pct: hi, weight_increment: incN, default_rest_sec: restN, e1rm_formula: formula, deload_until: settings.deload_until, week_start: weekStart, step_target: stepsN };
     setBusy(true);
     setMsg(null);
     try {
@@ -164,6 +165,8 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
         {msg && <p className={msg.ok ? "ok" : "error"} role="status">{msg.text}</p>}
         <button className="btn dark block" disabled={busy}>{busy ? "Saving…" : "Save settings"}</button>
       </form>
+
+      <HydrationSettings settings={settings} onSaved={onSaved} />
 
       <HealthConnectSettings activity={activity} onSynced={onSynced} />
 

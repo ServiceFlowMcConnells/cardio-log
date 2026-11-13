@@ -5,7 +5,7 @@ import { formatShort } from "../lib/dates";
 import { DayChartCard } from "./DayChart";
 import { hm } from "../lib/health";
 import { ymd } from "../lib/nutrition";
-import { ActivitySections, MeditationChart } from "./Activity";
+import { ActivitySections, HydrationChart, MeditationChart } from "./Activity";
 
 export default function BodyProgress({ data, onScan }: { data: AppData; onScan: (c: Checkin | null) => void }) {
   const { checkins } = data;
@@ -13,6 +13,7 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
     return (
       <>
       <ActivitySections activity={data.activity} target={data.settings.step_target} />
+      <HydrationChart target={data.settings.water_target_ml} />
       <MeditationChart />
       <div className="empty">
         <p>Readiness, sleep and bodyweight trends appear here after your first readiness scan.</p>
@@ -52,6 +53,7 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
       )}
 
       <ActivitySections activity={data.activity} target={data.settings.step_target} />
+      <HydrationChart target={data.settings.water_target_ml} />
       <MeditationChart />
 
       <section className="section">

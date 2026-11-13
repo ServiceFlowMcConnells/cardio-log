@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { DayActivity, HealthStatus } from "../lib/health";
 import { fromYmd } from "../lib/nutrition";
+import { connectHydration, hydrationWriteAllowed, hydrationWriteOn, stopHydrationWrite } from "../lib/health";
 import { connectHealth, disconnectHealth, healthConnected, healthStatus, healthSupported, hm, lastSync, openHealthSettings, setStepSource, sourceLabel, stepSource, stepSourcesToday, syncHealth } from "../lib/health";
 
 /** Settings panel: connect Health Connect, see what came in, sync now. */
@@ -12,6 +13,14 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
   const [, tick] = useState(0);
   const [sources, setSources] = useState<Awaited<ReturnType<typeof stepSourcesToday>> | null>(null);
   const [src, setSrc] = useState(stepSource());
+  const [water, setWater] = useState(false);
+  useEffect(() => { if (supported) hydrationWriteAllowed().then((ok) => setWater(ok && hydrationWriteOn())).catch(() => undefined); }, [supported]);
+  const toggleWater = () => run(async () => {
+    if (water) { stopHydrationWrite(); setWater(false); return "Kata will stop writing water to Health Connect."; }
+    const ok = await connectHydration();
+    setWater(ok);
+    return ok ? "Each drink you log (in the app or on the widget) will also go to Health Connect." : "Not allowed. You can allow \"Hydration\" for Kata in Health Connect's settings.";
+  });
 
   useEffect(() => { if (supported) healthStatus().then(setStatus).catch((e) => setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) })); }, [supported]);
 
@@ -56,7 +65,7 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
         <p className="muted small">Health Connect isn't available on this phone{status.reason ? ` (${status.reason})` : ""}. On Android 13 or older, install "Health Connect" from the Play Store, then come back.</p>
       ) : (
         <>
-          <p className="muted small">Reads your daily steps and sleep (from your watch, phone or any app that writes to Health Connect). Kata only reads; it never writes to Health Connect.</p>
+          <p className="muted small">Reads your daily steps and sleep (from your watch, phone or any app that writes to Health Connect). Kata only writes one thing, if you turn it on below: the water you log.</p>
           {status && (
             <p className="small">
               Steps: <strong>{status.steps ? "allowed" : "not allowed"}</strong> · Sleep: <strong>{status.sleep ? "allowed" : "not allowed"}</strong>
@@ -69,6 +78,12 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
               {lastSteps && lastSleep && " · "}
               {lastSleep && `${hm(lastSleep.sleep_minutes!)} asleep the night before ${dayName(lastSleep.day)}`}
             </p>
+          )}
+          {status?.available && (
+            <label className="hc-src" style={{ gridTemplateColumns: "auto 1fr" }}>
+              <input type="checkbox" checked={water} disabled={busy} onChange={toggleWater} />
+              <span>Write water to Health Connect<small className="muted"> · each drink as a hydration record</small></span>
+            </label>
           )}
           {connected ? (
             <>
