@@ -1,0 +1,80 @@
+11-13 13:45:48.174  2503  2503 V Capacitor: callback: 16785263, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:45:48.232  2503  3627 D ProfileInstaller: Installing profile for ie.traininglog.app
+11-13 13:45:50.169  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785264, pluginId: RestTimer, methodName: getState
+11-13 13:45:50.169  2503  2503 V Capacitor: callback: 16785264, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:45:50.958   520   887 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{18b5945 com.google.android.gm/10141} BLOCKED
+11-13 13:45:51.698   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{dc60f57 com.google.android.googlequicksearchbox/10132} BLOCKED
+11-13 13:45:51.698   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{a4b3a44 com.android.camera2/10147} BLOCKED
+11-13 13:45:51.699   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{260b72d com.google.android.devicelockcontroller/10186} BLOCKED
+11-13 13:45:51.699   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{4cbe462 com.google.android.dialer/10128} BLOCKED
+11-13 13:45:51.699   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{3249f3 com.google.android.rkpdapp/10191} BLOCKED
+11-13 13:45:51.699   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{ce3b6b0 com.google.android.contacts/10154} BLOCKED
+11-13 13:45:51.699   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{6874fb9 com.google.android.projection.gearhead/10123} BLOCKED
+11-13 13:45:51.699   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{abe9929 com.google.android.apps.youtube.music/10155} BLOCKED
+11-13 13:45:52.132   520   744 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{a4b5e64 com.google.android.settings.intelligence/10118} BLOCKED
+11-13 13:45:52.153   520  1956 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{6215fc com.google.android.settings.intelligence/10118} BLOCKED
+11-13 13:45:52.189  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785265, pluginId: RestTimer, methodName: getState
+11-13 13:45:52.189  2503  2503 V Capacitor: callback: 16785265, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:45:54.169  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785266, pluginId: RestTimer, methodName: getState
+11-13 13:45:54.169  2503  2503 V Capacitor: callback: 16785266, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:45:55.171  1420  3352 I BlockstoreStorage: Clearing Blockstore Data for package ie.traininglog.app [CONTEXT service_id=258 ]
+11-13 13:45:55.703  1383  3314 I FontLog : Package ie.traininglog.app has no metadata [CONTEXT service_id=132 ]
+11-13 13:45:56.169  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785267, pluginId: RestTimer, methodName: getState
+11-13 13:45:56.169  2503  2503 V Capacitor: callback: 16785267, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:45:58.170  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785268, pluginId: RestTimer, methodName: getState
+11-13 13:45:58.170  2503  2503 V Capacitor: callback: 16785268, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:46:00.169  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785269, pluginId: RestTimer, methodName: getState
+11-13 13:46:00.169  2503  2503 V Capacitor: callback: 16785269, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:46:01.711   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{a110c0a com.google.android.youtube/10139} BLOCKED
+11-13 13:46:01.711   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{4a95c7b com.google.android.googlequicksearchbox/10132} BLOCKED
+11-13 13:46:01.712   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{86c0a98 com.google.android.apps.messaging/10130} BLOCKED
+11-13 13:46:01.712   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{acb02f1 com.google.android.as/10125} BLOCKED
+11-13 13:46:01.712   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{abbded6 com.google.android.gm/10141} BLOCKED
+11-13 13:46:01.712   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{49abb0c com.google.android.apps.maps/10156} BLOCKED
+11-13 13:46:01.712   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{f674557 com.google.android.settings.intelligence/10118} BLOCKED
+11-13 13:46:02.171  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785270, pluginId: RestTimer, methodName: getState
+11-13 13:46:02.171  2503  2503 V Capacitor: callback: 16785270, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:46:03.396  2503  2503 W traininglog.app: Accessing hidden method Landroid/view/MotionEvent;->getEventTimeNano()J (unsupported, reflection, allowed)
+11-13 13:46:03.438  1498  1498 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0xd1(WebEmailAddress) imeOptions=0x12000005 privateImeOptions=null actionName=NEXT actionLabel=null actionId=0 initialSelStart=0 initialSelEnd=0 initialCapsMode=0x0 hintText=null label=null packageName=ie.traininglog.app fieldId=2131230925 fieldName=null extras=null}, true)
+11-13 13:46:03.440  2503  2503 I ImeTracker: ie.traininglog.app:47091fb2: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+11-13 13:46:03.492  1498  1498 I GoogleInputMethodService: GoogleInputMethodService.onStartInputView():1995 onStartInputView(EditorInfo{inputType=0xd1(WebEmailAddress) imeOptions=0x12000005 privateImeOptions=null actionName=NEXT actionLabel=null actionId=0 initialSelStart=0 initialSelEnd=0 initialCapsMode=0x0 hintText=null label=null packageName=ie.traininglog.app fieldId=2131230925 fieldName=null extras=null}, false)
+11-13 13:46:03.638  1498  1498 I AndroidIME: AbstractIme.onActivate():86 LatinIme.onActivate() : EditorInfo = inputType=0xd1(WebEmailAddress) imeOptions=0x12000005 privateImeOptions=null actionName=NEXT actionLabel=null actionId=0 initialSelStart=0 initialSelEnd=0 initialCapsMode=0x0 hintText=null label=null packageName=ie.traininglog.app fieldId=2131230925 fieldName=null extras=null, IncognitoMode = false, DeviceLocked = false
+11-13 13:46:03.686   520  2513 D CoreBackPreview: Window{93f4405 u0 ie.traininglog.app/ie.traininglog.app.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@d33aa5b, mPriority=0, mIsAnimationCallback=false}
+11-13 13:46:04.172  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785273, pluginId: RestTimer, methodName: getState
+11-13 13:46:04.176  2503  2503 V Capacitor: callback: 16785273, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:46:05.328  2503  2503 I ImeTracker: ie.traininglog.app:47091fb2: onShown
+11-13 13:46:06.169  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785274, pluginId: RestTimer, methodName: getState
+11-13 13:46:06.169  2503  2503 V Capacitor: callback: 16785274, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:46:06.945   520  1192 I ImeTracker: ie.traininglog.app:bf0e06b0: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_SOFT_INPUT_BY_BACK_KEY
+11-13 13:46:06.954   520   929 D CoreBackPreview: Window{93f4405 u0 ie.traininglog.app/ie.traininglog.app.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@8d92b37, mPriority=0, mIsAnimationCallback=false}
+11-13 13:46:07.022  2503  2503 I ImeTracker: ie.traininglog.app:2a5cfc11: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT_BY_INSETS_API
+11-13 13:46:07.027   520   929 I ImeTracker: ie.traininglog.app:2a5cfc11: onCancelled at PHASE_SERVER_SHOULD_HIDE
+11-13 13:46:07.031  2503  2503 I ImeTracker: ie.traininglog.app:bf0e06b0: onHidden
+11-13 13:46:08.092  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785275, pluginId: RestTimer, methodName: requestPermission
+11-13 13:46:08.092  2503  2503 V Capacitor: callback: 16785275, pluginId: RestTimer, methodName: requestPermission, methodData: {}
+11-13 13:46:08.125  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785276, pluginId: RestTimer, methodName: start
+11-13 13:46:08.127  2503  2503 V Capacitor: callback: 16785276, pluginId: RestTimer, methodName: start, methodData: {"endAt":1.7945776581165E12,"title":"Resting","body":"Next: Bench Press, set 2","sound":true}
+11-13 13:46:08.169  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785277, pluginId: RestTimer, methodName: getState
+11-13 13:46:08.169  2503  2503 V Capacitor: callback: 16785277, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:46:08.716   824   824 V ActivityThread: getPackageInfo() caused update to cached ApplicationInfo for package ie.traininglog.app
+11-13 13:46:09.966   520   537 V WindowManager:     info={id=7 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{3b825ff Task{4b2c230 #1 type=home}}} m=TO_FRONT f=SHOW_WALLPAPER|MOVE_TO_TOP leash=Surface(name=Task=1)/@0x23e2e70 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{WCT{RemoteToken{3203514 Task{1768c6e #8 type=standard A=10192:ie.traininglog.app}}} m=TO_BACK f=NONE leash=Surface(name=Task=8)/@0x28fde81 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0},{null m=TO_FRONT f=IS_WALLPAPER leash=Surface(name=WallpaperWindowToken{2fe23a2 token=android.os.Binder@1836b6d})/@0x6b1c721 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+11-13 13:46:10.213  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785278, pluginId: RestTimer, methodName: getState
+11-13 13:46:10.213  2503  2503 V Capacitor: callback: 16785278, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:46:12.547   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{62a17dd com.google.android.googlequicksearchbox/10132} BLOCKED
+11-13 13:46:12.548   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{51faf52 com.google.android.apps.messaging/10130} BLOCKED
+11-13 13:46:12.548   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{154d223 com.google.android.contacts/10154} BLOCKED
+11-13 13:46:15.575  2503  2503 E FrameTracker: force finish cuj, time out: J<IME_INSETS_ANIMATION::0@0@ie.traininglog.app>
+11-13 13:46:15.575  2503  2503 W FrameTracker: Missed SF frame:UNKNOWN: 66, 5492, 0, CUJ=J<IME_INSETS_ANIMATION::0@0@ie.traininglog.app>
+11-13 13:46:17.272  2503  2503 E FrameTracker: force finish cuj, time out: J<IME_INSETS_ANIMATION::1@0@ie.traininglog.app>
+11-13 13:46:17.577  2503  2503 V ActivityThread: getPackageInfo() caused update to cached ApplicationInfo for package ie.traininglog.app
+11-13 13:46:21.565  2503  2503 V Capacitor/Plugin: To native (Capacitor plugin): callbackId: 16785279, pluginId: RestTimer, methodName: getState
+11-13 13:46:21.565  2503  2503 V Capacitor: callback: 16785279, pluginId: RestTimer, methodName: getState, methodData: {}
+11-13 13:46:22.217  5093  5093 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-13 13:46:22.304  5093  5093 I AndroidRuntime: Using default boot image
+11-13 13:46:22.304  5093  5093 I AndroidRuntime: Leaving lock profiling enabled
+11-13 13:46:22.615   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{b9f90ea com.google.android.apps.messaging/10130} BLOCKED
+11-13 13:46:22.615   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{142fdb com.google.android.as/10125} BLOCKED
+11-13 13:46:22.616   520   571 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{d8f4a78 com.google.android.contacts/10154} BLOCKED
+11-13 13:46:22.760  5093  5093 D AndroidRuntime: Calling main entry com.android.commands.locksettings.LockSettingsCmd
+11-13 13:46:23.832  5093  5093 D AndroidRuntime: Shutting down VM
+11-13 13:46:24.158   520   534 I AppsFilter: interaction: PackageSetting{6cde466 ie.traininglog.app/10192} -> PackageSetting{26df598 com.google.android.settings.intelligence/10118} BLOCKED

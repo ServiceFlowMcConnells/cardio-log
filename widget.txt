@@ -1,0 +1,10 @@
+{"error":null,"ok":true,"web":true,"since":"2026-11-13T13:47:01.764Z"}
+web session: "set"
+widget state: "{\"shown\":500,\"target\":3000,\"increment\":250,\"queued\":0,\"signedIn\":true,\"widgets\":false}"
+plugin: "true"
+setSession: "{\"ok\":true}"
+pinWidget: "{\"ok\":true}"
+{"ml":250,"source":"widget","local_date":"2026-11-13"}
+{"ml":250,"source":"widget","local_date":"2026-11-13"}
+widget state: "{\"shown\":1000,\"target\":3000,\"increment\":250,\"queued\":0,\"signedIn\":true,\"widgets\":true}"
+{"deleted":2}

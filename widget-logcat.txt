@@ -1,0 +1,60 @@
+11-13 13:48:03.908  6444  6444 I AndroidRuntime: Leaving lock profiling enabled
+11-13 13:48:03.970  6444  6444 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-13 13:48:04.996  6444  6444 D AndroidRuntime: Shutting down VM
+11-13 13:48:05.981  5705  5740 D WM-SystemJobScheduler: Scheduling work ID f6848238-80c4-47ef-ba2f-49774646c149Job ID 4
+11-13 13:48:05.986  5705  5740 D WM-GreedyScheduler: Starting tracking for f6848238-80c4-47ef-ba2f-49774646c149
+11-13 13:48:05.993  5705  5740 D WM-ConstraintTracker: NetworkStateTracker24: initial state = NetworkState(isConnected=false, isValidated=false, isMetered=true, isNotRoaming=false)
+11-13 13:48:05.993  5705  5740 D WM-NetworkStateTracker: Registering network callback
+11-13 13:48:06.001  5705  5740 D WM-GreedyScheduler: Constraints not met: Cancelling work ID WorkGenerationalId(workSpecId=f6848238-80c4-47ef-ba2f-49774646c149, generation=0)
+11-13 13:48:09.629  6482  6482 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-13 13:48:09.632  6482  6482 I AndroidRuntime: Using default boot image
+11-13 13:48:09.632  6482  6482 I AndroidRuntime: Leaving lock profiling enabled
+11-13 13:48:09.698  6482  6482 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-13 13:48:10.745  6482  6482 D AndroidRuntime: Shutting down VM
+11-13 13:48:14.205  5705  6116 D WM-NetworkStateTracker: Network capabilities changed: [ Transports: CELLULAR Capabilities: MMS&SUPL&DUN&FOTA&IMS&CBS&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED LinkUpBandwidth>=14Kbps LinkDnBandwidth>=14Kbps Specifier: <TelephonyNetworkSpecifier [mSubId = 1]> UnderlyingNetworks: Null]
+11-13 13:48:14.307  5705  5705 D WM-SystemJobService: onStartJob for WorkGenerationalId(workSpecId=f6848238-80c4-47ef-ba2f-49774646c149, generation=0)
+11-13 13:48:14.308  5705  5740 D WM-Processor: Processor: processing WorkGenerationalId(workSpecId=f6848238-80c4-47ef-ba2f-49774646c149, generation=0)
+11-13 13:48:14.309  5705  6116 D WM-NetworkStateTracker: Network capabilities changed: [ Transports: CELLULAR Capabilities: MMS&SUPL&DUN&FOTA&IMS&CBS&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED LinkUpBandwidth>=14Kbps LinkDnBandwidth>=14Kbps Specifier: <TelephonyNetworkSpecifier [mSubId = 1]> UnderlyingNetworks: Null]
+11-13 13:48:14.313  5705  5705 D WM-WorkerWrapper: Starting work for ie.traininglog.app.WaterSyncWorker
+11-13 13:48:14.313  5705  5735 D WM-GreedyScheduler: Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=f6848238-80c4-47ef-ba2f-49774646c149, generation=0)
+11-13 13:48:14.315  5705  5735 D WM-Processor: Work WorkGenerationalId(workSpecId=f6848238-80c4-47ef-ba2f-49774646c149, generation=0) is already enqueued for processing
+11-13 13:48:14.989  5705  5735 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=f6848238-80c4-47ef-ba2f-49774646c149, tags={ ie.traininglog.app.WaterSyncWorker } ]
+11-13 13:48:14.990  5705  5705 D WM-Processor: Processor f6848238-80c4-47ef-ba2f-49774646c149 executed; reschedule = false
+11-13 13:48:14.990  5705  5705 D WM-GreedyScheduler: Stopping tracking for WorkGenerationalId(workSpecId=f6848238-80c4-47ef-ba2f-49774646c149, generation=0)
+11-13 13:48:14.991  5705  5705 D WM-SystemJobService: f6848238-80c4-47ef-ba2f-49774646c149 executed on JobScheduler
+11-13 13:48:14.993  5705  5735 D WM-GreedyScheduler: Cancelling work ID f6848238-80c4-47ef-ba2f-49774646c149
+11-13 13:48:14.995  5705  5740 D WM-NetworkStateTracker: Unregistering network callback
+11-13 13:48:31.371  6511  6511 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+11-13 13:48:35.761  6738  6738 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-13 13:48:35.765  6738  6738 I AndroidRuntime: Using default boot image
+11-13 13:48:35.765  6738  6738 I AndroidRuntime: Leaving lock profiling enabled
+11-13 13:48:35.889  6738  6738 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-13 13:48:36.935  6738  6738 D AndroidRuntime: Shutting down VM
+11-13 13:48:37.904  5705  5740 D WM-SystemJobScheduler: Scheduling work ID f89c0f32-767d-42de-a954-bf0c5830f8aeJob ID 5
+11-13 13:48:37.908  5705  5740 D WM-GreedyScheduler: Starting tracking for f89c0f32-767d-42de-a954-bf0c5830f8ae
+11-13 13:48:37.915  5705  5735 D WM-ConstraintTracker: NetworkStateTracker24: initial state = NetworkState(isConnected=false, isValidated=false, isMetered=true, isNotRoaming=false)
+11-13 13:48:37.915  5705  5735 D WM-NetworkStateTracker: Registering network callback
+11-13 13:48:37.920  5705  5735 D WM-GreedyScheduler: Constraints not met: Cancelling work ID WorkGenerationalId(workSpecId=f89c0f32-767d-42de-a954-bf0c5830f8ae, generation=0)
+11-13 13:48:40.880  6764  6764 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-13 13:48:40.883  6764  6764 I AndroidRuntime: Using default boot image
+11-13 13:48:40.883  6764  6764 I AndroidRuntime: Leaving lock profiling enabled
+11-13 13:48:40.946  6764  6764 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-13 13:48:41.972  6764  6764 D AndroidRuntime: Shutting down VM
+11-13 13:48:44.524  5705  6116 D WM-NetworkStateTracker: Network capabilities changed: [ Transports: CELLULAR Capabilities: MMS&SUPL&DUN&FOTA&IMS&CBS&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED LinkUpBandwidth>=14Kbps LinkDnBandwidth>=14Kbps Specifier: <TelephonyNetworkSpecifier [mSubId = 1]> UnderlyingNetworks: Null]
+11-13 13:48:44.627  5705  6116 D WM-NetworkStateTracker: Network capabilities changed: [ Transports: CELLULAR Capabilities: MMS&SUPL&DUN&FOTA&IMS&CBS&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED LinkUpBandwidth>=14Kbps LinkDnBandwidth>=14Kbps Specifier: <TelephonyNetworkSpecifier [mSubId = 1]> UnderlyingNetworks: Null]
+11-13 13:48:44.714  5705  5740 D WM-GreedyScheduler: Constraints met: Scheduling work ID WorkGenerationalId(workSpecId=f89c0f32-767d-42de-a954-bf0c5830f8ae, generation=0)
+11-13 13:48:44.719  5705  5740 D WM-Processor: Processor: processing WorkGenerationalId(workSpecId=f89c0f32-767d-42de-a954-bf0c5830f8ae, generation=0)
+11-13 13:48:44.756  5705  5705 D WM-SystemJobService: onStartJob for WorkGenerationalId(workSpecId=f89c0f32-767d-42de-a954-bf0c5830f8ae, generation=0)
+11-13 13:48:44.761  5705  5740 D WM-Processor: Work WorkGenerationalId(workSpecId=f89c0f32-767d-42de-a954-bf0c5830f8ae, generation=0) is already enqueued for processing
+11-13 13:48:44.777  5705  5705 D WM-WorkerWrapper: Starting work for ie.traininglog.app.WaterSyncWorker
+11-13 13:48:45.635  5705  5740 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=f89c0f32-767d-42de-a954-bf0c5830f8ae, tags={ ie.traininglog.app.WaterSyncWorker } ]
+11-13 13:48:45.636  5705  5705 D WM-Processor: Processor f89c0f32-767d-42de-a954-bf0c5830f8ae executed; reschedule = false
+11-13 13:48:45.636  5705  5705 D WM-GreedyScheduler: Stopping tracking for WorkGenerationalId(workSpecId=f89c0f32-767d-42de-a954-bf0c5830f8ae, generation=0)
+11-13 13:48:45.637  5705  5705 D WM-SystemJobService: f89c0f32-767d-42de-a954-bf0c5830f8ae executed on JobScheduler
+11-13 13:48:45.637  5705  5740 D WM-GreedyScheduler: Cancelling work ID f89c0f32-767d-42de-a954-bf0c5830f8ae
+11-13 13:48:45.639  5705  5740 D WM-NetworkStateTracker: Unregistering network callback
+11-13 13:49:18.283  6985  6985 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-13 13:49:18.287  6985  6985 I AndroidRuntime: Using default boot image
+11-13 13:49:18.287  6985  6985 I AndroidRuntime: Leaving lock profiling enabled
+11-13 13:49:18.352  6985  6985 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-13 13:49:19.377  6985  6985 D AndroidRuntime: Shutting down VM

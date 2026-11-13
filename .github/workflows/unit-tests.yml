@@ -1,0 +1,18 @@
+name: Unit tests
+
+on:
+  push:
+    paths: ["src/lib/waterMath.ts", "tests/**", ".github/workflows/unit-tests.yml"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm test
+      - name: Same tests in other time zones
+        run: |
+          for tz in Pacific/Auckland America/Los_Angeles Asia/Kolkata; do TZ=$tz npm test --silent || exit 1; done

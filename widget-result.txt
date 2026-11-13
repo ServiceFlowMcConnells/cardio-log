@@ -1,0 +1,10 @@
+PASS app signed the widget in by itself (1)
+widget starts at 500 ml (today's real total)
+PASS widget adds 250 ml at once while offline (750)
+PASS nothing saved while offline (0)
+PASS exactly one row after going online (1)
+PASS second tap shown offline (1000)
+PASS two taps, two rows (no duplicate from the race) (2)
+PASS distinct client_ids (2)
+PASS widget total after sync (1000)
+WIDGET E2E: PASS

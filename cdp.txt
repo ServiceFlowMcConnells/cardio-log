@@ -1,0 +1,7 @@
+health plugin: "true"
+health available: "{\"platform\":\"android\",\"available\":true}"
+health check: "{\"readAuthorized\":[\"steps\",\"sleep\"],\"readDenied\":[],\"writeAuthorized\":[],\"writeDenied\":[]}"
+insets: "{\"top\":\"\",\"h1\":189.89881896972656}"
+permission: "{\"granted\":true}"
+start: "{\"granted\":true,\"exact\":true}"
+state: "{\"endAt\":1794577673116,\"changedAt\":1794577577638,\"source\":\"notification\",\"secondsLeft\":92,\"addedVsStart\":15}"
