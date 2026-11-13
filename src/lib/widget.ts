@@ -40,8 +40,22 @@ export async function flushWidgetQueue() {
 async function ensureWidgetSession(userId: string) {
   const s = await call<{ signedIn: boolean; userId?: string }>("getSession").catch(() => null);
   if (s?.signedIn && s.userId === userId) return;
-  const { data, error } = await supabase.functions.invoke<{ refresh_token: string; user_id: string }>("widget-session", { body: {} });
-  if (error || !data?.refresh_token) return;
+  // Through Capacitor's native HTTP (no browser CORS in the way), with the app's own access token
+  const { data: auth } = await supabase.auth.getSession();
+  const token = auth.session?.access_token;
+  if (!token) return;
+  let data: { refresh_token?: string; user_id?: string } | null = null;
+  try {
+    const res = await bridge()!.nativePromise!<{ status: number; data: unknown }>("CapacitorHttp", "request", {
+      url: `${SUPABASE_URL}/functions/v1/widget-session`, method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }, data: {},
+    });
+    if (res.status === 200) data = (typeof res.data === "string" ? JSON.parse(res.data) : res.data) as typeof data;
+  } catch {
+    const r = await supabase.functions.invoke<{ refresh_token: string; user_id: string }>("widget-session", { body: {} });
+    data = r.data ?? null;
+  }
+  if (!data?.refresh_token) return;
   await call("setSession", { url: SUPABASE_URL, anonKey: SUPABASE_KEY, refreshToken: data.refresh_token, userId: data.user_id });
 }
 
