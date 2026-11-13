@@ -33,11 +33,20 @@ Deno.serve(async (req) => {
   const { action } = await req.json().catch(() => ({ action: "" }));
   if (action === "reset") {
     await admin.from("water_log").delete().eq("user_id", user!.id);
-    const { data: link } = await admin.auth.admin.generateLink({ type: "magiclink", email: EMAIL });
-    const anon = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data, error } = await anon.auth.verifyOtp({ token_hash: link!.properties.hashed_token, type: "email" });
-    if (error || !data.session) return json({ error: error?.message ?? "no session" }, 500);
-    return json({ url, anon_key: Deno.env.get("SUPABASE_ANON_KEY"), refresh_token: data.session.refresh_token, user_id: user!.id });
+    // Two independent sessions, as in real use: one for the app's web view, one for the widget
+    const mint = async () => {
+      const { data: link } = await admin.auth.admin.generateLink({ type: "magiclink", email: EMAIL });
+      const anon = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data, error } = await anon.auth.verifyOtp({ token_hash: link!.properties.hashed_token, type: "email" });
+      if (error || !data.session) throw new Error(error?.message ?? "no session");
+      return data.session;
+    };
+    try {
+      const web = await mint(), widget = await mint();
+      return json({ url, anon_key: Deno.env.get("SUPABASE_ANON_KEY"), refresh_token: widget.refresh_token, user_id: user!.id, web_session: web });
+    } catch (e) {
+      return json({ error: String(e) }, 500);
+    }
   }
   if (action === "count") {
     const { data, error } = await admin.from("water_log").select("client_id, ml, source, local_date, logged_at").eq("user_id", user!.id);

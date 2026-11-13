@@ -25,6 +25,21 @@ if (mode === "health") {
   await show("health available", `Capacitor.nativePromise('Health','isAvailable',{}).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message)`);
   await show("health check", `Capacitor.nativePromise('Health','checkAuthorization',{ read: ['steps','sleep'] }).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message)`);
   await show("insets", `JSON.stringify({ top: getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top'), h1: document.querySelector('h1')?.getBoundingClientRect().top })`);
+} else if (mode.startsWith("hyd-")) {
+  // Water widget test helpers. HYD_JSON: the e2e-hydration "reset" response.
+  const H = JSON.parse(process.env.HYD_JSON || "{}");
+  if (mode === "hyd-web") {
+    // Sign the web view in as the test account (its own session), then reload
+    const key = `sb-${new URL(H.url).hostname.split(".")[0]}-auth-token`;
+    await show("web session", `(localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(H.web_session))}), setTimeout(() => location.reload(), 200), 'set')`);
+  } else if (mode === "hyd-session") {
+    await show("plugin", `String(Capacitor.isPluginAvailable?.('Hydration'))`);
+    await show("setSession", `Capacitor.nativePromise('Hydration','setSession',${JSON.stringify({ url: H.url, anonKey: H.anon_key, refreshToken: H.refresh_token, userId: H.user_id })}).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message)`);
+  } else if (mode === "hyd-pin") {
+    await show("pinWidget", `Capacitor.nativePromise('Hydration','pinWidget',{}).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message)`);
+  } else {
+    await show("widget state", `Capacitor.nativePromise('Hydration','getState',{}).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message)`);
+  }
 } else if (mode === "start") {
   await show("permission", `Capacitor.nativePromise('RestTimer','requestPermission',{}).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message)`);
   await show("start", `(window.__end = Math.floor(Date.now() + 90000) + 0.5, Capacitor.nativePromise('RestTimer','start',{ endAt: window.__end, title: 'Resting', body: 'Next: Bench Press, set 2', sound: true }).then(r => JSON.stringify(r)).catch(e => 'ERR ' + e.message))`);

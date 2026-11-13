@@ -1,5 +1,6 @@
 package ie.traininglog.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.webkit.WebView;
 
@@ -11,7 +12,9 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(RestTimerPlugin.class);
+        registerPlugin(HydrationPlugin.class);
         super.onCreate(savedInstanceState);
+        rememberOpen(getIntent());
 
         // Back button: let the app step back through its own screens (it keeps a history entry while
         // you're off the home screen). Only when there's nothing to go back to does Android minimise it.
@@ -28,5 +31,21 @@ public class MainActivity extends BridgeActivity {
                 }
             }
         });
+    }
+
+    // Opened from the water widget: the app picks this up (Hydration.takeLaunchTarget) and shows the card
+    @Override
+    public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        rememberOpen(intent);
+    }
+
+    private void rememberOpen(Intent intent) {
+        String t = intent != null ? intent.getStringExtra("kata_open") : null;
+        if (t != null) {
+            WaterStore.setLaunch(this, t);
+            intent.removeExtra("kata_open");
+        }
     }
 }

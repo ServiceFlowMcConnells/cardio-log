@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write   # GitHub OIDC token for the e2e-hydration test function
 
 jobs:
   e2e:
@@ -41,7 +42,9 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: bash native/e2e/run.sh
+          script: |
+            bash native/e2e/run.sh
+            bash native/e2e/widget.sh
 
       - name: Publish results to the e2e-results branch
         if: always()
