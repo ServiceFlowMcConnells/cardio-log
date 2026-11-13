@@ -73,5 +73,5 @@ jobs:
         run: |
           gh release create "android-v1.0.${{ github.run_number }}" Kata.apk \
             --title "Kata for Android 1.0.${{ github.run_number }}" \
-            --notes "Install Kata.apk on your phone. Live rest countdown in notifications, with an alert at the end even when the app is minimised." \
+            --notes "Install Kata.apk on your phone. New: a water widget for your home screen (long-press the home screen → Widgets → Kata), which works offline and syncs when you are back online. Also the live rest countdown in notifications." \
             --latest
