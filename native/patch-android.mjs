@@ -55,10 +55,12 @@ const gradle = "android/app/build.gradle";
 let g = fs.readFileSync(gradle, "utf8");
 const run = process.env.GITHUB_RUN_NUMBER ?? "1";
 g = g.replace(/versionCode \d+/, `versionCode ${run}`).replace(/versionName "[^"]*"/, `versionName "1.0.${run}"`);
-// Water widget: background sync (WorkManager) and the encrypted session store
+// Water widget: background sync (WorkManager; Worker needs ListenableFuture from Guava at compile time) and the
+// encrypted session store
 if (!g.includes("androidx.work:work-runtime")) g = g.replace(/dependencies\s*\{/, `dependencies {
     implementation "androidx.work:work-runtime:2.10.0"
-    implementation "androidx.security:security-crypto:1.0.0"`);
+    implementation "androidx.security:security-crypto:1.0.0"
+    implementation "com.google.guava:guava:32.1.3-android"`);
 if (!g.includes("checkReleaseBuilds")) g = g.replace(/android\s*\{/, "android {\n    lint { checkReleaseBuilds false; abortOnError false }");
 fs.writeFileSync(gradle, g);
 console.log("patched android project, versionCode", run);
