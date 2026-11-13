@@ -1,0 +1,28 @@
+name: session-probe
+on:
+  push:
+    branches: ["e2e/session-probe"]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          FN=https://vrrlqxqdtuorluvenofs.supabase.co/functions/v1
+          tok() { curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=kata-e2e" | jq -r .value; }
+          J=$(curl -sS -X POST -H "Authorization: Bearer $(tok)" -H "Content-Type: application/json" -d '{"action":"start"}' $FN/e2e-hydration)
+          SINCE=$(echo "$J" | jq -r .since); AT=$(echo "$J" | jq -r .web_session.access_token); ANON=$(echo "$J" | jq -r .anon_key)
+          echo "jwt header: $(echo "$AT" | cut -d. -f1 | base64 -d 2>/dev/null)"
+          echo "=== widget-session with legacy anon apikey"
+          curl -sS -o /tmp/r1 -w "%{http_code}\n" -X POST -H "Authorization: Bearer $AT" -H "apikey: $ANON" -H "Content-Type: application/json" -d '{}' $FN/widget-session; jq -c 'del(.refresh_token) + {has_refresh: (.refresh_token != null)}' /tmp/r1 || cat /tmp/r1
+          echo "=== widget-session with publishable apikey"
+          curl -sS -o /tmp/r2 -w "%{http_code}\n" -X POST -H "Authorization: Bearer $AT" -H "apikey: sb_publishable_TvG_cSzhAcYOw82M1JwmAA_SHCYjcMA" -H "Content-Type: application/json" -d '{}' $FN/widget-session; jq -c 'del(.refresh_token) + {has_refresh: (.refresh_token != null)}' /tmp/r2 || cat /tmp/r2
+          R=$(jq -r .refresh_token /tmp/r2)
+          echo "=== refresh with publishable key"
+          curl -sS -o /tmp/r3 -w "%{http_code}\n" -X POST -H "apikey: sb_publishable_TvG_cSzhAcYOw82M1JwmAA_SHCYjcMA" -H "Content-Type: application/json" -d "{\"refresh_token\":\"$R\"}" "https://vrrlqxqdtuorluvenofs.supabase.co/auth/v1/token?grant_type=refresh_token"; jq -c '{has_access: (.access_token != null), error, error_code, msg}' /tmp/r3
+          WA=$(jq -r .access_token /tmp/r3)
+          echo "=== REST read with widget token"
+          curl -sS -w " %{http_code}\n" -H "apikey: sb_publishable_TvG_cSzhAcYOw82M1JwmAA_SHCYjcMA" -H "Authorization: Bearer $WA" "https://vrrlqxqdtuorluvenofs.supabase.co/rest/v1/user_settings?select=water_target_ml,water_increment_ml"
+          curl -sS -X POST -H "Authorization: Bearer $(tok)" -H "Content-Type: application/json" -d "{\"action\":\"cleanup\",\"since\":\"$SINCE\",\"tokens\":[\"$AT\",\"$WA\"]}" $FN/e2e-hydration
