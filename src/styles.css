@@ -1259,26 +1259,28 @@ select.input { appearance: auto; }
 .crop-busy { min-width: 40px; text-align: right; padding-right: 6px; color: #8fc7ff; }
 
 /* Hydration */
-.hyd-card { display: grid; gap: 10px; margin-top: 10px; border-left: 6px solid var(--water); }
-.hyd-card.hit { border-left-color: var(--in); }
-.hyd-head { display: flex; align-items: baseline; justify-content: space-between; }
-.hyd-head h2 { margin: 0; }
-.hyd-figure { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.hyd-figure strong { font-family: var(--display); font-size: 1.6rem; }
-.hyd-pct { font-weight: 700; color: var(--water); }
-.hyd-pct.ok { color: var(--in); }
-.hyd-track { display: block; height: 8px; border-radius: 999px; background: var(--ground); overflow: hidden; }
-.hyd-fill { display: block; height: 100%; border-radius: inherit; background: var(--water); transition: width 0.3s; }
-.hyd-card.hit .hyd-fill { background: var(--in); }
-.hyd-plus { font-size: 1.15rem; padding: 14px; background: var(--water); border-color: var(--water); color: #fff; }
-.hyd-card.hit .hyd-plus { background: var(--in); border-color: var(--in); }
+.hyd-strip { margin-bottom: 10px; }
+.hyd-row { --band: var(--water); padding: 6px 8px 6px 14px; gap: 8px; }
+.hyd-strip.hit .hyd-row { --band: var(--in); }
+.hyd-row strong { color: var(--ink); }
+.hyd-line { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; overflow: hidden; }
+.hyd-line .small { overflow: hidden; text-overflow: ellipsis; }
+.hyd-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; border: 0; background: none; padding: 4px 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.hyd-ring .steps-ring-fill { stroke: var(--water); }
+.hyd-strip.hit .hyd-ring .steps-ring-fill { stroke: var(--in); }
+.hyd-fill { background: var(--water); }
+.hyd-strip.hit .hyd-fill { background: var(--in); }
+.hyd-plus { flex: none; border: 0; border-radius: 999px; background: var(--water); color: #fff; font-weight: 700; font-size: 1rem; padding: 10px 14px; min-height: 44px; cursor: pointer; }
+.hyd-plus small { font-weight: 600; font-size: 0.75em; opacity: 0.9; }
+.hyd-strip.hit .hyd-plus { background: var(--in); }
+.hyd-more { display: grid; gap: 10px; background: var(--panel); border-radius: 0 0 14px 14px; margin-top: -8px; padding: 14px 14px 12px; }
+.hyd-strip.open .hyd-row { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .hyd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .hyd-chips .fchip { background: var(--ground); }
 .hyd-chips .fchip.on { background: var(--ink); color: var(--panel); }
 .hyd-custom { display: flex; gap: 8px; align-items: center; }
 .hyd-custom .weigh-input { flex: 1; }
-.hyd-undo { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--ground); font-size: 0.9rem; }
-.hyd-list-toggle { justify-self: start; }
+.hyd-undo { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; margin-top: 6px; border-radius: 10px; background: var(--panel); font-size: 0.9rem; }
 .hyd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .hyd-list li { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 8px; padding: 2px 0 2px 4px; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
 .hyd-list li:last-child { border-bottom: 0; }

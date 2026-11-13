@@ -16,7 +16,7 @@ export default function HydrationCard({ settings, onHistory }: { settings: Setti
   const hit = total >= target;
   const [custom, setCustom] = useState<string | null>(null);
   const [undo, setUndo] = useState<WaterEntry | null>(null);
-  const [showList, setShowList] = useState(false);
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<number>();
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -44,43 +44,51 @@ export default function HydrationCard({ settings, onHistory }: { settings: Setti
   const todays = (entries ?? []).filter((e) => e.local_date === today);
   const cm = custom != null ? parseInt(custom, 10) : NaN;
 
+  const R = 19, C = 2 * Math.PI * R;
   return (
-    <section className={`panel hyd-card${hit ? " hit" : ""}`} id="hydration" aria-label="Hydration">
-      <div className="hyd-head">
-        <h2>Hydration</h2>
-        {onHistory && <button className="link small" onClick={onHistory}>History ›</button>}
+    <section className={`hyd-strip${hit ? " hit" : ""}${open ? " open" : ""}`} id="hydration" aria-label="Hydration">
+      <div className="ready-strip hyd-row">
+        <button type="button" className="hyd-main" aria-expanded={open} onClick={() => setOpen((v) => !v)} aria-label={`Water today ${litres(total)} of ${litres(target)} litres. ${open ? "Hide" : "Show"} more`}>
+          <span className="steps-ring hyd-ring" aria-hidden="true">
+            <svg viewBox="0 0 46 46" width="46" height="46">
+              <circle cx="23" cy="23" r={R} className="steps-ring-bg" />
+              <circle cx="23" cy="23" r={R} className="steps-ring-fill" strokeDasharray={`${C * pct} ${C}`} transform="rotate(-90 23 23)" />
+            </svg>
+            <span>{Math.round((total / target) * 100)}%</span>
+          </span>
+          <span style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+            <span className="hyd-line"><strong>{litres(total)} / {litres(target)} L</strong> <span className="small">{hit ? "target hit" : `${litres(target - total)} L to go`}</span></span>
+            <span className="fs2-track" style={{ marginTop: 6 }}><span className="fs2-fill hyd-fill" style={{ width: `${pct * 100}%` }} /></span>
+          </span>
+        </button>
+        <button type="button" className="hyd-plus" onClick={() => add(inc)} aria-label={`Add ${inc} ml`}>+{inc}<small> ml</small></button>
       </div>
-      <div className="hyd-figure">
-        <span><strong className="num">{litres(total)}</strong> <span className="muted">/ {litres(target)} L</span></span>
-        <span className={`hyd-pct num${hit ? " ok" : ""}`}>{Math.round((total / target) * 100)}%</span>
-      </div>
-      <span className="hyd-track" role="progressbar" aria-valuemin={0} aria-valuemax={target} aria-valuenow={total} aria-label="Water today">
-        <span className="hyd-fill" style={{ width: `${pct * 100}%` }} />
-      </span>
-      <button className="btn primary block hyd-plus" onClick={() => add(inc)}>+{inc} ml</button>
-      <div className="hyd-chips" role="group" aria-label="Other amounts">
-        {WATER_AMOUNTS.map((a) => <button key={a} type="button" className="fchip" onClick={() => add(a)}>{a} ml</button>)}
-        <button type="button" className={`fchip${custom != null ? " on" : ""}`} aria-expanded={custom != null} onClick={() => setCustom(custom == null ? "" : null)}>Custom</button>
-      </div>
-      {custom != null && (
-        <form className="hyd-custom" onSubmit={(e) => { e.preventDefault(); if (cm > 0) { void add(cm); setCustom(null); } }}>
-          <span className="weigh-input"><input className="input" inputMode="numeric" autoFocus placeholder="Amount" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^0-9]/g, ""))} aria-label="Custom amount in ml" /><span className="weigh-unit">ml</span></span>
-          <button className="btn" disabled={!(cm > 0 && cm <= 5000)}>Add</button>
-        </form>
-      )}
-      {undo && (
+      {undo && !open && (
         <div className="hyd-undo" role="status">
           <span>Added {undo.ml} ml</span>
           <button className="link" onClick={doUndo}>Undo</button>
         </div>
       )}
-      {todays.length > 0 && (
-        <>
-          <button className="link small hyd-list-toggle" aria-expanded={showList} onClick={() => setShowList((v) => !v)}>
-            Today's drinks ({todays.length}) {showList ? "▴" : "▾"}
-          </button>
-          {showList && (
-            <ul className="hyd-list">
+      {open && (
+        <div className="hyd-more">
+          {undo && (
+            <div className="hyd-undo" role="status" style={{ margin: 0, background: "var(--ground)" }}>
+              <span>Added {undo.ml} ml</span>
+              <button className="link" onClick={doUndo}>Undo</button>
+            </div>
+          )}
+          <div className="hyd-chips" role="group" aria-label="Other amounts">
+            {WATER_AMOUNTS.map((a) => <button key={a} type="button" className="fchip" onClick={() => add(a)}>{a} ml</button>)}
+            <button type="button" className={`fchip${custom != null ? " on" : ""}`} aria-expanded={custom != null} onClick={() => setCustom(custom == null ? "" : null)}>Custom</button>
+          </div>
+          {custom != null && (
+            <form className="hyd-custom" onSubmit={(e) => { e.preventDefault(); if (cm > 0) { void add(cm); setCustom(null); } }}>
+              <span className="weigh-input"><input className="input" inputMode="numeric" autoFocus placeholder="Amount" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^0-9]/g, ""))} aria-label="Custom amount in ml" /><span className="weigh-unit">ml</span></span>
+              <button className="btn" disabled={!(cm > 0 && cm <= 5000)}>Add</button>
+            </form>
+          )}
+          {todays.length > 0 && (
+            <ul className="hyd-list" aria-label="Today's drinks">
               {todays.map((e) => (
                 <li key={e.client_id}>
                   <span className="num">{new Date(e.logged_at).toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" })}</span>
@@ -92,9 +100,10 @@ export default function HydrationCard({ settings, onHistory }: { settings: Setti
               ))}
             </ul>
           )}
-        </>
+          {onHistory && <button className="link small" style={{ justifySelf: "start" }} onClick={onHistory}>History ›</button>}
+        </div>
       )}
-      {error && <p className="error small" style={{ margin: 0 }}>{error}</p>}
+      {error && <p className="error small" style={{ margin: "4px 0 0" }}>{error}</p>}
     </section>
   );
 }
