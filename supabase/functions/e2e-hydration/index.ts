@@ -1,14 +1,16 @@
 // Android emulator test support for the hydration widget, callable only from this repo's GitHub Actions on an
-// e2e/* branch (GitHub OIDC). Works on one dedicated test account and nothing else:
-//   {action:"reset"} -> clears the test account's water_log and returns a widget session for it
-//   {action:"count"} -> the test account's water_log rows
+// e2e/* branch (GitHub OIDC). The app allows a single account (sign-ups are closed by a trigger), so the test
+// runs on that account and only ever touches what it creates itself:
+//   {action:"start"}                    -> sessions for the web view and the widget (each its own), and a start time
+//   {action:"count", since}             -> widget rows created since the start (the test's taps)
+//   {action:"cleanup", since, tokens}   -> deletes those rows and signs the test's sessions out
+// No real widget exists before this APK ships, so widget rows created during the run are the test's own.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@5.9.6";
 
 const JWKS = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 const REPO = "ServiceFlowMcConnells/cardio-log";
-const EMAIL = "e2e-widget@kata-test.invalid";
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
 
 Deno.serve(async (req) => {
@@ -22,36 +24,41 @@ Deno.serve(async (req) => {
   }
   const url = Deno.env.get("SUPABASE_URL")!;
   const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
-  // The test account (created on first use)
-  let { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  let user = list?.users.find((x: { email?: string }) => x.email === EMAIL);
-  if (!user) {
-    const { data, error } = await admin.auth.admin.createUser({ email: EMAIL, email_confirm: true, password: crypto.randomUUID() + "Aa1!" });
-    if (error) return json({ error: error.message }, 500);
-    user = data.user;
-  }
-  const { action } = await req.json().catch(() => ({ action: "" }));
-  if (action === "reset") {
-    await admin.from("water_log").delete().eq("user_id", user!.id);
-    // Two independent sessions, as in real use: one for the app's web view, one for the widget
+  const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 2 });
+  const user = list?.users[0];
+  if (!user?.email) return json({ error: "No account" }, 500);
+  const body = await req.json().catch(() => ({}));
+  const since = typeof body.since === "string" ? body.since : null;
+
+  if (body.action === "start") {
     const mint = async () => {
-      const { data: link } = await admin.auth.admin.generateLink({ type: "magiclink", email: EMAIL });
+      const { data: link } = await admin.auth.admin.generateLink({ type: "magiclink", email: user.email! });
       const anon = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { auth: { persistSession: false, autoRefreshToken: false } });
       const { data, error } = await anon.auth.verifyOtp({ token_hash: link!.properties.hashed_token, type: "email" });
       if (error || !data.session) throw new Error(error?.message ?? "no session");
       return data.session;
     };
     try {
+      const startedAt = new Date().toISOString();
       const web = await mint(), widget = await mint();
-      return json({ url, anon_key: Deno.env.get("SUPABASE_ANON_KEY"), refresh_token: widget.refresh_token, user_id: user!.id, web_session: web });
+      return json({ url, anon_key: Deno.env.get("SUPABASE_ANON_KEY"), refresh_token: widget.refresh_token, widget_access: widget.access_token, user_id: user.id, web_session: web, since: startedAt });
     } catch (e) {
       return json({ error: String(e) }, 500);
     }
   }
-  if (action === "count") {
-    const { data, error } = await admin.from("water_log").select("client_id, ml, source, local_date, logged_at").eq("user_id", user!.id);
+  if (!since) return json({ error: "since is required" }, 400);
+  const mine = () => admin.from("water_log").select("client_id, ml, source, local_date, logged_at").eq("user_id", user.id).eq("source", "widget").gte("created_at", since);
+  if (body.action === "count") {
+    const { data, error } = await mine();
     if (error) return json({ error: error.message }, 500);
     return json({ rows: data, count: data.length });
+  }
+  if (body.action === "cleanup") {
+    const { data } = await mine();
+    const ids = (data ?? []).map((r) => r.client_id);
+    if (ids.length) await admin.from("water_log").delete().in("client_id", ids);
+    for (const t of Array.isArray(body.tokens) ? body.tokens : []) await admin.auth.admin.signOut(String(t), "local").catch(() => undefined);
+    return json({ deleted: ids.length });
   }
   return json({ error: "Unknown action" }, 400);
 });
