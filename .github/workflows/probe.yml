@@ -11,15 +11,15 @@ jobs:
         with: { node-version: 22 }
       - run: |
           mkdir p && cd p && npm pack @capgo/capacitor-health@8.11.13 >/dev/null && tar xzf *.tgz
-          echo "=== types"; grep -rn -i "hydration\|HealthDataType\b" package/dist/esm/definitions.d.ts | head -20
-          grep -rn -i "hydration" package/android/src -l | head
-          echo "=== gradle"; cat package/android/build.gradle | grep -n -i "health\|kotlin\|coroutines\|work" | head -20
-          echo "=== write"; grep -n -i "fun saveSample\|fun writeRecords\|insertRecords\|WRITE_" package/android/src/main/java/app/capgo/plugin/health/*.kt | head -20
-          echo "=== manifest"; cat package/android/src/main/AndroidManifest.xml
+          M=package/android/src/main/java/app/capgo/plugin/health/HealthManager.kt
+          echo "=== save"; sed -n 488,530p $M
+          echo "=== water"; grep -n -i "water\|hydration" $M package/android/src/main/java/app/capgo/plugin/health/*.kt | head -30
+          echo "=== plugin save"; n=$(grep -n "fun saveSample" package/android/src/main/java/app/capgo/plugin/health/HealthPlugin.kt | cut -d: -f1); sed -n "${n},$((n+50))p" package/android/src/main/java/app/capgo/plugin/health/HealthPlugin.kt
+          echo "=== defs save"; grep -n -B2 -A14 "interface SaveSampleOptions\|saveSample(" package/dist/esm/definitions.d.ts | head -60
       - working-directory: native
         run: |
           npm install --no-audit --no-fund >/dev/null 2>&1
           npx cap add android >/dev/null 2>&1
-          echo "=== app/build.gradle"; cat android/app/build.gradle
+          echo "=== skip"
           echo "=== variables"; cat android/variables.gradle
           echo "=== root build.gradle"; cat android/build.gradle
