@@ -1,3 +1,4 @@
+import { weekHasDeload } from "../lib/deload";
 import type { AppData } from "../App";
 import type { Muscle, Workout } from "../lib/strength";
 import { MUSCLE_LABEL, bestE1rm, fmtKg, fmtTonnage, hardSetsByMuscle, pctChange, volume } from "../lib/strength";
@@ -76,10 +77,11 @@ export default function StrengthProgress({ data, onLog, onOpenExercise }: { data
           <h2>Weekly volume</h2>
           <span className="muted small">Last 12 weeks</span>
         </div>
-        <WeeklyBars weeks={weeks} unit="kg" format={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}t` : String(Math.round(v)))} />
+        <WeeklyBars weeks={weeks} unit="kg" format={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}t` : String(Math.round(v)))} deload={weekHasDeload} />
         <p className="chart-note">
           Weight × reps over working sets. This week so far: {fmtTonnage(thisWeek.value)}
           {lastFull.value > 0 ? `, last week ${fmtTonnage(lastFull.value)}` : ""}.
+          {weeks.some((w) => weekHasDeload(w.start)) && <> <span className="deload-key">Deload weeks</span> are shaded and marked D.</>}
         </p>
       </section>
 
@@ -107,6 +109,7 @@ export default function StrengthProgress({ data, onLog, onOpenExercise }: { data
                 </div>
               );
             })}
+            {weekHasDeload(weeks[weeks.length - 1].start) && <p className="small muted" style={{ margin: "4px 0 0" }}>This is a deload week, so fewer hard sets is the plan.</p>}
             <p className="legend"><span><i className="dot lift" /> This week</span><span><i className="tickmark" /> Average of previous 4 weeks</span></p>
           </div>
         )}

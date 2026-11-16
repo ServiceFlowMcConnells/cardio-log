@@ -1,3 +1,4 @@
+import { loadDeloads, setLegacyDeloadUntil, useDeloads } from "./lib/deload";
 import { startWidgetSync, widgetSettingsChanged } from "./lib/widget";
 import { writeWaterToHealth } from "./lib/health";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -107,6 +108,8 @@ export interface AppData {
 
 export default function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
+  // Deload weeks: the coach, trends and charts read them; re-render when they change
+  useDeloads();
   const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [], programs: [], activeProgramId: null, planned: [], nutrition: EMPTY_NUTRITION, activity: [] });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -202,6 +205,8 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", maybeSync);
   }, [userId, reloadActivity]);
 
+  setLegacyDeloadUntil(data.settings.deload_until);
+  useEffect(() => { if (userId) void loadDeloads(true).catch(() => undefined); }, [userId]);
   // Android water widget: session, queued taps and today's total kept in step with the app
   const settingsRef = useRef(data.settings);
   settingsRef.current = data.settings;

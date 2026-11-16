@@ -1,3 +1,4 @@
+import { deloadToday } from "../lib/deload";
 import HydrationCard from "./HydrationCard";
 import type { AppData } from "../App";
 import type { Session } from "../lib/types";
@@ -256,7 +257,7 @@ function StrengthWeek({ data, start, onTrain, onStart, onWarmup, onPlan }: { dat
   return (
     <section className="section" style={{ marginTop: 6 }}>
       <div className="page-head" style={{ marginBottom: 10 }}>
-        <h2>Strength</h2>
+        <h2>Strength{deloadToday() && <span className="deload-pill">Deload week</span>}</h2>
         {data.templates.length > 0 && <button className="link small" onClick={onPlan}>{data.planned.some((p) => p.planned_on >= ymd(new Date())) ? "Edit plan" : "Plan week"} ›</button>}
       </div>
       <PlanStrip data={data} start={start} onPlan={onPlan} />

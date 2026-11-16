@@ -8,6 +8,7 @@ import type { Muscle } from "../lib/strength";
 import { startOfWeek, dayIndex } from "../lib/dates";
 import { applyChanges, fromYmd, planAdvice, savePlan, sessionTotalsAfter, setTarget, suggestDays, volumeSuggestions, ymd, SESSION_TOTAL_CAP } from "../lib/schedule";
 import type { TemplateChange } from "../lib/schedule";
+import { DELOAD, isDeloadWeek, setDeloadWeek } from "../lib/deload";
 
 interface Props {
   data: AppData;
@@ -90,6 +91,7 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deload, setDeload] = useState(() => isDeloadWeek(start));
 
   /** Fill non-manual training days from the rotation, in date order. */
   const fill = (r: Record<string, Row>) => {
@@ -138,6 +140,7 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
     setBusy(true);
     setError(null);
     try {
+      await setDeloadWeek(start, deload);
       await savePlan(open, plan.filter((p) => p.template && p.date >= today).map((p) => ({ planned_on: p.date, template_id: p.template!.id, changes: weekChanges.filter((c) => c.templateId === p.template!.id) })));
       onSaved();
     } catch (e) {
@@ -172,6 +175,18 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
         <span className="small muted">Best spacing for</span>
         {[2, 3, 4].map((n) => <button key={n} className="fchip" onClick={() => quick(n)}>{n} days</button>)}
       </div>
+
+      <label className={`panel deload-toggle${deload ? " on" : ""}`}>
+        <input type="checkbox" checked={deload} onChange={(e) => setDeload(e.target.checked)} />
+        <span>
+          <strong>Deload week</strong>
+          <span className="small muted" style={{ display: "block" }}>
+            {deload
+              ? `Every session this week: about half the sets, ¾ of the reps, ~${Math.round((1 - DELOAD.loadFactor) * 100)}% lighter, stopping around RPE ${DELOAD.rpe}. Keep the same training days. The week after picks up from your last normal session.`
+              : "A lighter week to clear fatigue, typically every 4–8 weeks or when lifts start slipping."}
+          </span>
+        </span>
+      </label>
 
       <div className="panel list-panel" style={{ marginTop: 10 }}>
         {dates.map((d) => {

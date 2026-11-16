@@ -1,3 +1,4 @@
+import { deloadSpans } from "../lib/deload";
 import { useMemo, useState } from "react";
 import type { AppData } from "../App";
 import type { LiftStatus, LiftTrend, Stat } from "../lib/strengthReport";
@@ -120,6 +121,7 @@ export default function StrengthReport({ data, onOpenExercise }: { data: AppData
         {r.flags.map((f, i) => <li key={i} className={f.tone}>{f.text}</li>)}
       </ul>
       <p className="chart-note" style={{ marginBottom: 0 }}>
+        {deloadSpans().some((d) => d.to >= r.from && d.from <= Date.now()) && "This period includes a deload week; its sessions are left out of the trends. "}
         Groups show the median trend of their lifts; tap one to see each exercise. Trends are a straight-line fit through each lift's estimated 1RM per session, as % per week. {r.phase === "deficit" ? "In a deficit, +0.25% a week counts as progressing and only below −0.75% as slipping." : "Above +0.5% a week is progressing; below −0.5% is slipping."}
       </p>
     </section>

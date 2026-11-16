@@ -20,6 +20,7 @@
   /* Macro colours, as MacroFactor: calories blue, protein salmon, fat yellow, carbs green. -ink = for text on light */
   --m-k: #4a86ee;
   --water: #2f80d8;
+  --deload: #8a5cd0;
   --m-p: #f47a5a;
   --m-f: #f5bd3a;
   --m-c: #45ad72;
@@ -52,6 +53,7 @@
     --pr: #f2b544;
     --m-k: #6ea0f7;
     --water: #5aa2f0;
+    --deload: #b08cf0;
     --m-p: #ff8a6c;
     --m-f: #ffc94d;
     --m-c: #5cc48a;
@@ -1290,3 +1292,13 @@ select.input { appearance: auto; }
 .hyd-stepper strong { min-width: 64px; text-align: center; font-family: var(--display); font-size: 1.2rem; }
 .water-bar { fill: var(--water); opacity: 0.85; }
 .water-bar.hit { fill: var(--in); }
+
+/* Deload weeks */
+.deload-toggle { display: flex; gap: 12px; align-items: flex-start; margin-top: 10px; padding: 12px 14px; border-left: 6px solid var(--line); cursor: pointer; }
+.deload-toggle.on { border-left-color: var(--deload); background: color-mix(in srgb, var(--deload) 10%, var(--panel)); }
+.deload-toggle input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--deload); flex: none; }
+.chart .deload-band { fill: var(--deload); opacity: 0.16; }
+.chart .deload-label { fill: var(--deload); font-size: 9px; font-weight: 700; }
+.deload-key { display: inline-flex; align-items: center; gap: 6px; }
+.deload-key::before { content: ""; width: 12px; height: 10px; border-radius: 2px; background: var(--deload); opacity: 0.35; }
+.deload-pill { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--deload) 18%, transparent); color: var(--deload); font-size: 0.7rem; font-weight: 700; vertical-align: middle; letter-spacing: 0.02em; }

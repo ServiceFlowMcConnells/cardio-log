@@ -3,6 +3,8 @@ import type { AppData } from "../App";
 import { STATUS_LABEL, STATUS_TONE, coachOverview, deloadActive, rangeLabel } from "../lib/coach";
 import { adjustmentFor, latestPhase, todaysCheckin, lowReadinessCount } from "../lib/readiness";
 import { saveSettings } from "../lib/data";
+import { currentDeload, setDeloadWeek } from "../lib/deload";
+import { startOfWeek } from "../lib/dates";
 import { fmtKg } from "../lib/strength";
 
 const DAY = 86400000;
@@ -28,8 +30,13 @@ export default function CoachPanel({ data, onOpenExercise, onChanged }: { data: 
     setBusy(true);
     setError(null);
     try {
-      const until = on ? ymd(new Date(Date.now() + 6 * DAY)) : null;
-      await saveSettings({ ...settings, deload_until: until });
+      // The deload is this week in the planner; ending it clears this week (and the older setting, if used)
+      const cur = currentDeload();
+      if (on) await setDeloadWeek(ymd(startOfWeek(new Date())), true);
+      else {
+        if (cur && cur.start !== settings.deload_until) await setDeloadWeek(cur.start, false);
+        if (settings.deload_until) await saveSettings({ ...settings, deload_until: null });
+      }
       onChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't update.");
@@ -49,13 +56,13 @@ export default function CoachPanel({ data, onOpenExercise, onChanged }: { data: 
       <h2>Coach</h2>
       {deload ? (
         <div className="coach-alert tone-warn">
-          <p><strong>Deload week until {new Date(settings.deload_until + "T12:00:00").toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}.</strong> Loads −10%, half the sets, RPE 7 max. Strength usually comes back above where it was the week after.</p>
+          <p><strong>Deload week{currentDeload() ? ` until ${new Date(currentDeload()!.end + "T12:00:00").toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}` : ""}.</strong> Half the sets, about ¾ of the reps, ~10% lighter, stopping around RPE 6. These sessions don't count towards progression, so next week carries on from your last normal session.</p>
           <button className="link small" onClick={() => setDeload(false)} disabled={busy}>End deload now</button>
         </div>
       ) : ov.deloadAdvised ? (
         <div className="coach-alert tone-bad">
           <p><strong>Deload recommended.</strong> {ov.deloadReason} One lighter week clears fatigue that's hiding your strength, which matters more in a deficit.</p>
-          <button className="btn primary" onClick={() => setDeload(true)} disabled={busy}>Start a deload week</button>
+          <button className="btn primary" onClick={() => setDeload(true)} disabled={busy}>Make this week a deload</button>
         </div>
       ) : ov.slipping.length === 1 ? (
         <div className="coach-alert tone-warn">

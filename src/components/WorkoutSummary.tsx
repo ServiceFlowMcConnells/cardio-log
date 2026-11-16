@@ -1,3 +1,4 @@
+import { isDeloadAt } from "../lib/deload";
 import type { AppData } from "../App";
 import type { Workout } from "../lib/strength";
 import { SET_TYPE_LABEL, compareWorkout, e1rm, fmtKg, fmtTonnage, pctChange } from "../lib/strength";
@@ -36,7 +37,7 @@ export default function WorkoutSummary({ workoutId, data, onDone, onEdit }: Prop
   // What the coach asked for going into this workout, and what it wants next time
   const coachFor = (id: string) => {
     const before = coachExercise(exMap.get(id), id, planOf(id), workouts, data.templates, w.started_at,
-      { ...coachOpts, adj: checkin ? adjustmentFor(checkin) : null, deload: false, excludeId: w.id, phase: latestPhase(data.checkins.filter((c) => c.checked_at <= w.started_at)), lowRun: lowReadinessCount(data.checkins, new Date(w.started_at).getTime()) });
+      { ...coachOpts, adj: checkin ? adjustmentFor(checkin) : null, deload: isDeloadAt(w.started_at), excludeId: w.id, phase: latestPhase(data.checkins.filter((c) => c.checked_at <= w.started_at)), lowRun: lowReadinessCount(data.checkins, new Date(w.started_at).getTime()) });
     const next = coachExercise(exMap.get(id), id, planOf(id), workouts, data.templates, new Date(Date.now() + 1000).toISOString(),
       { ...coachOpts, adj: null, deload: deloadActive(settings.deload_until), phase: latestPhase(data.checkins), lowRun: lowReadinessCount(data.checkins) });
     const isLatest = workouts.filter((x) => x.sets.some((s) => s.exercise_id === id))[0]?.id === w.id;

@@ -5,7 +5,12 @@
 //   adding one rep at a time to the weakest set. Then add one weight jump and rebuild reps.
 //
 // Decision order for each lift (first match wins):
-//   deload      You've started a deload week: loads −10%, half the sets, RPE ≤ 7.
+//   deload      A deload week (flagged in the week planner): about half the sets, three quarters of the reps,
+//               −10% load, stop around RPE 6. The international Delphi consensus on deloading (Bell et al. 2023,
+//               Sports Medicine – Open) agrees a deload mainly cuts volume (sets and reps) and proximity to
+//               failure, keeps training frequency, and may hold or lower load; −10% is the common practice.
+//               Sessions logged in a deload are left out of everything below, so the week after carries on
+//               from your last normal session.
 //   recover     Readiness "very low": loads −15%, one fewer set, RPE ≤ 7, no rep chasing.
 //   new         No comparable history: load from your recent e1RM, bottom of the rep range.
 //   protect     Strength slipping: session e1RM >4% below its 6-week peak in 2 of the last 3 sessions.
@@ -23,6 +28,10 @@ import type { E1rmFormula, Exercise, Template, WSet, Workout } from "./strength"
 import { isWorking, loadFor, pctOf1rm, rirFromRpe, roundTo, sessionE1rm, trainingE1rm, fmtKg } from "./strength";
 import type { Adjustment, Phase } from "./readiness";
 import { LOW_RUN, adjustedRpe, adjustedSets } from "./readiness";
+import { DELOAD, deloadToday, isDeloadAt } from "./deload";
+
+/** Workouts outside deload weeks (deload sessions don't count towards progression or stalls). */
+export const outsideDeloads = (ws: Workout[]) => ws.filter((w) => !isDeloadAt(w.started_at));
 
 const DAY = 86400000;
 
@@ -285,6 +294,7 @@ export function coachExercise(
   opts: CoachOpts,
 ): Prescription | null {
   const { formula, adj, deload, excludeId } = opts;
+  workouts = outsideDeloads(workouts);
   const phase = opts.phase ?? null;
   // How far over target RPE still counts as "owned": a surplus recovers better, so it's more permissive
   const rpeBand = phase === "surplus" ? 1 : 0.5;
@@ -339,11 +349,15 @@ export function coachExercise(
 
   if (deload) {
     status = "deload";
-    sets = Math.max(1, Math.ceil(plan.sets / 2));
-    rpe = 7;
-    weight = last ? roundTo(last.top * 0.9, inc, "down") : null;
-    reps = Array(sets).fill(plan.rep_min);
-    why = "Deload week: lighter and fewer sets so fatigue drops and strength shows through next week. Stop every set at RPE 7.";
+    sets = Math.max(1, Math.round(plan.sets * DELOAD.setsFactor));
+    rpe = DELOAD.rpe;
+    // From your last normal session: ~10% lighter, ~¾ of the reps you'd normally aim for
+    const usual = last && last.topReps.length ? Math.min(plan.rep_max, Math.round(last.topReps.reduce((x, y) => x + y, 0) / last.topReps.length)) : plan.rep_min;
+    const seed = !last && recentE1rm != null ? loadFor(recentE1rm, plan.rep_min, 8, formula) : null;
+    const lighter = (kg: number) => { const r = roundTo(kg * DELOAD.loadFactor, inc, "nearest"); return r < kg ? r : roundTo(kg * DELOAD.loadFactor, inc, "down"); };
+    weight = last ? lighter(last.top) : seed != null ? roundTo(seed * DELOAD.loadFactor, inc, "nearest") : null;
+    reps = Array(sets).fill(Math.max(3, Math.round(Math.max(plan.rep_min, usual) * DELOAD.repsFactor)));
+    why = `Deload week: ${sets} of your ${plan.sets} sets, about 10% lighter and a few reps short of usual, stopping around RPE ${DELOAD.rpe} (4 or so in the tank). It lets fatigue clear so strength shows through; next week carries on from your last normal session${last ? ` (${fmtKg(last.top)} kg)` : ""}.`;
   } else if (adj?.band === "very_low") {
     status = "recover";
     weight = last ? roundTo(last.top * 0.85, inc, "down") : null;
@@ -579,6 +593,7 @@ export interface CoachOverview {
 export function coachOverview(exercises: Exercise[], workouts: Workout[], templates: Template[], opts: Omit<CoachOpts, "adj"> & { adj: Adjustment | null; readiness7: number | null }): CoachOverview {
   const now = new Date(Date.now() + 1000).toISOString();
   const cutoff = Date.now() - 42 * DAY;
+  workouts = outsideDeloads(workouts);
   const seen = new Set<string>();
   for (const w of workouts) {
     if (new Date(w.started_at).getTime() < cutoff) continue;
@@ -604,7 +619,9 @@ export function coachOverview(exercises: Exercise[], workouts: Workout[], templa
   return { lifts, slipping, deloadAdvised: deloadReason != null, deloadReason };
 }
 
+/** A deload today: a deload week from the planner, or the older "deload until" setting. */
 export function deloadActive(until: string | null): boolean {
+  if (deloadToday()) return true;
   if (!until) return false;
   const today = new Date();
   const d = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
