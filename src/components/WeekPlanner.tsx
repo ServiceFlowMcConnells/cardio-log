@@ -9,6 +9,8 @@ import { startOfWeek, dayIndex } from "../lib/dates";
 import { applyChanges, fromYmd, planAdvice, savePlan, sessionTotalsAfter, setTarget, suggestDays, volumeSuggestions, ymd, SESSION_TOTAL_CAP } from "../lib/schedule";
 import type { TemplateChange } from "../lib/schedule";
 import { DELOAD, isDeloadWeek, setDeloadWeek } from "../lib/deload";
+import type { PlanMachine, PlannedCardio } from "../lib/cardioPlan";
+import { PLAN_MACHINE_LABEL, loggedOn, plannedRemaining, savePlannedCardio } from "../lib/cardioPlan";
 
 interface Props {
   data: AppData;
@@ -92,6 +94,22 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deload, setDeload] = useState(() => isDeloadWeek(start));
+  // Cardio for each day: type and target minutes (several allowed)
+  const [cardio, setCardio] = useState<Record<string, PlannedCardio[]>>(() =>
+    Object.fromEntries(dates.map((d) => [d, data.plannedCardio.filter((p) => p.planned_on === d).map((p) => ({ planned_on: d, machine: p.machine, minutes: p.minutes }))])));
+  const usualMachine: PlanMachine = (() => {
+    const n = { treadmill: 0, bike: 0 };
+    for (const s of data.sessions.slice(0, 20)) for (const b of s.blocks) n[b.machine] += b.duration_min;
+    return n.bike > n.treadmill ? "bike" : n.treadmill > 0 ? "treadmill" : "any";
+  })();
+  const addCardio = (d: string) => setCardio((c) => ({ ...c, [d]: [...c[d], { planned_on: d, machine: c[d][c[d].length - 1]?.machine ?? usualMachine, minutes: 30 }] }));
+  const setCardioAt = (d: string, i: number, patch: Partial<PlannedCardio>) => setCardio((c) => ({ ...c, [d]: c[d].map((x, j) => (j === i ? { ...x, ...patch } : x)) }));
+  const removeCardio = (d: string, i: number) => setCardio((c) => ({ ...c, [d]: c[d].filter((_, j) => j !== i) }));
+  const cardioTarget = data.settings.weekly_target_min;
+  const cardioLogged = dates.reduce((a, d) => a + (d <= today ? loggedOn(data.sessions, d) : 0), 0);
+  const cardioAhead = plannedRemaining(Object.values(cardio).flat(), data.sessions, dates, today).total;
+  const cardioPlannedAll = Object.values(cardio).flat().reduce((a, x) => a + x.minutes, 0);
+  const cardioProjected = cardioLogged + cardioAhead;
 
   /** Fill non-manual training days from the rotation, in date order. */
   const fill = (r: Record<string, Row>) => {
@@ -141,6 +159,7 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
     setError(null);
     try {
       await setDeloadWeek(start, deload);
+      await savePlannedCardio(open, open.flatMap((d) => cardio[d]));
       await savePlan(open, plan.filter((p) => p.template && p.date >= today).map((p) => ({ planned_on: p.date, template_id: p.template!.id, changes: weekChanges.filter((c) => c.templateId === p.template!.id) })));
       onSaved();
     } catch (e) {
@@ -206,6 +225,22 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
                 <option value="">Rest</option>
                 {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
+              <div className="plan-cardio">
+                {cardio[d].map((c, i) => (
+                  <span key={i} className={`plan-cardio-item ${c.machine}`}>
+                    <select className="input" value={c.machine} disabled={past} onChange={(e) => setCardioAt(d, i, { machine: e.target.value as PlanMachine })} aria-label={`Cardio type for ${l.top}`}>
+                      {(Object.keys(PLAN_MACHINE_LABEL) as PlanMachine[]).map((m) => <option key={m} value={m}>{PLAN_MACHINE_LABEL[m]}</option>)}
+                    </select>
+                    <button type="button" className="icon-btn" disabled={past || c.minutes <= 5} onClick={() => setCardioAt(d, i, { minutes: Math.max(5, c.minutes - 5) })} aria-label="5 minutes less">−</button>
+                    <input className="input num" inputMode="numeric" value={c.minutes} disabled={past} aria-label={`Target minutes for ${l.top}`}
+                      onChange={(e) => setCardioAt(d, i, { minutes: Math.min(300, Number(e.target.value.replace(/[^0-9]/g, "")) || 0) })} onBlur={() => setCardioAt(d, i, { minutes: Math.max(5, c.minutes) })} />
+                    <span className="small muted">min</span>
+                    <button type="button" className="icon-btn" disabled={past || c.minutes >= 300} onClick={() => setCardioAt(d, i, { minutes: Math.min(300, c.minutes + 5) })} aria-label="5 minutes more">+</button>
+                    {!past && <button type="button" className="icon-btn plan-cardio-x" onClick={() => removeCardio(d, i)} aria-label={`Remove cardio on ${l.top}`}>×</button>}
+                  </span>
+                ))}
+                {!past && <button type="button" className="link small plan-cardio-add" onClick={() => addCardio(d)}>+ Cardio</button>}
+              </div>
             </div>
           );
         })}
@@ -213,6 +248,30 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
 
       </div>
       <div className="col">
+      <section className="section">
+        <div className="page-head" style={{ marginBottom: 8 }}>
+          <h2>Cardio</h2>
+          <span className="muted small">Target {cardioTarget} min a week</span>
+        </div>
+        <div className="panel plan-cardio-sum">
+          <div className="belt-figure">
+            <span className="big">{Math.round(cardioProjected)}</span>
+            <span className="of">/ {cardioTarget} min</span>
+          </div>
+          <p className="small muted" style={{ margin: "-4px 0 8px" }}>{cardioLogged > 0 ? `${Math.round(cardioLogged)} done + ${Math.round(cardioAhead)} still planned` : `${Math.round(cardioAhead)} planned`}</p>
+          <div className="belt" role="progressbar" aria-valuemin={0} aria-valuemax={cardioTarget} aria-valuenow={Math.round(cardioProjected)}>
+            <div className="seg done-seg" style={{ width: `${Math.min(100, (cardioLogged / Math.max(cardioTarget, cardioProjected)) * 100)}%` }} />
+            <div className="seg planned-seg" style={{ width: `${Math.min(100, (cardioAhead / Math.max(cardioTarget, cardioProjected)) * 100)}%` }} />
+            {cardioProjected > cardioTarget && <div className="target-line" style={{ left: `calc(${(cardioTarget / cardioProjected) * 100}% - 1.5px)` }} />}
+          </div>
+          <p className="small muted" style={{ margin: "8px 0 0" }}>
+            {cardioPlannedAll === 0 && cardioLogged === 0 ? "Add cardio to any day with + Cardio: pick the type and how long."
+              : cardioProjected >= cardioTarget ? "This plan reaches your weekly target."
+              : `${Math.round(cardioTarget - cardioProjected)} min short of your target. Add a session or lengthen one.`}
+          </p>
+        </div>
+      </section>
+
       <section className="section">
         <h2 style={{ marginBottom: 8 }}>{advice.sessions} session{advice.sessions === 1 ? "" : "s"} · coach check</h2>
         <div className="stack">

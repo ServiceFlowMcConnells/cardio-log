@@ -1,3 +1,5 @@
+import type { PlannedCardio } from "./lib/cardioPlan";
+import { loadPlannedCardio } from "./lib/cardioPlan";
 import { loadDeloads, setLegacyDeloadUntil, useDeloads } from "./lib/deload";
 import { startWidgetSync, widgetSettingsChanged } from "./lib/widget";
 import { writeWaterToHealth } from "./lib/health";
@@ -89,6 +91,7 @@ export interface AppData {
   programs: Program[];
   activeProgramId: string | null;
   planned: PlannedWorkout[];
+  plannedCardio: PlannedCardio[];
   nutrition: NutritionData;
   activity: DayActivity[]; // daily steps and sleep from Health Connect
 }
@@ -97,7 +100,7 @@ export default function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
   // Deload weeks: the coach, trends and charts read them; re-render when they change
   useDeloads();
-  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], programs: [], activeProgramId: null, planned: [], nutrition: EMPTY_NUTRITION, activity: [] });
+  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], programs: [], activeProgramId: null, planned: [], plannedCardio: [], nutrition: EMPTY_NUTRITION, activity: [] });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("week");
@@ -131,14 +134,15 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const [sessions, settings, exercises, templates, workouts, checkins, prog, planned, nutrition, activity] = await Promise.all([
+      const [sessions, settings, exercises, templates, workouts, checkins, prog, planned, plannedCardio, nutrition, activity] = await Promise.all([
         loadSessions(), loadSettings(), loadExercises(), loadTemplates(), loadWorkouts(), loadCheckins(),
         loadPrograms(), loadPlanned(),
+        loadPlannedCardio().catch((e) => { console.warn("loadPlannedCardio failed", e); return []; }),
         loadNutrition().catch((e) => { console.warn("loadNutrition failed", e); return null; }),
         loadActivity().catch((e) => { console.warn("loadActivity failed", e); return null; }),
       ]);
       setWeekStart(settings.week_start);
-      setData((d) => ({ sessions, settings, exercises, templates, workouts, checkins, programs: prog.programs, activeProgramId: prog.activeId, planned, nutrition: nutrition ?? d.nutrition, activity: activity ?? d.activity }));
+      setData((d) => ({ sessions, settings, exercises, templates, workouts, checkins, programs: prog.programs, activeProgramId: prog.activeId, planned, plannedCardio, nutrition: nutrition ?? d.nutrition, activity: activity ?? d.activity }));
       setLoadError(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Couldn't load your data.");

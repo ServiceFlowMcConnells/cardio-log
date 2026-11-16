@@ -1,3 +1,4 @@
+import { plannedRemaining } from "../lib/cardioPlan";
 import { deloadToday } from "../lib/deload";
 import HydrationCard from "./HydrationCard";
 import type { AppData } from "../App";
@@ -37,7 +38,11 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
   const w = weeks.get(weekKey(start)) ?? emptyWeek(start);
   const last = weeks.get(weekKey(addDays(start, -7)));
   const target = settings.weekly_target_min;
-  const scaleMax = Math.max(target, w.minutes, 30);
+  // Cardio planned in the week planner, still to come (today's plan less what's logged today)
+  const weekDates = Array.from({ length: 7 }, (_, i) => ymd(addDays(start, i)));
+  const ahead = plannedRemaining(data.plannedCardio, sessions, weekDates);
+  const projected = w.minutes + ahead.total;
+  const scaleMax = Math.max(target, projected, 30);
   const todayIdx = dayIndex(new Date());
   const DAY_LETTERS = weekdayLabels();
   const daysLeft = 7 - todayIdx;
@@ -52,7 +57,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
   const ticks = [];
   for (let m = 0; m <= scaleMax; m += scaleMax > 240 ? 60 : 30) ticks.push(m);
 
-  const dayMax = Math.max(...w.byDay, 30);
+  const dayMax = Math.max(...w.byDay.map((m, i) => m + ahead.byDay[i]), 30);
 
   return (
     <>
@@ -80,7 +85,10 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
       </div>
       <div className="col">
 
-      <h2 className="section" style={{ marginBottom: 10 }}>Cardio</h2>
+      <div className="page-head section" style={{ marginBottom: 10 }}>
+        <h2>Cardio</h2>
+        <button className="link small" onClick={onPlan}>{ahead.total > 0 ? "Edit plan" : "Plan cardio"} ›</button>
+      </div>
       <section className="belt-wrap" aria-label="Weekly cardio minutes">
         <div className="belt-figure">
           <span className="big">{Math.round(w.minutes)}</span>
@@ -97,6 +105,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
           {segs.map((s) => (
             <div key={s.key} className={`seg ${s.machine}`} style={{ width: `${(s.min / scaleMax) * 100}%` }} />
           ))}
+          {ahead.total > 0 && <div className="seg planned-seg" style={{ width: `${(ahead.total / scaleMax) * 100}%` }} title={`${Math.round(ahead.total)} min planned`} />}
           {scaleMax > target && <div className="target-line" style={{ left: `calc(${(target / scaleMax) * 100}% - 1.5px)` }} />}
         </div>
         <div className="belt-scale" aria-hidden="true">
@@ -107,10 +116,15 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
         <div className="legend">
           <span><i className="dot treadmill" /> Treadmill</span>
           <span><i className="dot bike" /> Bike</span>
+          {ahead.total > 0 && <span><i className="dot planned" /> Planned ({Math.round(ahead.total)} min)</span>}
         </div>
         <p className="nudge">
           {done ? (
             <>Target hit. Anything more this week is a bonus.</>
+          ) : ahead.total > 0 ? (
+            projected >= target
+              ? <>{Math.round(remaining)} min to go, and your plan covers it ({Math.round(ahead.total)} min planned).</>
+              : <>{Math.round(remaining)} min to go. Your plan has {Math.round(ahead.total)} min, so {Math.round(target - projected)} min short. <button className="link small" onClick={onPlan}>Edit plan</button></>
           ) : w.minutes === 0 ? (
             <>No cardio logged yet this week. {daysLeft > 1 ? `Spread over ${daysLeft} days, that's about ${Math.ceil(target / daysLeft)} min a day.` : `${target} min to go today.`}</>
           ) : (
@@ -152,13 +166,17 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
 
       <div className="panel" style={{ marginTop: 8 }}>
         <div className="days" aria-label="Minutes per day">
-          {w.byDay.map((m, i) => (
-            <div key={i} className={`day${i === todayIdx ? " today" : ""}`} title={`${DAY_LETTERS[i]}: ${Math.round(m)} min`}>
-              {m > 0 && <span className="small num">{Math.round(m)}</span>}
-              <div className={`bar${m === 0 ? " zero" : ""}`} style={{ height: m > 0 ? `${Math.max(6, (m / dayMax) * 52)}px` : undefined }} />
+          {w.byDay.map((m, i) => {
+            const pl = ahead.byDay[i];
+            return (
+            <div key={i} className={`day${i === todayIdx ? " today" : ""}`} title={`${DAY_LETTERS[i]}: ${Math.round(m)} min${pl ? `, ${Math.round(pl)} min planned` : ""}`}>
+              {(m > 0 || pl > 0) && <span className="small num">{Math.round(m + pl)}</span>}
+              {pl > 0 && <div className="bar planned" style={{ height: `${Math.max(6, (pl / dayMax) * 52)}px`, marginBottom: m > 0 ? 2 : 0 }} />}
+              {(m > 0 || !pl) && <div className={`bar${m === 0 ? " zero" : ""}`} style={{ height: m > 0 ? `${Math.max(6, (m / dayMax) * 52)}px` : undefined }} />}
               <span className="lbl">{DAY_LETTERS[i]}</span>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
