@@ -16,7 +16,6 @@ export const ShortcutIcons = {
   workout: sv(<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11" />),
   cardio: sv(<path d="M3 12h4l2.5-6 4 12 2.5-6H21" />),
   readiness: sv(<><path d="M4.5 16a8 8 0 1 1 15 0" /><path d="M12 16l3.5-5" /><circle cx="12" cy="16" r="1.2" fill="currentColor" /></>),
-  mobility: sv(<><circle cx="12" cy="4.5" r="1.8" /><path d="M5 9l7 1.5L19 9M12 10.5V15l-3.5 5.5M12 15l3.5 5.5" /></>),
   food: sv(<><path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10" /><path d="M17 21V3c-2.2 1.2-3.5 3.7-3.5 7v3H17" /></>),
   barcode: sv(<path d="M3 7V4h3M18 4h3v3M21 17v3h-3M6 20H3v-3M7 8v8M10 8v8M13 8v8M16.5 8v8" />),
   quick: sv(<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6l1-8z" />),

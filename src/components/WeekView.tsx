@@ -9,8 +9,6 @@ import { emptyWeek, groupByWeek, zoneFor } from "../lib/calc";
 import SessionCard from "./SessionCard";
 import type { Checkin } from "../lib/readiness";
 import { BAND_LABEL, PHASE_LABEL, adjustmentFor, latestPhase, todaysCheckin, weeklyLossPct, lowReadinessCount, LOW_RUN } from "../lib/readiness";
-import { AREA_LABEL, daysThisWeek, doneToday, fmtMin, needsRetest } from "../lib/mobility";
-import { buildRoutine } from "./MobilityPlayer";
 import { useDesktop } from "../lib/desktop";
 import { todayYmd, addDays as addYmd } from "../lib/nutrition";
 import { nextUp } from "../lib/programs";
@@ -24,17 +22,14 @@ interface Props {
   onOpenWorkout: (w: Workout) => void;
   onTrain: () => void;
   onStart: (t: Template) => void;
-  onWarmup: (t: Template) => void;
   onPlan: () => void;
-  onMobility: () => void;
-  onDailyMobility: () => void;
   goSettings: () => void;
   onScan: (c: Checkin | null) => void;
   /** Open the steps chart (Progress → Recovery). */
   onSteps?: () => void;
 }
 
-export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onTrain, onStart, onWarmup, onPlan, onMobility, onDailyMobility, goSettings, onScan, onSteps }: Props) {
+export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOpen, onTrain, onStart, onPlan, goSettings, onScan, onSteps }: Props) {
   const { sessions, settings, workouts, exercises } = data;
   const z = zoneFor(settings);
   const start = startOfWeek(new Date());
@@ -81,10 +76,9 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
       <StepsStrip data={data} onOpen={onSteps} />
       <HydrationCard settings={data.settings} onHistory={onSteps} />
 
-      <StrengthWeek data={data} start={start} onTrain={onTrain} onStart={onStart} onWarmup={onWarmup} onPlan={onPlan} />
+      <StrengthWeek data={data} start={start} onTrain={onTrain} onStart={onStart} onPlan={onPlan} />
       </div>
       <div className="col">
-      <MobilityCard data={data} onOpen={onMobility} onPlay={onDailyMobility} />
 
       <h2 className="section" style={{ marginBottom: 10 }}>Cardio</h2>
       <section className="belt-wrap" aria-label="Weekly cardio minutes">
@@ -193,7 +187,7 @@ export default function WeekView({ data, onLogCardio: onLog, onOpenSession: onOp
   );
 }
 
-function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Template) => void; onWarmup: (t: Template) => void }) {
+function NextUp({ data, onStart }: { data: AppData; onStart: (t: Template) => void }) {
   const desktop = useDesktop();
   const { templates, workouts, exercises, settings, checkins } = data;
   // The active program's next workout, else the template you've gone longest without
@@ -237,7 +231,6 @@ function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Templ
           <>
             <span className="muted small">{today ? "Adjusted for today's readiness" : "A readiness scan runs first"}</span>
             <span className="tpl-btns">
-              <button className="btn ghost" onClick={() => onWarmup(t)} title="5-minute mobility warm-up, then start">Warm-up</button>
               <button className="btn primary" onClick={() => onStart(t)}>Start</button>
             </span>
           </>
@@ -247,7 +240,7 @@ function NextUp({ data, onStart, onWarmup }: { data: AppData; onStart: (t: Templ
   );
 }
 
-function StrengthWeek({ data, start, onTrain, onStart, onWarmup, onPlan }: { data: AppData; start: Date; onTrain: () => void; onStart: (t: Template) => void; onWarmup: (t: Template) => void; onPlan: () => void }) {
+function StrengthWeek({ data, start, onTrain, onStart, onPlan }: { data: AppData; start: Date; onTrain: () => void; onStart: (t: Template) => void; onPlan: () => void }) {
   const { workouts, exercises } = data;
   const end = addDays(start, 7).getTime();
   const lastStart = addDays(start, -7).getTime();
@@ -261,7 +254,7 @@ function StrengthWeek({ data, start, onTrain, onStart, onWarmup, onPlan }: { dat
         {data.templates.length > 0 && <button className="link small" onClick={onPlan}>{data.planned.some((p) => p.planned_on >= ymd(new Date())) ? "Edit plan" : "Plan week"} ›</button>}
       </div>
       <PlanStrip data={data} start={start} onPlan={onPlan} />
-      <NextUp data={data} onStart={onStart} onWarmup={onWarmup} />
+      <NextUp data={data} onStart={onStart} />
       {thisWeek.length === 0 ? (
         <div className="empty" style={{ marginTop: 10 }}>
           <p>No lifting logged this week{lastWeek.length ? ` (${lastWeek.length} workout${lastWeek.length === 1 ? "" : "s"} last week)` : ""}.</p>
@@ -301,39 +294,6 @@ function PlanStrip({ data, start, onPlan }: { data: AppData; start: Date; onPlan
       </button>
       {flag && <p className="small plan-flag"><span className={`coach-chip tone-${flag.tone}`}>Spacing</span> {flag.title}. <button className="link small" onClick={onPlan}>See why</button></p>}
     </div>
-  );
-}
-
-function MobilityCard({ data, onOpen, onPlay }: { data: AppData; onOpen: () => void; onPlay: () => void }) {
-  const test = data.mobilityTests[0] ?? null;
-  const done = doneToday(data.mobilitySessions);
-  const days = daysThisWeek(data.mobilitySessions);
-  const routine = done ? null : buildRoutine(data, "daily", null);
-  const focus = routine?.focus.slice(0, 3).map((s) => AREA_LABEL[s.area]).join(", ");
-  return (
-    <section className="section">
-      <div className="page-head" style={{ marginBottom: 10 }}>
-        <h2>Mobility</h2>
-        <button className="link small" onClick={onOpen}>{test ? `Score ${test.score}` : "Set up"} ›</button>
-      </div>
-      {done ? (
-        <button className="mob-strip done" onClick={onOpen}>
-          <span className="mob-tick" aria-hidden="true">✓</span>
-          <span style={{ flex: 1, textAlign: "left" }}><strong>Done today</strong> <span className="small">{fmtMin(done.duration_sec)}, {days} day{days === 1 ? "" : "s"} this week</span></span>
-          <span aria-hidden="true">›</span>
-        </button>
-      ) : (
-        <div className="mob-strip">
-          <span style={{ flex: 1, minWidth: 0 }}>
-            <strong>10-min routine</strong> <span className="small">{focus || "Full body"}</span>
-            <span className="small muted" style={{ display: "block" }}>
-              {!test ? "General until you take the screen" : needsRetest(test) ? "Retest due: it's been 4 weeks" : `${days} day${days === 1 ? "" : "s"} in the last 7`}
-            </span>
-          </span>
-          <button className="btn dark" onClick={onPlay} disabled={!routine?.items.length}>Start</button>
-        </div>
-      )}
-    </section>
   );
 }
 

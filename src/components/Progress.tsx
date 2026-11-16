@@ -3,7 +3,6 @@ import { PhotosCard } from "./photos/ProgressPhotos";
 import type { AppData } from "../App";
 import type { Block, Machine, Session, Settings } from "../lib/types";
 import StrengthProgress from "./StrengthProgress";
-import MobilityProgress from "./MobilityProgress";
 import BodyProgress from "./BodyProgress";
 import NutritionTrends from "./food/NutritionTrends";
 import WeightView from "./food/Weight";
@@ -219,7 +218,7 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
 type Mode = "cardio" | "strength" | "body" | "nutrition" | "weight";
 const MODE_KEY = "cardio-log:progress-mode";
 
-export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onMobility, onOpenFoodDay, setNutri, onPhotos }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onMobility: () => void; onOpenFoodDay: (day: string) => void; setNutri: (f: (n: NutritionData) => NutritionData) => void; onPhotos: (add?: boolean) => void }) {
+export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onOpenFoodDay, setNutri, onPhotos }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onOpenFoodDay: (day: string) => void; setNutri: (f: (n: NutritionData) => NutritionData) => void; onPhotos: (add?: boolean) => void }) {
   const [mode, setMode] = useState<Mode>(() => {
     try { return (localStorage.getItem(MODE_KEY) as Mode) || "strength"; } catch { return "strength"; }
   });
@@ -244,7 +243,6 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, o
       {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}
       {mode === "strength" && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
       {mode === "body" && <BodyProgress data={data} onScan={onOpenCheckin} />}
-      {mode === "body" && <MobilityProgress data={data} onOpen={onMobility} />}
       </div>
     </>
   );

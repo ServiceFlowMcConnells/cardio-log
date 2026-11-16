@@ -10,12 +10,6 @@ import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { loadSessions, loadSettings } from "./lib/data";
 import { loadCheckins, loadExercises, loadTemplates, loadWorkouts } from "./lib/strengthData";
-import { loadMobilitySessions, loadMobilityTests, loadNiggles } from "./lib/mobilityData";
-import type { MobilitySession, MobilityTest as MTest, Niggle } from "./lib/mobility";
-import MobilityHome from "./components/MobilityHome";
-import MobilityTest from "./components/MobilityTest";
-import MobilityPlayer from "./components/MobilityPlayer";
-import Niggles from "./components/Niggles";
 import { useRestAlerts } from "./lib/useRestAlerts";
 import type { Program } from "./lib/programs";
 import { loadPrograms, nextUp } from "./lib/programs";
@@ -70,10 +64,6 @@ export type View =
   | { k: "readiness"; checkin: Checkin | null; next: "home" | "resume" | { template: Template | null } }
   | { k: "program"; program: Program | null }
   | { k: "plan" }
-  | { k: "mobility" }
-  | { k: "mobility-test" }
-  | { k: "niggles"; back: "mobility" | "home" }
-  | { k: "mobility-play"; kind: "daily" | "prewarm"; template: Template | null; next: "mobility" | "home" | "resume" | "start" }
   | { k: "food-add"; time?: string; preselect?: string | null; start?: "scan" | "quick" | "search" }
   | { k: "food-edit"; food: Food | null; name?: string; barcode?: string; fromAdd?: boolean }
   | { k: "recipe"; recipe: Recipe | null; items?: { food_id: string; grams: number }[] }
@@ -96,9 +86,6 @@ export interface AppData {
   templates: Template[];
   workouts: Workout[];
   checkins: Checkin[];
-  mobilityTests: MTest[];
-  niggles: Niggle[];
-  mobilitySessions: MobilitySession[];
   programs: Program[];
   activeProgramId: string | null;
   planned: PlannedWorkout[];
@@ -110,7 +97,7 @@ export default function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
   // Deload weeks: the coach, trends and charts read them; re-render when they change
   useDeloads();
-  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], mobilityTests: [], niggles: [], mobilitySessions: [], programs: [], activeProgramId: null, planned: [], nutrition: EMPTY_NUTRITION, activity: [] });
+  const [data, setData] = useState<AppData>({ sessions: [], settings: DEFAULT_SETTINGS, exercises: [], templates: [], workouts: [], checkins: [], programs: [], activeProgramId: null, planned: [], nutrition: EMPTY_NUTRITION, activity: [] });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("week");
@@ -144,14 +131,14 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try {
-      const [sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, prog, planned, nutrition, activity] = await Promise.all([
+      const [sessions, settings, exercises, templates, workouts, checkins, prog, planned, nutrition, activity] = await Promise.all([
         loadSessions(), loadSettings(), loadExercises(), loadTemplates(), loadWorkouts(), loadCheckins(),
-        loadMobilityTests(), loadNiggles(), loadMobilitySessions(), loadPrograms(), loadPlanned(),
+        loadPrograms(), loadPlanned(),
         loadNutrition().catch((e) => { console.warn("loadNutrition failed", e); return null; }),
         loadActivity().catch((e) => { console.warn("loadActivity failed", e); return null; }),
       ]);
       setWeekStart(settings.week_start);
-      setData((d) => ({ sessions, settings, exercises, templates, workouts, checkins, mobilityTests, niggles, mobilitySessions, programs: prog.programs, activeProgramId: prog.activeId, planned, nutrition: nutrition ?? d.nutrition, activity: activity ?? d.activity }));
+      setData((d) => ({ sessions, settings, exercises, templates, workouts, checkins, programs: prog.programs, activeProgramId: prog.activeId, planned, nutrition: nutrition ?? d.nutrition, activity: activity ?? d.activity }));
       setLoadError(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Couldn't load your data.");
@@ -225,7 +212,7 @@ export default function App() {
   if (!auth) return <Auth />;
 
   // Steps in a flow (scan → workout → summary) aren't screens to go back to
-  const TRANSIENT = new Set<View["k"]>(["readiness", "mobility-play", "mobility-test", "workout"]);
+  const TRANSIENT = new Set<View["k"]>(["readiness", "workout"]);
   const go = (v: View) => {
     if (view.k !== "tabs" && !TRANSIENT.has(view.k)) stack.current.push(view);
     setView(v);
@@ -252,7 +239,6 @@ export default function App() {
     setView(to ?? prev ?? { k: "tabs" });
   };
 
-  const warmup = (t: Template, next: "start" | "resume" = "start") => go({ k: "mobility-play", kind: "prewarm", template: t, next });
 
   let body;
   if (!loaded) {
@@ -278,7 +264,6 @@ export default function App() {
         onCreatedExercise={refresh}
         checkin={view.workout ? null : today}
         onScan={() => go({ k: "readiness", checkin: null, next: "resume" })}
-        onWarmup={(t) => warmup(t, "resume")}
         onSaved={async (id, isNew) => {
           await refresh();
           if (isNew) go({ k: "summary", workoutId: id });
@@ -317,41 +302,6 @@ export default function App() {
     body = <WeekPlanner data={data} onClose={() => home()} onSaved={async () => { await refresh(); home(); }} onRefresh={refresh} />;
   } else if (view.k === "program") {
     body = <ProgramEditor program={view.program} data={data} onClose={() => home("train")} onSaved={async () => { await refresh(); home("train"); }} />;
-  } else if (view.k === "mobility") {
-    body = (
-      <MobilityHome
-        data={data}
-        onBack={() => home()}
-        onTest={() => go({ k: "mobility-test" })}
-        onNiggles={() => go({ k: "niggles", back: "mobility" })}
-        onPlay={(kind, t) => go({ k: "mobility-play", kind, template: t, next: "mobility" })}
-      />
-    );
-  } else if (view.k === "mobility-test") {
-    body = <MobilityTest previous={data.mobilityTests[0] ?? null} onClose={() => go({ k: "mobility" })} onSaved={async () => { await refresh(); go({ k: "mobility" }); }} />;
-  } else if (view.k === "niggles") {
-    const back = view.back;
-    body = <Niggles niggles={data.niggles} onBack={() => (back === "home" ? home() : go({ k: "mobility" }))} onChanged={refresh} />;
-  } else if (view.k === "mobility-play") {
-    const { next, template } = view;
-    const leave = () => {
-      if (next === "start") startWorkout(template);
-      else if (next === "resume") go({ k: "workout", workout: null, template: null });
-      else if (next === "mobility") go({ k: "mobility" });
-      else home();
-    };
-    body = (
-      <MobilityPlayer
-        key={`${view.kind}-${template?.id ?? ""}`}
-        data={data}
-        kind={view.kind}
-        templateId={template?.id ?? null}
-        doneLabel={next === "start" ? `Save and start ${template?.name ?? "workout"}` : next === "resume" ? "Save and back to workout" : "Save"}
-        onClose={() => (next === "start" ? home() : leave())}
-        onDone={async () => { await refresh(); leave(); }}
-        onNiggles={async () => { await refresh(); go({ k: "niggles", back: next === "home" ? "home" : "mobility" }); }}
-      />
-    );
   } else if (view.k === "summary") {
     body = <WorkoutSummary workoutId={view.workoutId} data={data} onDone={() => home("week")} onEdit={(w) => go({ k: "workout", workout: w, template: null })} />;
   } else if (view.k === "template") {
@@ -444,10 +394,7 @@ export default function App() {
         onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })}
         onTrain={() => home("train")}
         onStart={startWorkout}
-        onWarmup={(t) => warmup(t)}
         onPlan={() => go({ k: "plan" })}
-        onMobility={() => go({ k: "mobility" })}
-        onDailyMobility={() => go({ k: "mobility-play", kind: "daily", template: null, next: "home" })}
         goSettings={() => go({ k: "settings" })}
         onScan={(c) => go({ k: "readiness", checkin: c, next: "home" })}
         onSteps={() => { try { localStorage.setItem("cardio-log:progress-mode", "body"); } catch { /* private mode */ } home("progress"); }}
@@ -472,9 +419,6 @@ export default function App() {
         onEditTemplate={(t) => go({ k: "template", template: t })}
         onChanged={refresh}
         onOpenExercise={(id) => go({ k: "exercise", id })}
-        onWarmup={(t) => warmup(t)}
-        onMobility={() => go({ k: "mobility" })}
-        onDailyMobility={() => go({ k: "mobility-play", kind: "daily", template: null, next: "home" })}
         onEditProgram={(p) => go({ k: "program", program: p })}
         onPlan={() => go({ k: "plan" })}
         onExercises={() => home("exercises")}
@@ -496,11 +440,11 @@ export default function App() {
   } else if (tab === "exercises") {
     body = <ExerciseLibrary data={data} onOpen={(id) => go({ k: "exercise", id })} onChanged={refresh} />;
   } else {
-    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onMobility={() => go({ k: "mobility" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} setNutri={setNutri} onPhotos={(add) => go({ k: "photos", add })} />;
+    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} setNutri={setNutri} onPhotos={(add) => go({ k: "photos", add })} />;
   }
 
   const FOOD_VIEWS = new Set<View["k"]>(["food-add", "food-edit", "recipe", "targets", "weight", "nutrition"]);
-  const activeTab: Tab = view.k === "tabs" ? (tab === "exercises" && !desktop ? "train" : tab) : FOOD_VIEWS.has(view.k) ? "food" : view.k === "exercise" && !desktop ? "train" : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k === "program" || view.k === "plan" || view.k.startsWith("mobility") || view.k === "niggles" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
+  const activeTab: Tab = view.k === "tabs" ? (tab === "exercises" && !desktop ? "train" : tab) : FOOD_VIEWS.has(view.k) ? "food" : view.k === "exercise" && !desktop ? "train" : view.k === "cardio" || view.k === "workout" || view.k === "template" || view.k === "program" || view.k === "plan" || (view.k === "readiness" && view.next !== "home") ? "train" : view.k === "exercise" ? "exercises" : tab;
 
   const banner = loadError && (
     <div className="banner">
@@ -510,15 +454,14 @@ export default function App() {
   );
 
   if (desktop) {
-    const deskActive: DeskNav = view.k === "plan" ? "plan" : view.k === "settings" ? "settings" : view.k.startsWith("mobility") || view.k === "niggles" ? "mobility" : activeTab;
+    const deskActive: DeskNav = view.k === "plan" ? "plan" : view.k === "settings" ? "settings" : activeTab;
     const onNav = (n: DeskNav) => {
       if (n === "plan") { stack.current = []; setView({ k: "plan" }); }
       else if (n === "settings") { stack.current = []; setView({ k: "settings" }); }
-      else if (n === "mobility") { stack.current = []; setView({ k: "mobility" }); }
       else home(n);
     };
     // Editors and forms read best at a comfortable width; overview pages use the full width
-    const narrow = ["cardio", "template", "program", "settings", "readiness", "workout", "mobility-test", "niggles", "mobility-play", "food-edit", "recipe", "targets"].includes(view.k);
+    const narrow = ["cardio", "template", "program", "settings", "readiness", "workout", "food-edit", "recipe", "targets"].includes(view.k);
     return (
       <DesktopContext.Provider value={true}>
         <div className="desk-shell">
@@ -545,7 +488,6 @@ export default function App() {
           : { key: "workout", label: "Start workout", sub: up?.template.name ?? "Empty workout", icon: ShortcutIcons.workout, onClick: () => startWorkout(up?.template ?? null) },
         { key: "cardio", label: "Log cardio", icon: ShortcutIcons.cardio, onClick: () => go({ k: "cardio", session: null }) },
         { key: "scan", label: "Readiness", sub: today ? "Done today" : undefined, icon: ShortcutIcons.readiness, onClick: () => go({ k: "readiness", checkin: today ?? null, next: "home" }) },
-        { key: "mobility", label: "Mobility", sub: "Daily routine", icon: ShortcutIcons.mobility, onClick: () => go({ k: "mobility-play", kind: "daily", template: null, next: "home" }) },
         { key: "meditation", label: "Meditation", icon: ShortcutIcons.meditation, onClick: () => setMeditate(true) },
       ],
     },

@@ -3,7 +3,6 @@ import type { Template } from "../lib/strength";
 import { formatDay } from "../lib/dates";
 import { readWorkoutDraft } from "./WorkoutLogger";
 import CoachPanel from "./CoachPanel";
-import { daysThisWeek, doneToday } from "../lib/mobility";
 import ProgramsSection from "./ProgramsSection";
 import { useDesktop } from "../lib/desktop";
 import type { Program } from "../lib/programs";
@@ -16,15 +15,12 @@ interface Props {
   onEditTemplate: (t: Template | null) => void;
   onChanged: () => void;
   onOpenExercise: (id: string) => void;
-  onWarmup: (t: Template) => void;
-  onMobility: () => void;
-  onDailyMobility: () => void;
   onEditProgram: (p: Program | null) => void;
   onPlan: () => void;
   onExercises: () => void;
 }
 
-export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise, onWarmup, onMobility, onDailyMobility, onEditProgram, onPlan, onExercises }: Props) {
+export default function Train({ data, onLogCardio, onStart, onResume, onEditTemplate, onChanged, onOpenExercise, onEditProgram, onPlan, onExercises }: Props) {
   const { templates, exercises, workouts } = data;
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const desktop = useDesktop();
@@ -51,7 +47,7 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
         </button>
       )}
 
-      <ProgramsSection data={data} busyDraft={Boolean(draft)} onStart={onStart} onWarmup={onWarmup} onEdit={onEditProgram} onChanged={onChanged} />
+      <ProgramsSection data={data} busyDraft={Boolean(draft)} onStart={onStart} onEdit={onEditProgram} onChanged={onChanged} />
       {data.templates.length > 0 && <button className="btn block" style={{ marginTop: 10 }} onClick={onPlan}>Plan my week</button>}
 
       {!desktop && <button className="btn ghost block" style={{ marginTop: 14 }} onClick={() => (draft ? onResume() : onStart(null))}>Start an empty workout</button>}
@@ -88,7 +84,6 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
                   <span className="muted small">{last ? `Last done ${formatDay(new Date(last.started_at))}` : "Not done yet"}</span>
                   {desktop ? null : (
                   <span className="tpl-btns">
-                    <button className="btn ghost" onClick={() => onWarmup(t)} disabled={Boolean(draft)} title="5-minute mobility warm-up, then start">Warm-up</button>
                     <button className="btn dark" onClick={() => onStart(t)} disabled={Boolean(draft)} title={draft ? "Finish or discard the workout in progress first" : undefined}>
                       Start
                     </button>
@@ -104,18 +99,6 @@ export default function Train({ data, onLogCardio, onStart, onResume, onEditTemp
       </div>
       <div className="col">
       <CoachPanel data={data} onOpenExercise={onOpenExercise} onChanged={onChanged} />
-
-      <section className="section">
-        <div className="page-head" style={{ marginBottom: 10 }}>
-          <h2>Mobility</h2>
-          <button className="link small" onClick={onMobility}>Screen, niggles, history ›</button>
-        </div>
-        <div className="grid c2">
-          <button className="btn block" onClick={onDailyMobility}>{doneToday(data.mobilitySessions) ? "10-min routine again" : "10-min routine"}</button>
-          <button className="btn block" onClick={onMobility}>{data.mobilityTests.length ? `Score ${data.mobilityTests[0].score}` : "Take the screen"}</button>
-        </div>
-        <p className="muted small" style={{ marginTop: 6 }}>{daysThisWeek(data.mobilitySessions)} day{daysThisWeek(data.mobilitySessions) === 1 ? "" : "s"} in the last 7. Use Warm-up on a template for a 5-minute session aimed at that workout.</p>
-      </section>
 
       <section className="section">
         <h2 style={{ marginBottom: 10 }}>Cardio</h2>
