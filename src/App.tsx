@@ -498,7 +498,6 @@ export default function App() {
         { key: "barcode", label: "Barcode", icon: ShortcutIcons.barcode, onClick: () => logFood("scan") },
         { key: "quick", label: "Quick add", icon: ShortcutIcons.quick, onClick: () => logFood("quick") },
         { key: "weight", label: "Weigh in", icon: ShortcutIcons.weight, onClick: () => setWeighIn(true) },
-        { key: "photos", label: "Photos", icon: ShortcutIcons.photos, onClick: () => go({ k: "photos", add: true }) },
       ],
     },
   ];
