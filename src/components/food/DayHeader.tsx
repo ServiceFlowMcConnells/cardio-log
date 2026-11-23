@@ -38,7 +38,7 @@ export function DaySummary({ total, target, onTargets, onTrends }: { total: Macr
         })}
       </button>
       <div className="fs-links">
-        <button className="link small" onClick={onTargets}>{target ? `Targets: ${fmtKcal(target.kcal)} kcal` : "Set your targets from your coach"}</button>
+        <button className="link small" onClick={onTargets}>{target ? `${target.day_only ? `${target.note || "One-off"} day` : "Targets"}: ${fmtKcal(target.kcal)} kcal` : "Set your targets from your coach"}</button>
         <button className="link small" onClick={onTrends}>Trends and averages ›</button>
       </div>
     </section>

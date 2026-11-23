@@ -41,7 +41,9 @@ export interface LogEntry extends Macros {
   created_at: string;
 }
 
-export interface Target { id: string; effective_from: string; kcal: number; protein: number | null; carbs: number | null; fat: number | null }
+export interface Target { id: string; effective_from: string; kcal: number; protein: number | null; carbs: number | null; fat: number | null;
+  /** A one-off target for this single day (a refeed, say): replaces the plan's target that day only. */
+  day_only?: boolean; note?: string | null }
 export interface BodyWeight { id: string; measured_on: string; weight_kg: number }
 export interface BodyFat { id: string; measured_on: string; body_fat_pct: number }
 
@@ -128,9 +130,15 @@ export const perServing = (r: Recipe, foods: Food[]): Macros => scaleMacros(reci
 /** The coach target in force on a day (latest effective_from on or before it). */
 export function targetFor(targets: Target[], day: string): Target | null {
   let best: Target | null = null;
-  for (const t of targets) if (t.effective_from <= day && (!best || t.effective_from > best.effective_from)) best = t;
+  for (const t of targets) {
+    if (t.day_only) { if (t.effective_from === day) return t; continue; } // a one-off day wins; it never carries forward
+    if (t.effective_from <= day && (!best || t.effective_from > best.effective_from)) best = t;
+  }
   return best;
 }
+/** The plan's own targets, without one-off days. */
+export const planTargets = (targets: Target[]) => targets.filter((t) => !t.day_only);
+export const dayOnlyTargets = (targets: Target[]) => targets.filter((t) => t.day_only).sort((a, b) => a.effective_from.localeCompare(b.effective_from));
 
 /** Protein/carbs/fat calories, for a target's macro split. */
 export const macroKcal = (p: number, c: number, f: number) => p * 4 + c * 4 + f * 9;
@@ -269,7 +277,7 @@ async function pageAll(q: (from: number, to: number) => PromiseLike<{ data: unkn
 
 export async function loadNutrition(days = 120): Promise<NutritionData> {
   const since = addDays(todayYmd(), -days);
-  const [f, r, logRows, dailyRows, t, w, bf] = await Promise.all([
+  const [f, r, logRows, dailyRows, t, w, bf, od] = await Promise.all([
     supabase.from("foods").select(FOOD_COLS).order("name"),
     supabase.from("recipes").select("id, name, servings, notes, favorite, recipe_items(id, food_id, grams, position)").order("name"),
     pageAll((a, b) => supabase.from("food_log").select("*").gte("eaten_on", since).order("eaten_on").order("eaten_time").order("created_at").order("id").range(a, b)),
@@ -277,6 +285,7 @@ export async function loadNutrition(days = 120): Promise<NutritionData> {
     supabase.from("nutrition_targets").select("id, effective_from, kcal, protein, carbs, fat").order("effective_from"),
     pageAll((a, b) => supabase.from("body_weights").select("id, measured_on, weight_kg").order("measured_on").range(a, b)),
     supabase.from("body_fats").select("id, measured_on, body_fat_pct").order("measured_on"),
+    supabase.from("nutrition_day_targets").select("id, day, kcal, protein, carbs, fat, note").order("day"),
   ]);
   for (const x of [f, r, t]) if (x.error) throw x.error;
   const l = { data: logRows };
@@ -289,7 +298,11 @@ export async function loadNutrition(days = 120): Promise<NutritionData> {
       items: ((x.recipe_items as Row[]) ?? []).map((i) => ({ id: i.id as string, food_id: i.food_id as string, grams: n(i.grams), position: n(i.position) })).sort((a, b) => a.position - b.position),
     })),
     log: (l.data ?? []).map(toEntry),
-    targets: (t.data ?? []).map((x: Row) => ({ id: x.id as string, effective_from: x.effective_from as string, kcal: n(x.kcal), protein: nn(x.protein), carbs: nn(x.carbs), fat: nn(x.fat) })),
+    targets: [
+      ...(t.data ?? []).map((x: Row) => ({ id: x.id as string, effective_from: x.effective_from as string, kcal: n(x.kcal), protein: nn(x.protein), carbs: nn(x.carbs), fat: nn(x.fat) })),
+      // One-off days (optional: if the table can't load, the plan still works)
+      ...(od.error ? [] : od.data ?? []).map((x: Row) => ({ id: x.id as string, effective_from: x.day as string, kcal: n(x.kcal), protein: nn(x.protein), carbs: nn(x.carbs), fat: nn(x.fat), day_only: true, note: (x.note as string) ?? null })),
+    ],
     weights: w.map((x: Row) => ({ id: x.id as string, measured_on: x.measured_on as string, weight_kg: n(x.weight_kg) })),
     // Body fat is optional extra: if it can't load, the rest of nutrition still works
     bodyFats: (bf.error ? [] : bf.data ?? []).map((x: Row) => ({ id: x.id as string, measured_on: x.measured_on as string, body_fat_pct: n(x.body_fat_pct) })),
@@ -415,6 +428,19 @@ export async function saveTarget(t: Omit<Target, "id">): Promise<void> {
   const { error } = await supabase.from("nutrition_targets").upsert({ user_id: u.user.id, ...t }, { onConflict: "user_id,effective_from" });
   if (error) throw error;
 }
+/** Sets the same one-off target on each of these days (replacing any already there). */
+export async function saveDayTargets(days: string[], t: { kcal: number; protein: number | null; carbs: number | null; fat: number | null; note: string | null }) {
+  if (!days.length) return;
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) throw new Error("You're signed out. Sign in again.");
+  const { error } = await supabase.from("nutrition_day_targets").upsert(days.map((day) => ({ user_id: u.user!.id, day, ...t })), { onConflict: "user_id,day" });
+  if (error) throw error;
+}
+export async function deleteDayTarget(id: string) {
+  const { error } = await supabase.from("nutrition_day_targets").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function deleteTarget(id: string): Promise<void> {
   const { error } = await supabase.from("nutrition_targets").delete().eq("id", id);
   if (error) throw error;
