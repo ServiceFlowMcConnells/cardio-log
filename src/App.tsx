@@ -54,6 +54,7 @@ import RecipeEditor from "./components/food/RecipeEditor";
 import TargetsEditor from "./components/food/TargetsEditor";
 import WeightView from "./components/food/Weight";
 import NutritionTrends from "./components/food/NutritionTrends";
+import Supplements from "./components/Supplements";
 
 export type View =
   | { k: "tabs" }
@@ -72,7 +73,8 @@ export type View =
   | { k: "targets" }
   | { k: "nutrition" }
   | { k: "weight" }
-  | { k: "photos"; add?: boolean };
+  | { k: "photos"; add?: boolean }
+  | { k: "supplements" };
 
 function initialView(): View {
   const desktop = window.matchMedia?.("(min-width: 1024px)").matches && !(window as unknown as { Capacitor?: unknown }).Capacitor;
@@ -375,6 +377,8 @@ export default function App() {
     body = <ProgressPhotos key={view.add ? "add" : "list"} weights={data.nutrition.weights} startAdd={view.add} onBack={() => back()} onToast={(t) => { setToast(t); window.setTimeout(() => setToast(null), 2500); }} />;
   } else if (view.k === "weight") {
     body = <WeightView nutri={data.nutrition} checkins={checkins} setNutri={setNutri} onClose={() => back()} />;
+  } else if (view.k === "supplements") {
+    body = <Supplements onBack={() => back()} />;
   } else if (view.k === "settings") {
     body = (
       <SettingsView
@@ -458,14 +462,15 @@ export default function App() {
   );
 
   if (desktop) {
-    const deskActive: DeskNav = view.k === "plan" ? "plan" : view.k === "settings" ? "settings" : activeTab;
+    const deskActive: DeskNav = view.k === "plan" ? "plan" : view.k === "settings" ? "settings" : view.k === "supplements" ? "supplements" : activeTab;
     const onNav = (n: DeskNav) => {
       if (n === "plan") { stack.current = []; setView({ k: "plan" }); }
       else if (n === "settings") { stack.current = []; setView({ k: "settings" }); }
+      else if (n === "supplements") { stack.current = []; setView({ k: "supplements" }); }
       else home(n);
     };
     // Editors and forms read best at a comfortable width; overview pages use the full width
-    const narrow = ["cardio", "template", "program", "settings", "readiness", "workout", "food-edit", "recipe", "targets"].includes(view.k);
+    const narrow = ["cardio", "template", "program", "settings", "supplements", "readiness", "workout", "food-edit", "recipe", "targets"].includes(view.k);
     return (
       <DesktopContext.Provider value={true}>
         <div className="desk-shell">
@@ -510,6 +515,7 @@ export default function App() {
     { key: "plan", label: "Plan my week", icon: ShortcutIcons.plan, onClick: () => go({ k: "plan" }) },
     { key: "trends", label: "Nutrition trends", icon: ShortcutIcons.trends, onClick: () => { setTab("food"); go({ k: "nutrition" }); } },
     { key: "library", label: "Exercise library", icon: ShortcutIcons.library, onClick: () => home("exercises") },
+    { key: "supplements", label: "Supplements", icon: ShortcutIcons.supplements, onClick: () => go({ k: "supplements" }) },
   ];
 
   return (

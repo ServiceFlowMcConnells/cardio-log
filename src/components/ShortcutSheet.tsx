@@ -24,6 +24,7 @@ export const ShortcutIcons = {
   programs: sv(<path d="M4 6h16M4 12h16M4 18h10" />),
   plan: sv(<><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>),
   trends: sv(<><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>),
+  supplements: sv(<><rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-35 12 12)" /><path d="M9.9 9l4.2 6" /></>),
   library: sv(<path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5.5l3.8-1 3.7 14.5-3.8 1z" />),
 };
 

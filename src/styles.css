@@ -1284,3 +1284,22 @@ select.input { appearance: auto; }
 .oneoff-day.set { border-color: var(--m-c, var(--in)); box-shadow: inset 0 -3px 0 var(--m-c, var(--in)); }
 .oneoff-day.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
 .oneoff-day.on .small { color: inherit; opacity: 0.8; }
+
+/* Supplements reference page */
+.supp-legend { margin: 0 0 12px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.supp-slot { margin-bottom: 12px; }
+.supp-slot.now { box-shadow: inset 0 0 0 2px var(--lift); }
+.supp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.supp-when { margin: 2px 0 0; }
+.supp-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.supp-list li { padding: 10px 0; border-top: 1px solid var(--line); }
+.supp-list li:first-child { border-top: 0; padding-top: 4px; }
+.supp-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.supp-name { font-weight: 600; }
+.supp-dose { font-weight: 400; }
+.supp-benefit { margin: 3px 0 0; color: var(--ink); line-height: 1.4; }
+.supp-foot { margin: 4px 0 24px; }
+.chip.supp-now { background: var(--lift); color: #fff; }
+.chip.ev-strong { background: color-mix(in srgb, var(--in) 18%, transparent); color: var(--in); }
+.chip.ev-moderate { background: color-mix(in srgb, var(--tread) 16%, transparent); color: var(--tread); }
+.chip.ev-limited { background: color-mix(in srgb, var(--mob) 16%, transparent); color: var(--mob); }

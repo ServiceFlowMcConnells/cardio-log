@@ -1,6 +1,6 @@
 import type { Tab } from "./TabBar";
 
-export type DeskNav = Tab | "plan" | "settings";
+export type DeskNav = Tab | "plan" | "settings" | "supplements";
 
 const ITEMS: { id: DeskNav; label: string; icon: JSX.Element }[] = [
   { id: "week", label: "Dashboard", icon: <path d="M4 4h7v9H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 15h7v5H4z" /> },
@@ -10,6 +10,7 @@ const ITEMS: { id: DeskNav; label: string; icon: JSX.Element }[] = [
   { id: "exercises", label: "Exercises", icon: <path d="M7 7v10M17 7v10M4 9.5v5M20 9.5v5M7 12h10" /> },
   { id: "history", label: "History", icon: <path d="M4 6h16M4 12h16M4 18h10" /> },
   { id: "progress", label: "Progress", icon: <><path d="M3 17l5-5 4 3 8-8" /><path d="M15 7h5v5" /></> },
+  { id: "supplements", label: "Supplements", icon: <><rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-35 12 12)" /><path d="M9.9 9l4.2 6" /></> },
   { id: "settings", label: "Settings", icon: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /></> },
 ];
 
