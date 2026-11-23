@@ -16,10 +16,10 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
   const [water, setWater] = useState(false);
   useEffect(() => { if (supported) hydrationWriteAllowed().then((ok) => setWater(ok && hydrationWriteOn())).catch(() => undefined); }, [supported]);
   const toggleWater = () => run(async () => {
-    if (water) { stopHydrationWrite(); setWater(false); return "Kata will stop writing water to Health Connect."; }
+    if (water) { stopHydrationWrite(); setWater(false); return "RLNTLS will stop writing water to Health Connect."; }
     const ok = await connectHydration();
     setWater(ok);
-    return ok ? "Each drink you log (in the app or on the widget) will also go to Health Connect." : "Not allowed. You can allow \"Hydration\" for Kata in Health Connect's settings.";
+    return ok ? "Each drink you log (in the app or on the widget) will also go to Health Connect." : "Not allowed. You can allow \"Hydration\" for RLNTLS in Health Connect's settings.";
   });
 
   useEffect(() => { if (supported) healthStatus().then(setStatus).catch((e) => setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) })); }, [supported]);
@@ -32,7 +32,7 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
   const connect = () => run(async () => {
     const st = await connectHealth();
     setStatus(st);
-    if (!st.steps && !st.sleep) return "Nothing was allowed. Tap Connect again, or allow Kata in Health Connect's settings.";
+    if (!st.steps && !st.sleep) return "Nothing was allowed. Tap Connect again, or allow RLNTLS in Health Connect's settings.";
     const n = await syncHealth();
     onSynced();
     return `Connected. Brought in ${n} day${n === 1 ? "" : "s"}${st.history === false ? " (the last 30 days: allow \"past data\" in Health Connect for more)" : ""}.`;
@@ -58,14 +58,14 @@ export default function HealthConnectSettings({ activity, onSynced }: { activity
       <h2>Health Connect</h2>
       {!supported ? (
         <p className="muted small">
-          Steps and sleep come from Health Connect on your phone. Open Kata in the Android app (version 1.0.6 or later) to connect it.
+          Steps and sleep come from Health Connect on your phone. Open RLNTLS in the Android app (version 1.0.6 or later) to connect it.
           {lastSteps && ` Last synced data: ${lastSteps.steps!.toLocaleString("en-IE")} steps on ${dayName(lastSteps.day)}.`}
         </p>
       ) : status && !status.available ? (
         <p className="muted small">Health Connect isn't available on this phone{status.reason ? ` (${status.reason})` : ""}. On Android 13 or older, install "Health Connect" from the Play Store, then come back.</p>
       ) : (
         <>
-          <p className="muted small">Reads your daily steps and sleep (from your watch, phone or any app that writes to Health Connect). Kata only writes one thing, if you turn it on below: the water you log.</p>
+          <p className="muted small">Reads your daily steps and sleep (from your watch, phone or any app that writes to Health Connect). RLNTLS only writes one thing, if you turn it on below: the water you log.</p>
           {status && (
             <p className="small">
               Steps: <strong>{status.steps ? "allowed" : "not allowed"}</strong> · Sleep: <strong>{status.sleep ? "allowed" : "not allowed"}</strong>

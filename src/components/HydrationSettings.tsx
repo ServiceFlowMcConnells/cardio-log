@@ -45,7 +45,7 @@ export default function HydrationSettings({ settings, onSaved }: { settings: Set
         </form>
       </div>
       {widgetSupported() && (
-        <button className="btn block" onClick={async () => { const ok = await pinWidget(); setMsg(ok ? { ok: true, text: "Confirm on the next screen to add the widget." } : { ok: false, text: "Your launcher can't add it from here: long-press the home screen → Widgets → Kata." }); }}>
+        <button className="btn block" onClick={async () => { const ok = await pinWidget(); setMsg(ok ? { ok: true, text: "Confirm on the next screen to add the widget." } : { ok: false, text: "Your launcher can't add it from here: long-press the home screen → Widgets → RLNTLS." }); }}>
           Add the water widget to your home screen
         </button>
       )}

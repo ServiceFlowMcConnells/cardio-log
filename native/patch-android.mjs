@@ -27,7 +27,7 @@ for (const p of perms) if (!xml.includes(p.split('"')[1])) xml = xml.replace("</
 if (!xml.includes("android.hardware.camera")) xml = xml.replace("</manifest>", '    <uses-feature android:name="android.hardware.camera" android:required="false" />\n</manifest>');
 if (!xml.includes("RestAlarmReceiver")) xml = xml.replace("</application>", '        <receiver android:name=".RestAlarmReceiver" android:exported="false" />\n    </application>');
 // Water widget: the provider, its tap/midnight receiver
-if (!xml.includes(".WaterWidget")) xml = xml.replace("</application>", `        <receiver android:name=".WaterWidget" android:exported="true" android:label="Kata water">
+if (!xml.includes(".WaterWidget")) xml = xml.replace("</application>", `        <receiver android:name=".WaterWidget" android:exported="true" android:label="RLNTLS water">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/water_widget_info" />
         </receiver>
@@ -41,7 +41,17 @@ const strings = path.join(root, "res/values/strings.xml");
 let sx = fs.readFileSync(strings, "utf8");
 if (!sx.includes("water_widget_description")) sx = sx.replace("</resources>", '    <string name="water_widget_description">Water today, with a one-tap +</string>\n</resources>');
 if (!sx.includes("health_connect_privacy_policy_url")) sx = sx.replace("</resources>", '    <string name="health_connect_privacy_policy_url">https://training-log-coach.vercel.app/privacy.html</string>\n</resources>');
+sx = sx.replace(/<string name="app_name">[^<]*<\/string>/, '<string name="app_name">RLNTLS</string>').replace(/<string name="title_activity_main">[^<]*<\/string>/, '<string name="title_activity_main">RLNTLS</string>');
 fs.writeFileSync(strings, sx);
+
+// Android 13+ themed icons: add the one-colour chevrons to the adaptive launcher icons capacitor-assets made
+for (const name of ["ic_launcher.xml", "ic_launcher_round.xml"]) {
+  const f = path.join(root, "res/mipmap-anydpi-v26", name);
+  if (!fs.existsSync(f)) continue;
+  let ic = fs.readFileSync(f, "utf8");
+  if (!ic.includes("<monochrome")) ic = ic.replace("</adaptive-icon>", '    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />\n</adaptive-icon>');
+  fs.writeFileSync(f, ic);
+}
 
 // Health Connect needs Android 8 (API 26). Keep targeting API 34 so the app isn't forced edge-to-edge (the
 // layout already handles the status bar), while compiling against the SDK the plugins need.

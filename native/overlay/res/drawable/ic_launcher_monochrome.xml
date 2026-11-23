@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RLNTLS mark for Android 13+ themed icons: the three rising chevrons in one colour -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="5.75" android:strokeLineCap="square" android:strokeLineJoin="miter" android:pathData="M38.10,73.82 L54.00,59.38 L69.90,73.82"/>
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="5.75" android:strokeLineCap="square" android:strokeLineJoin="miter" android:pathData="M38.10,61.34 L54.00,46.90 L69.90,61.34"/>
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="5.75" android:strokeLineCap="square" android:strokeLineJoin="miter" android:pathData="M38.10,48.86 L54.00,34.42 L69.90,48.86"/>
+</vector>

@@ -1,68 +1,37 @@
 :root {
-  --ground: #e8ecee;
-  --panel: #ffffff;
-  --ink: #17232a;
-  --muted: #5b6b74;
-  --line: #d3dade;
-  --belt: #27333a;
-  --belt-tick: #3c4a52;
-  --signal: #ed202f;
+  /* RLNTLS: navy, red and white, from the app icon. One dark scheme everywhere. */
+  --ground: #111921;
+  --panel: #17212b;
+  --ink: #eef2f5;
+  --muted: #93a2ae;
+  --line: #2a3643;
+  --belt: #0b1218;
+  --belt-tick: #22303c;
+  --signal: #e5202e;
   --signal-ink: #ffffff;
-  --tread: #2d7bd3;
-  --bike: #7a57d1;
-  --lift: #0e7f86;
-  --in: #1b8f68;
-  --over: #c8402f;
-  --under: #6f8691;
-  --danger: #b3261e;
-  --mob: #c2620f;
-  --pr: #a86a00;
-  /* Macro colours, as MacroFactor: calories blue, protein salmon, fat yellow, carbs green. -ink = for text on light */
-  --m-k: #4a86ee;
-  --water: #2f80d8;
-  --deload: #8a5cd0;
-  --m-p: #f47a5a;
-  --m-f: #f5bd3a;
-  --m-c: #45ad72;
-  --m-k-ink: #2f6fdc;
-  --m-p-ink: #d9583a;
-  --m-f-ink: #a87700;
-  --m-c-ink: #2f8f58;
+  --tread: #5b9be6;
+  --bike: #a085ea;
+  --lift: #3cbfc6;
+  --in: #3cc293;
+  --over: #ec6c5f;
+  --under: #8aa1ac;
+  --danger: #f2877e;
+  --mob: #f0a050;
+  --pr: #f2b544;
+  /* Macro colours, as MacroFactor: calories blue, protein salmon, fat yellow, carbs green. -ink = for text */
+  --m-k: #6ea0f7;
+  --water: #5aa2f0;
+  --deload: #b08cf0;
+  --m-p: #ff8a6c;
+  --m-f: #ffc94d;
+  --m-c: #5cc48a;
+  --m-k-ink: #6ea0f7;
+  --m-p-ink: #ff8a6c;
+  --m-f-ink: #ffc94d;
+  --m-c-ink: #5cc48a;
   --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   --body: "Barlow", system-ui, -apple-system, sans-serif;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #10171b;
-    --panel: #18232a;
-    --ink: #e4eaed;
-    --muted: #93a3ab;
-    --line: #2a373e;
-    --belt: #0a1013;
-    --belt-tick: #23313a;
-    --tread: #5b9be6;
-    --bike: #a085ea;
-    --lift: #3cbfc6;
-    --in: #3cc293;
-    --over: #ec6c5f;
-    --under: #8aa1ac;
-    --danger: #f2877e;
-    --mob: #f0a050;
-    --pr: #f2b544;
-    --m-k: #6ea0f7;
-    --water: #5aa2f0;
-    --deload: #b08cf0;
-    --m-p: #ff8a6c;
-    --m-f: #ffc94d;
-    --m-c: #5cc48a;
-    --m-k-ink: #6ea0f7;
-    --m-p-ink: #ff8a6c;
-    --m-f-ink: #ffc94d;
-    --m-c-ink: #5cc48a;
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -269,7 +238,7 @@ table.bench td:not(:first-child), table.bench th:not(:first-child) { text-align:
 /* ---------- Auth ---------- */
 .auth { max-width: 400px; margin: 10vh auto 0; }
 .auth .mark { width: 64px; height: 64px; border-radius: 16px; margin-bottom: 18px; }
-.auth h1 { font-size: 2.6rem; margin-bottom: 6px; }
+.auth h1 { font-size: 2.6rem; letter-spacing: 0.18em; margin-bottom: 6px; }
 .auth form { margin-top: 22px; }
 
 .center-load { display: grid; place-items: center; min-height: 60vh; color: var(--muted); }
@@ -528,7 +497,7 @@ select.input { appearance: auto; }
   display: flex; flex-direction: column; gap: 14px;
   padding: 24px 16px; background: var(--panel); border-right: 1px solid var(--line);
 }
-.side-brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 1.35rem; padding: 0 6px; }
+.side-brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 1.35rem; letter-spacing: 0.18em; padding: 0 6px; }
 .side-brand img { border-radius: 8px; }
 .side-cta { min-height: 44px; }
 .side-nav { display: flex; flex-direction: column; gap: 2px; }

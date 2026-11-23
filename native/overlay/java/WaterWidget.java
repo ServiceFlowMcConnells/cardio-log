@@ -60,7 +60,7 @@ public class WaterWidget extends AppWidgetProvider {
         PendingIntent open = openApp(c);
         v.setOnClickPendingIntent(R.id.water_root, open);
         if (!WaterStore.signedIn(c)) {
-            v.setTextViewText(R.id.water_text, "Open Kata to sign in");
+            v.setTextViewText(R.id.water_text, "Open RLNTLS to sign in");
             v.setViewVisibility(R.id.water_bar, View.GONE);
             v.setViewVisibility(R.id.water_bar_done, View.GONE);
             v.setTextViewText(R.id.water_plus, "Open");
