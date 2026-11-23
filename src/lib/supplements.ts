@@ -54,7 +54,7 @@ export const SUPPLEMENT_STACK: SupplementSlot[] = [
     id: "bed",
     title: "About 1 hour before bed",
     items: [
-      { name: "Magnesium bisglycinate", dose: "750 mg", benefit: "Sleep quality, muscle relaxation and recovery. Gentle on the stomach.", evidence: "moderate" },
+      { name: "PER4M Zinc & Magnesium", dose: "2 capsules · 30–60 min before bed", benefit: "300 mg magnesium (bisglycinate, citrate, oxide), about 9 mg zinc and B6. Sleep quality, muscle relaxation, recovery and immunity.", evidence: "moderate" },
       { name: "Ashwagandha (KSM-66)", dose: "600 mg", benefit: "Lowers stress and cortisol; aids sleep, with modest strength and recovery gains.", evidence: "moderate" },
     ],
   },
