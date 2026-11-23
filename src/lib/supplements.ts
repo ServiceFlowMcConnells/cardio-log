@@ -31,7 +31,7 @@ export const SUPPLEMENT_STACK: SupplementSlot[] = [
     when: "With a meal containing some fat",
     items: [
       { name: "Multivitamin", dose: "1 capsule (1 of 3)", benefit: "Fills dietary gaps. The 3 daily capsules include 2,000 IU D3 and 8.25 mg zinc.", evidence: "moderate" },
-      { name: "Tongkat Ali", dose: "500 mg · 90-day course", benefit: "Testosterone, libido and energy support. Mornings only, as some find it stimulating.", evidence: "limited" },
+      { name: "Tongkat Ali (DNA Sports)", dose: "1 capsule · 300 mg · 90-day course", benefit: "Testosterone, libido and energy support. Mornings only, as some find it stimulating.", evidence: "limited" },
       { name: "Creatine", dose: "5 g", benefit: "Strength, power, lean mass and recovery. Daily consistency matters more than timing.", evidence: "strong" },
       { name: "Vitamin D3", dose: "2,000 IU", benefit: "Bones, immunity, muscle function and mood. With the multi, 4,000 IU a day in total.", evidence: "strong" },
       { name: "Omega-3", dose: "Per label", benefit: "Heart, joints and inflammation; may help mood. With food to avoid fishy burps.", evidence: "moderate" },
