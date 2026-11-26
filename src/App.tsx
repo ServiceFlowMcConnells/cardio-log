@@ -57,6 +57,7 @@ import TargetsEditor from "./components/food/TargetsEditor";
 import WeightView from "./components/food/Weight";
 import NutritionTrends from "./components/food/NutritionTrends";
 import Supplements from "./components/Supplements";
+import DeskTrain from "./components/desk/DeskTrain";
 
 export type View =
   | { k: "tabs" }
@@ -117,6 +118,7 @@ export default function App() {
   // Desktop: the shared date range in the top bar, and whether the sidebar is collapsed to icons
   const [deskRange, setDeskRangeState] = useState<DeskRange>(loadDeskRange);
   const setDeskRange = useCallback((r: DeskRange) => { setDeskRangeState(r); saveDeskRange(r); }, []);
+  const [deskExercise, setDeskExercise] = useState<string | null>(null);
   const [sideCollapsed, setSideCollapsed] = useState(() => { try { return localStorage.getItem("rlntls:side-collapsed") === "1"; } catch { return false; } });
 
   useEffect(() => {
@@ -423,6 +425,8 @@ export default function App() {
         onTrain={() => home("train")}
       />
     );
+  } else if (tab === "train" && desktop) {
+    body = <DeskTrain data={data} onChanged={refresh} onOpenExercise={(id) => { setDeskExercise(id); home("exercises"); }} onPlan={() => go({ k: "plan" })} />;
   } else if (tab === "train") {
     body = (
       <Train
@@ -450,6 +454,18 @@ export default function App() {
         onMakeRecipe={(items) => go({ k: "recipe", recipe: null, items })}
         onTrends={() => go({ k: "nutrition" })}
       />
+    );
+  } else if (tab === "exercises" && desktop) {
+    // Laptop: the library on the left, the selected exercise on the right
+    body = (
+      <div className="split">
+        <aside className="split-list"><ExerciseLibrary data={data} selected={deskExercise} onOpen={setDeskExercise} onChanged={refresh} /></aside>
+        <div className="split-detail">
+          {deskExercise && exercises.some((e) => e.id === deskExercise)
+            ? <div className="panel detail-panel"><ExerciseDetail key={deskExercise} exerciseId={deskExercise} data={data} onBack={() => setDeskExercise(null)} onChanged={refresh} onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })} /></div>
+            : <div className="panel split-empty"><p>Pick an exercise to see its progression, best lifts and recent sessions.</p></div>}
+        </div>
+      </div>
     );
   } else if (tab === "exercises") {
     body = <ExerciseLibrary data={data} onOpen={(id) => go({ k: "exercise", id })} onChanged={refresh} />;

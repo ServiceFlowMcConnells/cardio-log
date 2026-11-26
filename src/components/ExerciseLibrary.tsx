@@ -7,7 +7,7 @@ import { addExercises } from "../lib/strengthData";
 import { formatShort } from "../lib/dates";
 import { NewExerciseForm } from "./ExercisePicker";
 
-export default function ExerciseLibrary({ data, onOpen, onChanged }: { data: AppData; onOpen: (id: string) => void; onChanged: () => void }) {
+export default function ExerciseLibrary({ data, onOpen, onChanged, selected }: { data: AppData; onOpen: (id: string) => void; onChanged: () => void; selected?: string | null }) {
   const { exercises, workouts, settings } = data;
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
@@ -76,7 +76,7 @@ export default function ExerciseLibrary({ data, onOpen, onChanged }: { data: App
                 {l.map((e) => {
                   const s = stats(e.id);
                   return (
-                    <button key={e.id} className="list-row" onClick={() => onOpen(e.id)}>
+                    <button key={e.id} className={`list-row${selected === e.id ? " sel" : ""}`} aria-current={selected === e.id ? "true" : undefined} onClick={() => onOpen(e.id)}>
                       <span>
                         <strong>{e.name}</strong>{e.archived && <span className="chip" style={{ marginLeft: 6 }}>Archived</span>}
                         <span className="muted small" style={{ display: "block" }}>

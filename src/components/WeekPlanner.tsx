@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useDesktop } from "../lib/desktop";
+import { STATUS_LABEL, STATUS_TONE, coachExercise } from "../lib/coach";
 import type { AppData } from "../App";
 import type { Template } from "../lib/strength";
 import { MUSCLE_LABEL } from "../lib/strength";
@@ -92,6 +94,8 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
     return r;
   });
   const [busy, setBusy] = useState(false);
+  const desktop = useDesktop();
+  const [selDay, setSelDay] = useState(() => (dates.includes(today) ? today : dates[0]));
   const [error, setError] = useState<string | null>(null);
   const [deload, setDeload] = useState(() => isDeloadWeek(start));
   // Cardio for each day: type and target minutes (several allowed)
@@ -177,24 +181,27 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
     );
   }
 
-  return (
-    <>
-      <div className="editor-bar">
-        <div>
-          <h1>Plan your week</h1>
-          <p className="muted small">{active ? `Fills in ${active.name} in order. Change any day.` : "Pick the days you can train."}</p>
-        </div>
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
-      </div>
-      {nav}
-
-      <div className="cols plan-cols">
-      <div className="col">
+  const cardioItem = (d: string, i: number, c: PlannedCardio, dayName: string, past: boolean) => (
+<span key={i} className={`plan-cardio-item ${c.machine}`}>
+                    <select className="input" value={c.machine} disabled={past} onChange={(e) => setCardioAt(d, i, { machine: e.target.value as PlanMachine })} aria-label={`Cardio type for ${dayName}`}>
+                      {(Object.keys(PLAN_MACHINE_LABEL) as PlanMachine[]).map((m) => <option key={m} value={m}>{PLAN_MACHINE_LABEL[m]}</option>)}
+                    </select>
+                    <button type="button" className="icon-btn" disabled={past || c.minutes <= 5} onClick={() => setCardioAt(d, i, { minutes: Math.max(5, c.minutes - 5) })} aria-label="5 minutes less">−</button>
+                    <input className="input num" inputMode="numeric" value={c.minutes} disabled={past} aria-label={`Target minutes for ${dayName}`}
+                      onChange={(e) => setCardioAt(d, i, { minutes: Math.min(300, Number(e.target.value.replace(/[^0-9]/g, "")) || 0) })} onBlur={() => setCardioAt(d, i, { minutes: Math.max(5, c.minutes) })} />
+                    <span className="small muted">min</span>
+                    <button type="button" className="icon-btn" disabled={past || c.minutes >= 300} onClick={() => setCardioAt(d, i, { minutes: Math.min(300, c.minutes + 5) })} aria-label="5 minutes more">+</button>
+                    {!past && <button type="button" className="icon-btn plan-cardio-x" onClick={() => removeCardio(d, i)} aria-label={`Remove cardio on ${dayName}`}>×</button>}
+                  </span>
+                  );
+  const quickEl = (
       <div className="plan-quick" role="group" aria-label="Quick plans">
         <span className="small muted">Best spacing for</span>
         {[2, 3, 4].map((n) => <button key={n} className="fchip" onClick={() => quick(n)}>{n} days</button>)}
       </div>
 
+  );
+  const deloadEl = (
       <label className={`panel deload-toggle${deload ? " on" : ""}`}>
         <input type="checkbox" checked={deload} onChange={(e) => setDeload(e.target.checked)} />
         <span>
@@ -207,47 +214,9 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
         </span>
       </label>
 
-      <div className="panel list-panel" style={{ marginTop: 10 }}>
-        {dates.map((d) => {
-          const l = dayLabel(d, today);
-          const r = rows[d];
-          const past = isPast(d);
-          return (
-            <div key={d} className={`list-row static plan-row${r.template_id ? " on" : ""}${past ? " past" : ""}`}>
-              <button className="plan-day" onClick={() => toggle(d)} aria-pressed={Boolean(r.template_id)} disabled={past}>
-                <span className="plan-check" aria-hidden="true">{r.template_id ? "✓" : ""}</span>
-                <span>
-                  <strong>{l.top}</strong>
-                  <span className="small muted" style={{ display: "block" }}>{l.sub}</span>
-                </span>
-              </button>
-              <select className="input plan-select" value={r.template_id ?? ""} disabled={past} onChange={(e) => pick(d, e.target.value)} aria-label={`Workout for ${l.top}`}>
-                <option value="">Rest</option>
-                {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <div className="plan-cardio">
-                {cardio[d].map((c, i) => (
-                  <span key={i} className={`plan-cardio-item ${c.machine}`}>
-                    <select className="input" value={c.machine} disabled={past} onChange={(e) => setCardioAt(d, i, { machine: e.target.value as PlanMachine })} aria-label={`Cardio type for ${l.top}`}>
-                      {(Object.keys(PLAN_MACHINE_LABEL) as PlanMachine[]).map((m) => <option key={m} value={m}>{PLAN_MACHINE_LABEL[m]}</option>)}
-                    </select>
-                    <button type="button" className="icon-btn" disabled={past || c.minutes <= 5} onClick={() => setCardioAt(d, i, { minutes: Math.max(5, c.minutes - 5) })} aria-label="5 minutes less">−</button>
-                    <input className="input num" inputMode="numeric" value={c.minutes} disabled={past} aria-label={`Target minutes for ${l.top}`}
-                      onChange={(e) => setCardioAt(d, i, { minutes: Math.min(300, Number(e.target.value.replace(/[^0-9]/g, "")) || 0) })} onBlur={() => setCardioAt(d, i, { minutes: Math.max(5, c.minutes) })} />
-                    <span className="small muted">min</span>
-                    <button type="button" className="icon-btn" disabled={past || c.minutes >= 300} onClick={() => setCardioAt(d, i, { minutes: Math.min(300, c.minutes + 5) })} aria-label="5 minutes more">+</button>
-                    {!past && <button type="button" className="icon-btn plan-cardio-x" onClick={() => removeCardio(d, i)} aria-label={`Remove cardio on ${l.top}`}>×</button>}
-                  </span>
-                ))}
-                {!past && <button type="button" className="link small plan-cardio-add" onClick={() => addCardio(d)}>+ Cardio</button>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      </div>
-      <div className="col">
+  );
+  const summaryEl = (
+    <>
       <section className="section">
         <div className="page-head" style={{ marginBottom: 8 }}>
           <h2>Cardio</h2>
@@ -355,6 +324,269 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
         </section>
       )}
 
+    </>
+  );
+
+  if (desktop) {
+    const sel = dates.includes(selDay) ? selDay : dates[0];
+    const selT = templates.find((t) => t.id === rows[sel].template_id) ?? null;
+    const changesFor = (tid: string, eid: string) => weekChanges.filter((c) => c.templateId === tid && c.exerciseId === eid).reduce((a, c) => a + (c.kind === "dec" ? -c.by : c.by), 0);
+    const exMap = new Map(exercises.map((e) => [e.id, e]));
+    const opts = { formula: data.settings.e1rm_formula, inc: data.settings.weight_increment, adj: null, deload: deload, phase, lowRun: 0 };
+    const nowIso = new Date().toISOString();
+    const reps = (a: number, b: number) => (a === b ? `${a}` : `${a}–${b}`);
+    const selL = dayLabel(sel, today);
+    return (
+      <>
+        <div className="board-head">
+          {nav}
+          {quickEl}
+          <label className={`deload-chip${deload ? " on" : ""}`} title="About half the sets, ¾ of the reps, lighter loads. The week after picks up as normal.">
+            <input type="checkbox" checked={deload} onChange={(e) => setDeload(e.target.checked)} />
+            Deload week
+          </label>
+          <span className="board-spacer" />
+          <button className="btn ghost" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save plan"}</button>
+        </div>
+        {error && <p className="error">{error}</p>}
+        {deload && <p className="small deload-note">Deload: every session this week runs at about half the sets, ¾ of the reps, ~{Math.round((1 - DELOAD.loadFactor) * 100)}% lighter, stopping around RPE {DELOAD.rpe}.</p>}
+
+        <div className={`board${deload ? " deload" : ""}`}>
+          {dates.map((d) => {
+            const l = dayLabel(d, today);
+            const r = rows[d];
+            const past = isPast(d);
+            const t = templates.find((x) => x.id === r.template_id) ?? null;
+            const done = workouts.find((w) => w.started_at.slice(0, 10) === d);
+            return (
+              <div key={d} className={`board-day${t ? " on" : ""}${past ? " past" : ""}${sel === d ? " sel" : ""}${d === today ? " today" : ""}`}
+                onClick={() => setSelDay(d)} role="button" tabIndex={0} aria-pressed={sel === d} aria-label={`${l.top}, ${l.sub}`}
+                onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); setSelDay(d); } }}>
+                <div className="bd-head">
+                  <strong>{l.top}</strong>
+                  <span className="small muted">{l.sub}</span>
+                </div>
+                <select className="input bd-select" value={r.template_id ?? ""} disabled={past} onClick={(e) => e.stopPropagation()} onChange={(e) => { pick(d, e.target.value); setSelDay(d); }} aria-label={`Workout for ${l.top}`}>
+                  <option value="">Rest</option>
+                  {templates.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                </select>
+                {t ? (
+                  <ul className="bd-ex">
+                    {t.exercises.slice(0, 6).map((te, i) => <li key={i}><span>{exMap.get(te.exercise_id)?.name ?? "Exercise"}</span><span className="num muted">{te.sets}×</span></li>)}
+                    {t.exercises.length > 6 && <li className="muted">+{t.exercises.length - 6} more</li>}
+                  </ul>
+                ) : <p className="bd-rest muted small">{past && done ? `Done: ${done.name}` : "Rest"}</p>}
+                <div className="bd-cardio" onClick={(e) => e.stopPropagation()}>
+                  {cardio[d].map((c, i) => cardioItem(d, i, c, l.top, past))}
+                  {!past && <button type="button" className="link small" onClick={() => addCardio(d)}>+ Cardio</button>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="board-lower">
+          <section className="panel board-detail" aria-label={`${selL.top} details`}>
+            <div className="page-head" style={{ marginBottom: 6 }}>
+              <h2>{selL.top} <span className="muted small" style={{ fontFamily: "var(--body)", fontWeight: 400 }}>{selL.sub}</span></h2>
+              {selT && <span className="small muted">{selT.name}</span>}
+            </div>
+            {selT ? (
+              <>
+                <table className="bd-table">
+                  <thead><tr><th>Exercise</th><th>Coach target</th><th className="r">Sets</th><th className="r">Reps</th><th className="r">RPE</th><th className="r">Rest</th></tr></thead>
+                  <tbody>
+                    {selT.exercises.map((te, i) => {
+                      const pr = coachExercise(exMap.get(te.exercise_id), te.exercise_id,
+                        { sets: te.sets, rep_min: te.rep_min, rep_max: te.rep_max, target_rpe: te.target_rpe, progression: te.progression, on_stall: te.on_stall, increment_kg: te.increment_kg },
+                        workouts, baseTemplates, nowIso, opts);
+                      const delta = changesFor(selT.id, te.exercise_id);
+                      const past = isPast(sel);
+                      return (
+                        <tr key={i}>
+                          <td><strong>{exMap.get(te.exercise_id)?.name ?? "Exercise"}</strong>{pr && pr.status !== "build_reps" && pr.status !== "new" && <span className={`coach-chip tone-${STATUS_TONE[pr.status]}`} style={{ marginLeft: 6 }}>{STATUS_LABEL[pr.status]}</span>}</td>
+                          <td className="muted">{pr?.weight != null ? pr.headline : "No history yet"}</td>
+                          <td className="r">
+                            <span className="bd-sets">
+                              <button className="icon-btn" disabled={past || te.sets <= 1} aria-label="One set fewer this week" onClick={() => apply([{ templateId: selT.id, exerciseId: te.exercise_id, kind: "dec", by: 1 }])}>−</button>
+                              <span className="num">{te.sets}</span>
+                              <button className="icon-btn" disabled={past || te.sets >= 10} aria-label="One more set this week" onClick={() => apply([{ templateId: selT.id, exerciseId: te.exercise_id, kind: "inc", by: 1 }])}>+</button>
+                            </span>
+                            {delta !== 0 && <span className="small bd-delta">{delta > 0 ? `+${delta}` : delta} this week</span>}
+                          </td>
+                          <td className="r num">{reps(te.rep_min, te.rep_max)}</td>
+                          <td className="r num">{te.target_rpe ?? "–"}</td>
+                          <td className="r num">{te.rest_sec ? `${Math.floor(te.rest_sec / 60)}:${String(te.rest_sec % 60).padStart(2, "0")}` : "–"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <p className="chart-note">Set changes here apply to this week only and are saved with the plan. Coach targets are for the next time you do each lift.</p>
+              </>
+            ) : (
+              <p className="muted">{isPast(sel) ? "This day has passed." : "Rest day. Pick a workout for it in the board above, or add cardio."}</p>
+            )}
+            {weekChanges.length > 0 && (
+              <div className="bd-changes">
+                <div className="page-head" style={{ marginBottom: 4 }}>
+                  <strong>Adjusted for this week only</strong>
+                  <button className="link small" onClick={() => setWeekChanges([])}>Undo all</button>
+                </div>
+                <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>{weekChanges.map((c, i) => <li key={i}>{describe(c)}</li>)}</ul>
+              </div>
+            )}
+          </section>
+          <div className="board-side">
+      <section className="section">
+        <div className="page-head" style={{ marginBottom: 8 }}>
+          <h2>Cardio</h2>
+          <span className="muted small">Target {cardioTarget} min a week</span>
+        </div>
+        <div className="panel plan-cardio-sum">
+          <div className="belt-figure">
+            <span className="big">{Math.round(cardioProjected)}</span>
+            <span className="of">/ {cardioTarget} min</span>
+          </div>
+          <p className="small muted" style={{ margin: "-4px 0 8px" }}>{cardioLogged > 0 ? `${Math.round(cardioLogged)} done + ${Math.round(cardioAhead)} still planned` : `${Math.round(cardioAhead)} planned`}</p>
+          <div className="belt" role="progressbar" aria-valuemin={0} aria-valuemax={cardioTarget} aria-valuenow={Math.round(cardioProjected)}>
+            <div className="seg done-seg" style={{ width: `${Math.min(100, (cardioLogged / Math.max(cardioTarget, cardioProjected)) * 100)}%` }} />
+            <div className="seg planned-seg" style={{ width: `${Math.min(100, (cardioAhead / Math.max(cardioTarget, cardioProjected)) * 100)}%` }} />
+            {cardioProjected > cardioTarget && <div className="target-line" style={{ left: `calc(${(cardioTarget / cardioProjected) * 100}% - 1.5px)` }} />}
+          </div>
+          <p className="small muted" style={{ margin: "8px 0 0" }}>
+            {cardioPlannedAll === 0 && cardioLogged === 0 ? "Add cardio to any day with + Cardio: pick the type and how long."
+              : cardioProjected >= cardioTarget ? "This plan reaches your weekly target."
+              : `${Math.round(cardioTarget - cardioProjected)} min short of your target. Add a session or lengthen one.`}
+          </p>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2 style={{ marginBottom: 8 }}>{advice.sessions} session{advice.sessions === 1 ? "" : "s"} · coach check</h2>
+        <div className="stack">
+          {advice.items.filter((it) => !/weekly sets|High volume/.test(it.title)).map((it, i) => (
+            <div key={i} className={`coach-alert tone-${it.tone}`}>
+              <p><strong>{it.title}.</strong> {it.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {shown.length > 0 && (
+        <section className="section">
+          <div className="page-head" style={{ marginBottom: 8 }}>
+            <h2>Weekly sets</h2>
+            <span className="muted small">Targets for {phase ?? "maintenance"}</span>
+          </div>
+          <div className="panel">
+            {shown.map((m) => {
+              const t = setTarget(m.muscle as Muscle, phase);
+              const to = allChanges.length ? after.get(m.muscle as Muscle) ?? 0 : undefined;
+              const scale = Math.max(t.max + 4, m.sets, to ?? 0);
+              const pct = (v: number) => `${Math.min(100, (v / scale) * 100)}%`;
+              const state = m.sets < t.min ? "low" : m.sets > t.max ? "high" : "ok";
+              return (
+                <div key={m.muscle} className="set-row-target">
+                  <span className="st-label">{MUSCLE_LABEL[m.muscle]}<span className="small muted"> {m.sessions}×</span></span>
+                  <span className="st-track" aria-hidden="true">
+                    <span className="st-band" style={{ left: pct(t.min), width: `calc(${pct(t.max)} - ${pct(t.min)})` }} />
+                    {to != null && to !== m.sets && <span className="st-after" style={{ width: pct(to) }} />}
+                    <span className={`st-fill ${state}`} style={{ width: pct(m.sets) }} />
+                  </span>
+                  <span className="st-num num">{m.sets}{to != null && to !== m.sets ? <span className="st-to"> → {to}</span> : null}<span className="small muted"> / {t.min}–{t.max}</span></span>
+                </div>
+              );
+            })}
+            <p className="chart-note">Hard sets per week from the templates planned above. An exercise's main muscle counts in full and the muscles that help move the weight count half (triceps on bench, biceps on rows, glutes on squats), the counting that best predicted growth across 67 studies. Set them per exercise in its edit form. The shaded band is the target: 10+ sets per muscle is where most growth research lands{phase === "deficit" ? ", and in a deficit 10–16 holds muscle without outrunning recovery" : ""}.</p>
+          </div>
+
+          {sugg.some((x) => x.changes.length) ? (
+            <>
+              <h3 style={{ margin: "14px 0 6px" }}>To hit your targets</h3>
+              <div className="panel list-panel">
+                {sugg.filter((x) => x.changes.length).map((x) => (
+                  <div key={x.muscle} className="list-row static" style={{ alignItems: "flex-start" }}>
+                    <span style={{ minWidth: 0 }}>
+                      <strong>{MUSCLE_LABEL[x.muscle]}</strong> <span className="small muted">{x.from} → {x.to} sets</span>
+                      <span className="small" style={{ display: "block" }}>{x.text}</span>
+                      {x.note && <span className="small muted" style={{ display: "block" }}>{x.note}</span>}
+                    </span>
+                    <button className="link small" disabled={applying} onClick={() => apply(x.changes)}>Apply</button>
+                  </div>
+                ))}
+              </div>
+              <p className="muted small" style={{ marginTop: 6 }}>
+                After the changes: {[...totals.entries()].map(([id, n]) => `${templates.find((t) => t.id === id)?.name} ${n} sets`).join(", ")}. Sessions stay under about {SESSION_TOTAL_CAP} working sets (60–75 min) and any one muscle under ~10 sets per session. New exercises start at 8–12 reps @ RPE 8; the coach takes over from there.
+              </p>
+              <button className="btn block" style={{ marginTop: 8 }} disabled={applying} onClick={() => apply(allChanges)}>Apply all for this week</button>
+            </>
+          ) : advice.sessions > 0 && !full.length ? (
+            <p className="small" style={{ marginTop: 10 }}><span className="coach-chip tone-good">On target</span> Every muscle you train is in its weekly set range for this plan.</p>
+          ) : null}
+
+
+          {full.length > 0 && (
+            <div className="coach-alert tone-warn" style={{ marginTop: 10 }}>
+              <p><strong>{MUSCLE_LABEL[full[0].muscle]}{full.length > 1 ? ` and ${full.length - 1} more` : ""} can't reach target.</strong> {advice.sessions === 1 ? "One session" : `Your ${advice.sessions} sessions`} can't fit more without going past ~{SESSION_TOTAL_CAP} sets each. {advice.sessions < 4 ? "Another training day, even a 30-minute one, is how to get there." : "Trim another muscle to make room."} {phase === "deficit" ? "In a deficit, slightly under target with hard sets still holds muscle." : ""}</p>
+              {advice.sessions < 4 && <button className="btn ghost" onClick={() => quick(advice.sessions + 1)}>Try {advice.sessions + 1} days</button>}
+            </div>
+          )}
+        </section>
+      )}
+
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="editor-bar">
+        <div>
+          <h1>Plan your week</h1>
+          <p className="muted small">{active ? `Fills in ${active.name} in order. Change any day.` : "Pick the days you can train."}</p>
+        </div>
+        <button className="btn ghost" onClick={onClose}>Cancel</button>
+      </div>
+      {nav}
+
+      <div className="cols plan-cols">
+      <div className="col">
+      {quickEl}
+      {deloadEl}
+      <div className="panel list-panel" style={{ marginTop: 10 }}>
+        {dates.map((d) => {
+          const l = dayLabel(d, today);
+          const r = rows[d];
+          const past = isPast(d);
+          return (
+            <div key={d} className={`list-row static plan-row${r.template_id ? " on" : ""}${past ? " past" : ""}`}>
+              <button className="plan-day" onClick={() => toggle(d)} aria-pressed={Boolean(r.template_id)} disabled={past}>
+                <span className="plan-check" aria-hidden="true">{r.template_id ? "✓" : ""}</span>
+                <span>
+                  <strong>{l.top}</strong>
+                  <span className="small muted" style={{ display: "block" }}>{l.sub}</span>
+                </span>
+              </button>
+              <select className="input plan-select" value={r.template_id ?? ""} disabled={past} onChange={(e) => pick(d, e.target.value)} aria-label={`Workout for ${l.top}`}>
+                <option value="">Rest</option>
+                {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <div className="plan-cardio">
+                {cardio[d].map((c, i) => cardioItem(d, i, c, l.top, past))}
+                {!past && <button type="button" className="link small plan-cardio-add" onClick={() => addCardio(d)}>+ Cardio</button>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      </div>
+      <div className="col">
+      {summaryEl}
       </div>
       </div>
 
