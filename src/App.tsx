@@ -8,6 +8,8 @@ import { useHistoryTrap } from "./lib/backNav";
 import { DesktopContext, useDesktopMedia } from "./lib/desktop";
 import { setWeekStart } from "./lib/dates";
 import Sidebar, { type DeskNav } from "./components/Sidebar";
+import TopBar, { type Crumb } from "./components/desk/TopBar";
+import { DeskRangeContext, loadDeskRange, saveDeskRange, type DeskRange } from "./lib/deskRange";
 import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { loadSessions, loadSettings } from "./lib/data";
@@ -112,6 +114,10 @@ export default function App() {
   const [weighIn, setWeighIn] = useState(false);
   const [meditate, setMeditate] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // Desktop: the shared date range in the top bar, and whether the sidebar is collapsed to icons
+  const [deskRange, setDeskRangeState] = useState<DeskRange>(loadDeskRange);
+  const setDeskRange = useCallback((r: DeskRange) => { setDeskRangeState(r); saveDeskRange(r); }, []);
+  const [sideCollapsed, setSideCollapsed] = useState(() => { try { return localStorage.getItem("rlntls:side-collapsed") === "1"; } catch { return false; } });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuth(data.session));
@@ -471,15 +477,46 @@ export default function App() {
     };
     // Editors and forms read best at a comfortable width; overview pages use the full width
     const narrow = ["cardio", "template", "program", "settings", "supplements", "readiness", "workout", "food-edit", "recipe", "targets"].includes(view.k);
+    const SECTION: Record<DeskNav, string> = { week: "Dashboard", food: "Food", plan: "Plan my week", train: "Programs & templates", exercises: "Exercises", history: "History", progress: "Progress", supplements: "Supplements", settings: "Settings" };
+    const sub: string | null = (() => {
+      switch (view.k) {
+        case "cardio": return view.session ? "Edit cardio" : "Log cardio";
+        case "summary": return workouts.find((w) => w.id === view.workoutId)?.name ?? "Workout";
+        case "template": return view.template ? view.template.name : "New template";
+        case "program": return view.program ? view.program.name : "New program";
+        case "exercise": return exercises.find((e) => e.id === view.id)?.name ?? "Exercise";
+        case "readiness": return "Readiness scan";
+        case "food-add": return "Log food";
+        case "food-edit": return view.food ? "Edit food" : "New food";
+        case "recipe": return view.recipe ? "Edit recipe" : "New recipe";
+        case "targets": return "Targets";
+        case "nutrition": return "Nutrition trends";
+        case "weight": return "Weight";
+        case "photos": return "Progress photos";
+        case "workout": return "Workout";
+        default: return null;
+      }
+    })();
+    const crumbs: Crumb[] = [{ label: SECTION[deskActive], onClick: () => onNav(deskActive) }, ...(sub ? [{ label: sub }] : [])];
+    // Screens whose charts and lists follow the top bar's date range
+    const showRange = false;
     return (
       <DesktopContext.Provider value={true}>
-        <div className="desk-shell">
-          <Sidebar active={deskActive} onNav={onNav} onLogCardio={() => go({ k: "cardio", session: null })} onLogFood={() => { setFoodDay(todayYmd()); stack.current = []; setView({ k: "food-add" }); }} email={auth.user.email ?? ""} />
-          <main className={`app desk${narrow ? " narrow" : ""}`}>
-            {banner}
-            {body}
-          </main>
-        </div>
+        <DeskRangeContext.Provider value={{ range: deskRange, setRange: setDeskRange }}>
+          <div className={`desk-shell${sideCollapsed ? " side-collapsed" : ""}`}>
+            <Sidebar active={deskActive} onNav={onNav} email={auth.user.email ?? ""} collapsed={sideCollapsed}
+              onToggle={() => setSideCollapsed((c) => { try { localStorage.setItem("rlntls:side-collapsed", c ? "0" : "1"); } catch { /* private mode */ } return !c; })} />
+            <div className="desk-main">
+              <TopBar crumbs={crumbs} showRange={showRange}
+                onLogCardio={() => go({ k: "cardio", session: null })}
+                onLogFood={() => { setFoodDay(todayYmd()); stack.current = []; setView({ k: "food-add" }); }} />
+              <main className={`app desk${narrow ? " narrow" : ""}`}>
+                {banner}
+                {body}
+              </main>
+            </div>
+          </div>
+        </DeskRangeContext.Provider>
       </DesktopContext.Provider>
     );
   }

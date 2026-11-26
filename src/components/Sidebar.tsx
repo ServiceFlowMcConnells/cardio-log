@@ -14,29 +14,28 @@ const ITEMS: { id: DeskNav; label: string; icon: JSX.Element }[] = [
   { id: "settings", label: "Settings", icon: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /></> },
 ];
 
-export default function Sidebar({ active, onNav, onLogCardio, onLogFood, email }: { active: DeskNav; onNav: (n: DeskNav) => void; onLogCardio: () => void; onLogFood: () => void; email: string }) {
+export default function Sidebar({ active, onNav, email, collapsed, onToggle }: { active: DeskNav; onNav: (n: DeskNav) => void; email: string; collapsed: boolean; onToggle: () => void }) {
   return (
-    <aside className="sidebar" aria-label="Main">
+    <aside className={`sidebar${collapsed ? " collapsed" : ""}`} aria-label="Main">
       <div className="side-brand">
-        <img src="/icon.svg" alt="" width="32" height="32" />
-        <span>RLNTLS</span>
-      </div>
-      <div className="side-ctas">
-        <button className="btn primary side-cta" onClick={onLogFood}>+ Log food</button>
-        <button className="btn ghost side-cta" onClick={onLogCardio}>+ Log cardio</button>
+        <img src="/icon.svg" alt="" width="30" height="30" />
+        <span className="side-label">RLNTLS</span>
       </div>
       <nav className="side-nav">
         {ITEMS.map((it) => (
-          <button key={it.id} className={`side-item${active === it.id ? " active" : ""}`} aria-current={active === it.id ? "page" : undefined} onClick={() => onNav(it.id)}>
+          <button key={it.id} className={`side-item${active === it.id ? " active" : ""}`} aria-current={active === it.id ? "page" : undefined} onClick={() => onNav(it.id)} title={collapsed ? it.label : undefined} aria-label={collapsed ? it.label : undefined}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{it.icon}</svg>
-            {it.label}
+            <span className="side-label">{it.label}</span>
           </button>
         ))}
       </nav>
-      <p className="side-foot small muted">
-        Desktop view for planning and editing. Record strength workouts on your phone.
-        <span style={{ display: "block", marginTop: 6 }}>{email}</span>
-      </p>
+      <div className="side-foot">
+        {!collapsed && <p className="small muted side-note">Record strength workouts on your phone.<span className="side-email">{email}</span></p>}
+        <button className="side-item side-toggle" onClick={onToggle} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{collapsed ? <path d="M9 6l6 6-6 6" /> : <path d="M15 6l-6 6 6 6" />}</svg>
+          <span className="side-label">Collapse</span>
+        </button>
+      </div>
     </aside>
   );
 }
