@@ -9,7 +9,7 @@ import { DesktopContext, useDesktopMedia } from "./lib/desktop";
 import { setWeekStart } from "./lib/dates";
 import Sidebar, { type DeskNav } from "./components/Sidebar";
 import TopBar, { type Crumb } from "./components/desk/TopBar";
-import { DeskRangeContext, loadDeskRange, saveDeskRange, type DeskRange } from "./lib/deskRange";
+import { DeskRangeContext, inRange, loadDeskRange, saveDeskRange, type DeskRange } from "./lib/deskRange";
 import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { loadSessions, loadSettings } from "./lib/data";
@@ -421,7 +421,7 @@ export default function App() {
   } else if (tab === "history") {
     body = (
       <History
-        data={data}
+        data={desktop ? { ...data, sessions: data.sessions.filter((x) => inRange(deskRange, x.performed_at)), workouts: data.workouts.filter((x) => inRange(deskRange, x.started_at)) } : data}
         onOpenSession={(s) => go({ k: "cardio", session: s })}
         onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })}
         onTrain={() => home("train")}
@@ -518,7 +518,7 @@ export default function App() {
     const crumbs: Crumb[] = [{ label: SECTION[deskActive], onClick: () => onNav(deskActive) }, ...(sub ? [{ label: sub }] : [])];
     // Screens whose charts and lists follow the top bar's date range
     const onProgress = view.k === "tabs" && tab === "progress";
-    const showRange = onProgress || view.k === "nutrition" || view.k === "weight";
+    const showRange = onProgress || (view.k === "tabs" && tab === "history") || view.k === "nutrition" || view.k === "weight";
     const tabs = onProgress ? {
       items: [...PROGRESS_MODES, { id: "photos", label: "Photos" }],
       active: progMode as string,

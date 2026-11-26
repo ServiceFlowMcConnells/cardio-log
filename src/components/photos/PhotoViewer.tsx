@@ -1,3 +1,4 @@
+import { useDesktop } from "../../lib/desktop";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PhotoDay, Pose, ProgressPhoto } from "../../lib/photos";
@@ -17,6 +18,7 @@ export default function PhotoViewer({ days, weights, start, compare: compare0, o
 }) {
   const [pose, setPose] = useState<Pose>(() => (POSES.find((p) => days.find((d) => d.day === start)?.photos[p]) ?? "front"));
   const [compare, setCompare] = useState(Boolean(compare0));
+  const desktop = useDesktop();
   // Days (oldest → newest, like the filmstrip) that have this pose
   const list = useMemo(() => days.filter((d) => d.photos[pose]).map((d) => d.photos[pose]!).sort((a, b) => a.taken_on.localeCompare(b.taken_on)), [days, pose]);
   const [top, setTop] = useState<string | null>(start ?? null); // the newer photo (or the only one)
@@ -88,7 +90,7 @@ export default function PhotoViewer({ days, weights, start, compare: compare0, o
   })() : null;
 
   return createPortal(
-    <div className="pv" style={{ background: tint }} role="dialog" aria-modal="true" aria-label="Progress photos">
+    <div className={`pv${desktop ? " desk-pv" : ""}`} style={{ background: tint }} role="dialog" aria-modal="true" aria-label="Progress photos">
       <div className="pv-top">
         <button className="icon-btn" aria-label="Back" onClick={onClose}>
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>

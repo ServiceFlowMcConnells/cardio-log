@@ -1424,3 +1424,12 @@ select.input { appearance: auto; }
 .tb-right { margin-left: auto; }
 .sp-left, .split-list, .split-detail, .board-detail { top: var(--tb-h, 84px); max-height: calc(100vh - var(--tb-h, 84px) - 20px); }
 .board-detail { max-height: none; }
+
+/* Photo viewer on a laptop: two dates side by side, as large as the window allows */
+.pv.desk-pv .pv-main.two { flex-direction: row; align-items: stretch; justify-content: center; gap: 20px; padding: 10px 40px; }
+.pv.desk-pv .pv-main.two .pv-card { flex: 0 1 560px; }
+.pv.desk-pv .pv-main.two .pv-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; }
+.pv.desk-pv .pv-main.two .pv-img { height: calc(100vh - 340px); width: auto; max-width: 100%; }
+.pv.desk-pv .pv-main.two .pv-w { justify-items: center; }
+.pv.desk-pv .pv-main.two .pv-diff { align-self: center; max-width: 110px; }
+.pv.desk-pv .pv-img { width: auto; height: calc(100vh - 250px); }
