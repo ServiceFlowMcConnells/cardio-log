@@ -33,7 +33,7 @@ import type { Exercise, Template, Workout } from "./lib/strength";
 import Auth from "./components/Auth";
 import WeekView from "./components/WeekView";
 import History from "./components/History";
-import Progress from "./components/Progress";
+import Progress, { MODE_KEY as PROGRESS_MODE_KEY, PROGRESS_MODES, type Mode as ProgressMode } from "./components/Progress";
 import SettingsView from "./components/SettingsView";
 import SessionEditor, { hasDraft as hasCardioDraft } from "./components/SessionEditor";
 import TabBar, { type Tab } from "./components/TabBar";
@@ -118,6 +118,8 @@ export default function App() {
   // Desktop: the shared date range in the top bar, and whether the sidebar is collapsed to icons
   const [deskRange, setDeskRangeState] = useState<DeskRange>(loadDeskRange);
   const setDeskRange = useCallback((r: DeskRange) => { setDeskRangeState(r); saveDeskRange(r); }, []);
+  const [progMode, setProgModeState] = useState<ProgressMode>(() => { try { return (localStorage.getItem(PROGRESS_MODE_KEY) as ProgressMode) || "strength"; } catch { return "strength"; } });
+  const setProgMode = (m: ProgressMode) => { setProgModeState(m); try { localStorage.setItem(PROGRESS_MODE_KEY, m); } catch { /* private mode */ } };
   const [deskExercise, setDeskExercise] = useState<string | null>(null);
   const [sideCollapsed, setSideCollapsed] = useState(() => { try { return localStorage.getItem("rlntls:side-collapsed") === "1"; } catch { return false; } });
 
@@ -470,7 +472,7 @@ export default function App() {
   } else if (tab === "exercises") {
     body = <ExerciseLibrary data={data} onOpen={(id) => go({ k: "exercise", id })} onChanged={refresh} />;
   } else {
-    body = <Progress data={data} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} setNutri={setNutri} onPhotos={(add) => go({ k: "photos", add })} />;
+    body = <Progress data={data} mode={desktop ? progMode : undefined} onChanged={refresh} onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} setNutri={setNutri} onPhotos={(add) => go({ k: "photos", add })} />;
   }
 
   const FOOD_VIEWS = new Set<View["k"]>(["food-add", "food-edit", "recipe", "targets", "weight", "nutrition"]);
@@ -515,7 +517,13 @@ export default function App() {
     })();
     const crumbs: Crumb[] = [{ label: SECTION[deskActive], onClick: () => onNav(deskActive) }, ...(sub ? [{ label: sub }] : [])];
     // Screens whose charts and lists follow the top bar's date range
-    const showRange = false;
+    const onProgress = view.k === "tabs" && tab === "progress";
+    const showRange = onProgress || view.k === "nutrition" || view.k === "weight";
+    const tabs = onProgress ? {
+      items: [...PROGRESS_MODES, { id: "photos", label: "Photos" }],
+      active: progMode as string,
+      onPick: (id: string) => (id === "photos" ? go({ k: "photos" }) : setProgMode(id as ProgressMode)),
+    } : undefined;
     return (
       <DesktopContext.Provider value={true}>
         <DeskRangeContext.Provider value={{ range: deskRange, setRange: setDeskRange }}>
@@ -523,7 +531,7 @@ export default function App() {
             <Sidebar active={deskActive} onNav={onNav} email={auth.user.email ?? ""} collapsed={sideCollapsed}
               onToggle={() => setSideCollapsed((c) => { try { localStorage.setItem("rlntls:side-collapsed", c ? "0" : "1"); } catch { /* private mode */ } return !c; })} />
             <div className="desk-main">
-              <TopBar crumbs={crumbs} showRange={showRange}
+              <TopBar crumbs={crumbs} showRange={showRange} tabs={tabs}
                 onLogCardio={() => go({ k: "cardio", session: null })}
                 onLogFood={() => { setFoodDay(todayYmd()); stack.current = []; setView({ k: "food-add" }); }} />
               <main className={`app desk${narrow ? " narrow" : ""}`}>

@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { rangeBounds, useDeskRange } from "../../lib/deskRange";
 import type { DayTotal, NutritionData } from "../../lib/nutrition";
 import { addDays, dayTotals, fromYmd, targetFor, todayYmd, ymd } from "../../lib/nutrition";
 import { startOfWeek } from "../../lib/dates";
@@ -51,12 +52,24 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
   // 1W is a calendar week from your week start day; longer ranges run back from the anchor day
   const presetEnd = range === 7 ? addDays(weekStartOf(anchor), 6) : anchor;
   const presetStart = range === 7 ? weekStartOf(anchor) : range ? addDays(presetEnd, -(range - 1)) : first;
-  const start = custom?.start ?? presetStart;
-  const end = custom?.end ?? presetEnd;
+  // On a laptop the top bar's date range sets the window
+  const desk = useDeskRange();
+  const deskKey = desk ? JSON.stringify(desk.range) : "";
+  const deskWin = useMemo(() => {
+    if (!desk) return null;
+    const b = rangeBounds(desk.range);
+    const s = b.from ? ymd(b.from) : first;
+    const e = ymd(b.to);
+    return { start: s < e ? s : e, end: e };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deskKey, first]);
+  useEffect(() => { if (desk) { setCustom(null); setAggPick(null); setSel(null); } }, [deskKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const start = custom?.start ?? deskWin?.start ?? presetStart;
+  const end = custom?.end ?? deskWin?.end ?? presetEnd;
   const span = daysBetween(start, end);
-  const zoomed = custom != null && (!range || span !== range - 1); // dragging along keeps the preset; pinching doesn't
+  const zoomed = custom != null && (deskWin != null || !range || span !== range - 1); // dragging along keeps the preset; pinching doesn't
   const lastDay = addDays(today, 7); // you can log a week ahead
-  const agg: Agg = aggPick ?? (custom ? (span > 400 ? "M" : span > 120 ? "W" : "D") : range === 0 ? (daysBetween(first, end) > 200 ? "M" : "W") : range >= 182 ? "W" : "D");
+  const agg: Agg = aggPick ?? (custom || deskWin ? (span > 400 ? "M" : span > 120 ? "W" : "D") : range === 0 ? (daysBetween(first, end) > 200 ? "M" : "W") : range >= 182 ? "W" : "D");
 
   function onPinch(p: Pinch) {
     if (p.phase === "start") { gesture.current = { start, end }; setSel(null); return; }
@@ -155,9 +168,11 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
         />
 
         <div className="ntr-controls">
-          <div className="seg ntr-ranges" role="group" aria-label="Range">
-            {RANGES.map(({ r, label: l }) => <button key={l} className={range === r && !zoomed ? "on" : ""} aria-pressed={range === r && !zoomed} onClick={() => { setRange(r); setEnd(today); setCustom(null); setSel(null); setAggPick(null); }}>{l}</button>)}
-          </div>
+          {!deskWin && (
+            <div className="seg ntr-ranges" role="group" aria-label="Range">
+              {RANGES.map(({ r, label: l }) => <button key={l} className={range === r && !zoomed ? "on" : ""} aria-pressed={range === r && !zoomed} onClick={() => { setRange(r); setEnd(today); setCustom(null); setSel(null); setAggPick(null); }}>{l}</button>)}
+            </div>
+          )}
           <select className="input ntr-agg" value={agg} onChange={(e) => { setAggPick(e.target.value as Agg); setSel(null); }} aria-label="Group by">
             <option value="D">Days</option>
             <option value="W">Weeks</option>

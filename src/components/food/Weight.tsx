@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { rangeBounds, useDeskRange } from "../../lib/deskRange";
 import type { Checkin } from "../../lib/readiness";
 import { PHASE_LABEL, PHASE_RATE, latestPhase } from "../../lib/readiness";
 import type { NutritionData, TrendPoint } from "../../lib/nutrition";
@@ -147,6 +148,8 @@ function rateVerdict(ratePct: number, checkins: Checkin[]) {
   return `${where === "on" ? "On" : where[0].toUpperCase() + where.slice(1)} target for ${PHASE_LABEL[phase].toLowerCase()} (${b.text}).`;
 }
 
+const todayYmdOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 export type Range = 7 | 30 | 91 | 182 | 365 | 0;
 const RANGES: { r: Range; l: string }[] = [{ r: 7, l: "1W" }, { r: 30, l: "1M" }, { r: 91, l: "3M" }, { r: 182, l: "6M" }, { r: 365, l: "1Y" }, { r: 0, l: "All" }];
 
@@ -160,11 +163,25 @@ export function useTimeWindow(first: string, last: string, initial: Range) {
   const [anchor, setAnchor] = useState(last);
   const [custom, setCustom] = useState<{ start: string; end: string } | null>(null);
   const gesture = useRef<{ start: string; end: string } | null>(null);
+  // On a laptop the top bar's date range sets the window (dragging and pinching still work from there)
+  const desk = useDeskRange();
+  const deskKey = desk ? JSON.stringify(desk.range) : "";
+  const deskWin = useMemo(() => {
+    if (!desk) return null;
+    const b = rangeBounds(desk.range);
+    let s = b.from ? todayYmdOf(b.from) : first, e = todayYmdOf(b.to);
+    if (e > last) e = last;
+    if (s < first) s = first;
+    if (s > e) s = e;
+    return { start: s, end: e };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deskKey, first, last]);
+  useEffect(() => { if (desk) { setCustom(null); setAggPick(null); } }, [deskKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const rangeStart = range ? (addDays(anchor, -(range - 1)) < first ? first : addDays(anchor, -(range - 1))) : first;
-  const start = custom?.start ?? rangeStart;
-  const end = custom?.end ?? anchor;
+  const start = custom?.start ?? deskWin?.start ?? rangeStart;
+  const end = custom?.end ?? deskWin?.end ?? anchor;
   const span = Math.max(1, daysApart(start, end));
-  const zoomed = custom != null && (!range || span !== range - 1); // dragging along keeps the preset; pinching doesn't
+  const zoomed = custom != null && (deskWin != null || !range || span !== range - 1); // dragging along keeps the preset; pinching doesn't
   const onPinch = (p: Pinch) => {
     if (p.phase === "start") { gesture.current = { start, end }; return; }
     if (p.phase === "end") { gesture.current = null; return; }
@@ -174,9 +191,10 @@ export function useTimeWindow(first: string, last: string, initial: Range) {
     setAggPick(null);
   };
   const shift = (dir: -1 | 1) => {
-    if (custom) {
+    const base = custom ?? deskWin;
+    if (base) {
       const total = daysApart(first, last);
-      let s = daysApart(first, custom.start) + dir * span;
+      let s = daysApart(first, base.start) + dir * span;
       s = Math.max(0, Math.min(total - span, s));
       setCustom({ start: addDays(first, s), end: addDays(first, s + span) });
       return;
@@ -188,7 +206,7 @@ export function useTimeWindow(first: string, last: string, initial: Range) {
     setAnchor(n);
   };
   const pickRange = (r: Range) => { setRange(r); setAnchor(last); setCustom(null); setAggPick(null); };
-  return { range, pickRange, aggPick, setAggPick, start, end, zoomed, onPinch, shift, canShift: !!range || custom != null, first, last };
+  return { range, pickRange, aggPick, setAggPick, start, end, zoomed, onPinch, shift, canShift: !!range || custom != null || deskWin != null, first, last, desk: deskWin != null };
 }
 export type TimeWindow = ReturnType<typeof useTimeWindow>;
 
@@ -205,9 +223,11 @@ export function WindowNav({ w }: { w: TimeWindow }) {
 export function WindowControls({ w, agg }: { w: TimeWindow; agg: Agg }) {
   return (
     <div className="ntr-controls">
-      <div className="seg ntr-ranges" role="group" aria-label="Range">
-        {RANGES.map(({ r, l }) => <button key={l} className={w.range === r && !w.zoomed ? "on" : ""} aria-pressed={w.range === r && !w.zoomed} onClick={() => w.pickRange(r)}>{l}</button>)}
-      </div>
+      {!w.desk && (
+        <div className="seg ntr-ranges" role="group" aria-label="Range">
+          {RANGES.map(({ r, l }) => <button key={l} className={w.range === r && !w.zoomed ? "on" : ""} aria-pressed={w.range === r && !w.zoomed} onClick={() => w.pickRange(r)}>{l}</button>)}
+        </div>
+      )}
       <select className="input ntr-agg" value={agg} onChange={(e) => w.setAggPick(e.target.value as Agg)} aria-label="Granularity">
         <option value="D">Days</option>
         <option value="W">Weeks</option>

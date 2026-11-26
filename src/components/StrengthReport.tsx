@@ -1,5 +1,6 @@
 import { deloadSpans } from "../lib/deload";
 import { useMemo, useState } from "react";
+import { rangeWeeks, useDeskRange } from "../lib/deskRange";
 import type { AppData } from "../App";
 import type { LiftStatus, LiftTrend, Stat } from "../lib/strengthReport";
 import { STATUS_LABEL, strengthReport } from "../lib/strengthReport";
@@ -20,8 +21,12 @@ const ICON: Record<LiftStatus, string> = { up: "▲", hold: "●", stalled: "⏸
 const sign = (n: number, d = 1) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toFixed(d)}`;
 
 /** Strength report: the last 4 (or 8 / 12) weeks against the period before, in one standard layout. */
-export default function StrengthReport({ data, onOpenExercise }: { data: AppData; onOpenExercise: (id: string) => void }) {
-  const [weeks, setWeeks] = useState(4);
+export default function StrengthReport({ data, onOpenExercise, selected }: { data: AppData; onOpenExercise: (id: string) => void; selected?: string | null }) {
+  const [ownWeeks, setWeeks] = useState(4);
+  // Laptop: the top bar's range is the period (All = half your history, so there's a period before to compare)
+  const desk = useDeskRange();
+  const histWeeks = data.workouts.length ? Math.ceil((Date.now() - new Date(data.workouts[data.workouts.length - 1].started_at).getTime()) / (7 * 86400000)) : 4;
+  const weeks = desk ? Math.max(2, Math.min(104, rangeWeeks(desk.range) ?? Math.ceil(histWeeks / 2))) : ownWeeks;
   const r = useMemo(() => strengthReport({ workouts: data.workouts, exercises: data.exercises, templates: data.templates, checkins: data.checkins, nutrition: data.nutrition, activity: data.activity, formula: data.settings.e1rm_formula }, weeks),
     [data.workouts, data.exercises, data.templates, data.checkins, data.nutrition, data.activity, data.settings.e1rm_formula, weeks]);
   const [open, setOpen] = useState<Set<Group>>(new Set());
@@ -47,9 +52,11 @@ export default function StrengthReport({ data, onOpenExercise }: { data: AppData
     <section className="panel sr">
       <div className="page-head" style={{ marginBottom: 6 }}>
         <h2>Strength report</h2>
-        <div className="seg sr-weeks" role="group" aria-label="Period">
-          {[4, 8, 12].map((w) => <button key={w} className={weeks === w ? "on" : ""} aria-pressed={weeks === w} onClick={() => setWeeks(w)}>{w}W</button>)}
-        </div>
+        {!desk && (
+          <div className="seg sr-weeks" role="group" aria-label="Period">
+            {[4, 8, 12].map((w) => <button key={w} className={weeks === w ? "on" : ""} aria-pressed={weeks === w} onClick={() => setWeeks(w)}>{w}W</button>)}
+          </div>
+        )}
       </div>
       <p className="small muted" style={{ margin: "0 0 10px" }}>
         Last {r.weeks} weeks vs the {r.weeks} before{r.phase ? ` · ${r.phase} phase` : ""}
@@ -93,7 +100,7 @@ export default function StrengthReport({ data, onOpenExercise }: { data: AppData
                 </button>
                 {open.has(g) && (
                   <div className="sr-group-body">
-                    {lifts.map((l) => <LiftRow key={l.id} l={l} from={r.from} onOpen={() => onOpenExercise(l.id)} />)}
+                    {lifts.map((l) => <LiftRow key={l.id} l={l} from={r.from} sel={selected === l.id} onOpen={() => onOpenExercise(l.id)} />)}
                   </div>
                 )}
               </div>
@@ -150,9 +157,9 @@ function Ctx({ label, now, sub, tone }: { label: string; now: string | null; sub
   );
 }
 
-function LiftRow({ l, from, onOpen }: { l: LiftTrend; from: number; onOpen: () => void }) {
+function LiftRow({ l, from, onOpen, sel }: { l: LiftTrend; from: number; onOpen: () => void; sel?: boolean }) {
   return (
-    <button className={`sr-lift ${l.status}`} onClick={onOpen}>
+    <button className={`sr-lift ${l.status}${sel ? " sel" : ""}`} aria-current={sel ? "true" : undefined} onClick={onOpen}>
       <span className="sr-lift-main">
         <span className="sr-lift-name">{l.name}</span>
         <span className="small muted">{l.reason}</span>

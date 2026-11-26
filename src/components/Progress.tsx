@@ -12,10 +12,15 @@ import { MACHINE_LABEL } from "../lib/types";
 import { formatShort, weekLabel } from "../lib/dates";
 import { benchmarkKey, groupByWeek, outputPerBeat, recentWeeks, sessionMinutes, settingsSummary, zoneFor } from "../lib/calc";
 import { WeeklyBars, TrendChart, trendText, type Point } from "./Charts";
+import { inRange, rangeWeeks, useDeskRange } from "../lib/deskRange";
+import { useDesktop } from "../lib/desktop";
+import type { Workout } from "../lib/strength";
 
 function OutputSection({ machine, sessions }: { machine: Machine; sessions: Session[] }) {
+  const desk = useDeskRange();
   const points: Point[] = [];
   for (const s of sessions) {
+    if (desk && !inRange(desk.range, s.performed_at)) continue;
     for (const b of s.blocks) {
       if (b.machine !== machine) continue;
       const v = outputPerBeat(b);
@@ -114,7 +119,10 @@ function Benchmarks({ sessions }: { sessions: Session[] }) {
 function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; settings: Settings; onLog: () => void }) {
   const z = zoneFor(settings);
   const map = groupByWeek(sessions, z);
-  const weeks = recentWeeks(map, 12);
+  const desk = useDeskRange();
+  const histWeeks = sessions.length ? Math.ceil((Date.now() - new Date(sessions[sessions.length - 1].performed_at).getTime()) / (7 * 86400000)) + 1 : 12;
+  const nWeeks = desk ? Math.max(4, Math.min(104, rangeWeeks(desk.range) ?? histWeeks)) : 12;
+  const weeks = recentWeeks(map, nWeeks);
   const target = settings.weekly_target_min;
   const firstLogged = sessions.length ? new Date(sessions[sessions.length - 1].performed_at).getTime() : Date.now();
   // Only count finished weeks since you started logging
@@ -158,7 +166,7 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
       <section className="panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
           <h2>Weekly minutes</h2>
-          <span className="muted small">Last 12 weeks</span>
+          <span className="muted small">Last {nWeeks} weeks</span>
         </div>
         <WeeklyBars weeks={weeks.map((w) => ({ start: w.start, value: w.minutes }))} target={target} unit="min" />
         <p className="chart-note">
@@ -215,13 +223,18 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
   );
 }
 
-type Mode = "cardio" | "strength" | "body" | "nutrition" | "weight";
-const MODE_KEY = "cardio-log:progress-mode";
+export type Mode = "cardio" | "strength" | "body" | "nutrition" | "weight";
+export const MODE_KEY = "cardio-log:progress-mode";
+export const PROGRESS_MODES: { id: Mode; label: string }[] = [
+  { id: "strength", label: "Strength" }, { id: "cardio", label: "Cardio" }, { id: "nutrition", label: "Nutrition" }, { id: "weight", label: "Weight" }, { id: "body", label: "Recovery" },
+];
 
-export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onOpenFoodDay, setNutri, onPhotos }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onOpenFoodDay: (day: string) => void; setNutri: (f: (n: NutritionData) => NutritionData) => void; onPhotos: (add?: boolean) => void }) {
-  const [mode, setMode] = useState<Mode>(() => {
+export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onOpenFoodDay, setNutri, onPhotos, mode: modeProp, onChanged, onOpenWorkout }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onOpenFoodDay: (day: string) => void; setNutri: (f: (n: NutritionData) => NutritionData) => void; onPhotos: (add?: boolean) => void; mode?: Mode; onChanged?: () => void; onOpenWorkout?: (w: Workout) => void }) {
+  const desktop = useDesktop();
+  const [ownMode, setMode] = useState<Mode>(() => {
     try { return (localStorage.getItem(MODE_KEY) as Mode) || "strength"; } catch { return "strength"; }
   });
+  const mode = modeProp ?? ownMode;
   const pick = (m: Mode) => {
     setMode(m);
     try { localStorage.setItem(MODE_KEY, m); } catch { /* ignore */ }
@@ -229,19 +242,20 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, o
   return (
     <>
       <div className="page-head"><h1>Progress</h1></div>
-      <div className="seg progress-seg" role="group" aria-label="Progress type" style={{ marginBottom: 14 }}>
+      {!modeProp && <div className="seg progress-seg" role="group" aria-label="Progress type" style={{ marginBottom: 14 }}>
         <button className={mode === "strength" ? "on" : ""} aria-pressed={mode === "strength"} onClick={() => pick("strength")}>Strength</button>
         <button className={mode === "cardio" ? "on" : ""} aria-pressed={mode === "cardio"} onClick={() => pick("cardio")}>Cardio</button>
         <button className={mode === "nutrition" ? "on" : ""} aria-pressed={mode === "nutrition"} onClick={() => pick("nutrition")}>Nutrition</button>
         <button className={mode === "weight" ? "on" : ""} aria-pressed={mode === "weight"} onClick={() => pick("weight")}>Weight</button>
         <button className={mode === "body" ? "on" : ""} aria-pressed={mode === "body"} onClick={() => pick("body")}>Recovery</button>
-      </div>
+      </div>}
       {mode === "nutrition" && <NutritionTrends nutri={data.nutrition} onOpenDay={onOpenFoodDay} />}
       {mode === "weight" && <PhotosCard onOpen={() => onPhotos()} onAdd={() => onPhotos(true)} />}
       {mode === "weight" && <WeightView nutri={data.nutrition} checkins={data.checkins} setNutri={setNutri} embedded />}
+      {mode === "strength" && desktop && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} onChanged={onChanged} onOpenWorkout={onOpenWorkout} />}
       <div className="progress-body">
       {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}
-      {mode === "strength" && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
+      {mode === "strength" && !desktop && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
       {mode === "body" && <BodyProgress data={data} onScan={onOpenCheckin} />}
       </div>
     </>

@@ -22,8 +22,19 @@ export default function TopBar({ crumbs, showRange, onLogFood, onLogCardio, tabs
     return () => { document.removeEventListener("mousedown", off); document.removeEventListener("keydown", esc); };
   }, [custom]);
   const r = ctx?.range;
+  // Sticky panes sit just under the bar, which can wrap to two rows on narrower laptops
+  const bar = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = bar.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const set = () => document.documentElement.style.setProperty("--tb-h", `${Math.round(el.getBoundingClientRect().height) + 24}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <header className="topbar">
+    <header className="topbar" ref={bar}>
       <div className="tb-left">
         <nav className="crumbs" aria-label="Breadcrumb">
           {crumbs.map((c, i) => (

@@ -6,13 +6,20 @@ import { addDays, startOfWeek, weekKey } from "../lib/dates";
 import { WeeklyBars } from "./Charts";
 import { Delta } from "./WorkoutLogger";
 import StrengthReport from "./StrengthReport";
+import ExerciseDetail from "./ExerciseDetail";
+import { useState } from "react";
+import { rangeWeeks, useDeskRange } from "../lib/deskRange";
+import { useDesktop } from "../lib/desktop";
 
 const DAY = 86400000;
 // Common evidence-based range for weekly hard sets per muscle for growth (e.g. Schoenfeld et al.; RP volume landmarks).
 const SETS_LOW = 10;
 const SETS_HIGH = 20;
 
-export default function StrengthProgress({ data, onLog, onOpenExercise }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void }) {
+export default function StrengthProgress({ data, onLog, onOpenExercise, onChanged, onOpenWorkout }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onChanged?: () => void; onOpenWorkout?: (w: Workout) => void }) {
+  const desktop = useDesktop();
+  const desk = useDeskRange();
+  const [selLift, setSelLift] = useState<string | null>(null);
   const { workouts, exercises, settings } = data;
   const f = settings.e1rm_formula;
 
@@ -28,7 +35,9 @@ export default function StrengthProgress({ data, onLog, onOpenExercise }: { data
   const exMap = new Map(exercises.map((e) => [e.id, e]));
   const cur = startOfWeek(new Date());
   const weeks: { start: Date; value: number; list: Workout[] }[] = [];
-  for (let i = 11; i >= 0; i--) {
+  const histWeeks = workouts.length ? Math.ceil((Date.now() - new Date(workouts[workouts.length - 1].started_at).getTime()) / (7 * 86400000)) + 1 : 12;
+  const nWeeks = desk ? Math.max(5, Math.min(104, rangeWeeks(desk.range) ?? histWeeks)) : 12;
+  for (let i = nWeeks - 1; i >= 0; i--) {
     const start = addDays(cur, -7 * i);
     const k = weekKey(start);
     const list = workouts.filter((w) => weekKey(new Date(w.started_at)) === k);
@@ -69,13 +78,11 @@ export default function StrengthProgress({ data, onLog, onOpenExercise }: { data
     .sort((a, b) => b.last.localeCompare(a.last));
 
   const lastFull = weeks[weeks.length - 2];
-  return (
-    <>
-      <StrengthReport data={data} onOpenExercise={onOpenExercise} />
+  const volumeEl = (
       <section className="panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
           <h2>Weekly volume</h2>
-          <span className="muted small">Last 12 weeks</span>
+          <span className="muted small">Last {nWeeks} weeks</span>
         </div>
         <WeeklyBars weeks={weeks} unit="kg" format={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}t` : String(Math.round(v)))} deload={weekHasDeload} />
         <p className="chart-note">
@@ -84,7 +91,8 @@ export default function StrengthProgress({ data, onLog, onOpenExercise }: { data
           {weeks.some((w) => weekHasDeload(w.start)) && <> <span className="deload-key">Deload weeks</span> are shaded and marked D.</>}
         </p>
       </section>
-
+  );
+  const setsEl = (
       <section className="section panel">
         <h2>Hard sets per muscle</h2>
         <p className="chart-note" style={{ marginTop: 2 }}>
@@ -114,6 +122,33 @@ export default function StrengthProgress({ data, onLog, onOpenExercise }: { data
           </div>
         )}
       </section>
+  );
+  if (desktop) {
+    const sel = selLift && exercises.some((e) => e.id === selLift) ? selLift : null;
+    return (
+      <div className="sp-desk">
+        <div className="sp-left"><StrengthReport data={data} selected={sel} onOpenExercise={(id) => setSelLift((c) => (c === id ? null : id))} /></div>
+        <div className="sp-right">
+          {sel ? (
+            <div className="panel detail-panel">
+              <ExerciseDetail key={sel} exerciseId={sel} data={data} onBack={() => setSelLift(null)} onChanged={onChanged ?? (() => undefined)} onOpenWorkout={onOpenWorkout ?? (() => undefined)} />
+            </div>
+          ) : (
+            <>
+              <p className="small muted sp-hint">Click a lift in the report to open its chart, rep maxes and sessions here.</p>
+              {volumeEl}
+              {setsEl}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <>
+      <StrengthReport data={data} onOpenExercise={onOpenExercise} />
+      {volumeEl}
+      {setsEl}
 
       <section className="section">
         <h2>Lifts</h2>

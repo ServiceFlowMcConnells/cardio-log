@@ -39,7 +39,7 @@ export function rangeBounds(r: DeskRange, now = new Date()): { from: Date | null
 export function rangeWeeks(r: DeskRange, now = new Date()): number | null {
   const { from, to } = rangeBounds(r, now);
   if (!from) return null;
-  return Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (7 * 86400000)));
+  return Math.max(1, Math.round((to.getTime() - from.getTime()) / (7 * 86400000)));
 }
 export function rangeLabel(r: DeskRange): string {
   if (r.preset === "custom" && r.from && r.to) {
