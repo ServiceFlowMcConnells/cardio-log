@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Equipment, Exercise, Muscle } from "../lib/strength";
-import { EQUIPMENT, EQUIPMENT_LABEL, MUSCLES, MUSCLE_LABEL, SECONDARY_MUSCLES, inferSecondary } from "../lib/strength";
+import { EQUIPMENT, EQUIPMENT_LABEL, MUSCLES, MUSCLE_LABEL, SECONDARY_MUSCLES, inferSecondary, secondaryOf } from "../lib/strength";
 import { saveExercise } from "../lib/strengthData";
 
 interface Props {
@@ -9,10 +9,12 @@ interface Props {
   onPick: (ids: string[]) => void;
   onClose: () => void;
   onCreated: () => void;
+  /** Swapping this exercise: one tap picks, and exercises for the same muscle are offered first. */
+  swapFor?: Exercise;
 }
 
 /** Full-screen picker: search, filter by muscle, select several, or create a new exercise. */
-export default function ExercisePicker({ exercises, title = "Add exercises", onPick, onClose, onCreated }: Props) {
+export default function ExercisePicker({ exercises, title = "Add exercises", onPick, onClose, onCreated, swapFor }: Props) {
   const [q, setQ] = useState("");
   const [muscle, setMuscle] = useState<Muscle | "all">("all");
   const [picked, setPicked] = useState<string[]>([]);
@@ -27,7 +29,26 @@ export default function ExercisePicker({ exercises, title = "Add exercises", onP
     .sort((a, b) => a.name.localeCompare(b.name));
   const usedMuscles = MUSCLES.filter((m) => all.some((e) => e.muscle === m && !e.archived));
 
-  const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  const toggle = (id: string) => (swapFor ? onPick([id]) : setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])));
+  // Swap: same main muscle first (closest equipment first), then exercises that also work it, then everything else
+  const target = swapFor?.muscle;
+  const browsing = Boolean(swapFor) && !q.trim() && muscle === "all";
+  const same = browsing ? list.filter((e) => e.id !== swapFor!.id && e.muscle === target).sort((a, b) => Number(b.equipment === swapFor!.equipment) - Number(a.equipment === swapFor!.equipment) || a.name.localeCompare(b.name)) : [];
+  const helps = browsing ? list.filter((e) => e.id !== swapFor!.id && e.muscle !== target && secondaryOf(e).includes(target!)) : [];
+  const shownIds = new Set([...same, ...helps].map((e) => e.id));
+  const rest = list.filter((e) => !shownIds.has(e.id) && e.id !== swapFor?.id);
+  const row = (e: Exercise) => {
+    const on = picked.includes(e.id);
+    return (
+      <button key={e.id} className={`pick-row${on ? " on" : ""}`} onClick={() => toggle(e.id)} aria-pressed={swapFor ? undefined : on}>
+        <span>
+          <strong>{e.name}</strong>
+          <span className="muted small" style={{ display: "block" }}>{MUSCLE_LABEL[e.muscle]}, {EQUIPMENT_LABEL[e.equipment].toLowerCase()}</span>
+        </span>
+        {swapFor ? <span className="muted" aria-hidden="true">›</span> : <span className="tick" aria-hidden="true">{on ? picked.indexOf(e.id) + 1 : ""}</span>}
+      </button>
+    );
+  };
 
   return (
     <div className="picker">
@@ -51,6 +72,7 @@ export default function ExercisePicker({ exercises, title = "Add exercises", onP
           onCancel={() => setCreating(false)}
           onSaved={(e) => {
             setExtra((x) => [...x, e]);
+            if (swapFor) { onCreated(); onPick([e.id]); return; }
             setPicked((p) => [...p, e.id]);
             setCreating(false);
             setQ("");
@@ -63,27 +85,20 @@ export default function ExercisePicker({ exercises, title = "Add exercises", onP
         </button>
       )}
 
+      {swapFor && <p className="small muted" style={{ margin: "10px 2px 0" }}>Swapping <strong>{swapFor.name}</strong> ({MUSCLE_LABEL[swapFor.muscle]}). Tap one to swap.</p>}
       <div className="pick-list">
         {list.length === 0 && <p className="muted small" style={{ padding: "12px 4px" }}>No exercises match. Create one above.</p>}
-        {list.map((e) => {
-          const on = picked.includes(e.id);
-          return (
-            <button key={e.id} className={`pick-row${on ? " on" : ""}`} onClick={() => toggle(e.id)} aria-pressed={on}>
-              <span>
-                <strong>{e.name}</strong>
-                <span className="muted small" style={{ display: "block" }}>{MUSCLE_LABEL[e.muscle]}, {EQUIPMENT_LABEL[e.equipment].toLowerCase()}</span>
-              </span>
-              <span className="tick" aria-hidden="true">{on ? picked.indexOf(e.id) + 1 : ""}</span>
-            </button>
-          );
-        })}
+        {same.length > 0 && <><h3 className="group-h pick-h">Same muscle: {MUSCLE_LABEL[target!]}</h3>{same.map(row)}</>}
+        {helps.length > 0 && <><h3 className="group-h pick-h">Also works {MUSCLE_LABEL[target!].toLowerCase()}</h3>{helps.map(row)}</>}
+        {(same.length > 0 || helps.length > 0) && rest.length > 0 && <h3 className="group-h pick-h">All exercises</h3>}
+        {rest.map(row)}
       </div>
 
-      <div className="save-bar">
+      {!swapFor && <div className="save-bar">
         <button className="btn dark block" disabled={!picked.length} onClick={() => onPick(picked)}>
           {picked.length ? `Add ${picked.length} exercise${picked.length === 1 ? "" : "s"}` : "Select exercises"}
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

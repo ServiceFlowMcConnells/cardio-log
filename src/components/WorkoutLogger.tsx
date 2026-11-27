@@ -25,7 +25,7 @@ const planOf = (te: Template["exercises"][number]): Plan => ({
   progression: te.progression, on_stall: te.on_stall, increment_kg: te.increment_kg,
 });
 interface LSet { key: string; set_type: SetType; weight: string; reps: string; rpe: string; done: boolean }
-interface LExercise { key: string; exercise_id: string; plan: Plan | null; sets: LSet[] }
+interface LExercise { key: string; exercise_id: string; plan: Plan | null; sets: LSet[]; /** Swapped in during this workout (the template keeps the original) */ swappedFrom?: string }
 interface Draft {
   id?: string;
   template_id: string | null;
@@ -444,11 +444,28 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
       <ExercisePicker
         exercises={exercises}
         title={picking.replaceKey ? "Swap exercise" : "Add exercises"}
+        swapFor={picking.replaceKey ? exMap.get(draft.exercises.find((e) => e.key === picking.replaceKey)?.exercise_id ?? "") : undefined}
         onClose={() => setPicking(null)}
         onCreated={onCreatedExercise}
         onPick={(ids) => {
           if (picking.replaceKey) {
-            updEx(picking.replaceKey, (e) => ({ ...e, exercise_id: ids[0] }));
+            // Hot swap, for this workout only. Sets already done stay with the original exercise; the rest move
+            // to the new one, cleared so the coach's suggestions for it show. The template is never changed.
+            const key = picking.replaceKey;
+            update((d) => {
+              const i = d.exercises.findIndex((e) => e.key === key);
+              if (i < 0 || !ids[0]) return d;
+              const old = d.exercises[i];
+              if (ids[0] === old.exercise_id) return d;
+              const done = old.sets.filter((s) => s.done);
+              const todo = old.sets.filter((s) => !s.done).map((s) => ({ ...emptySet(), set_type: s.set_type }));
+              const from = old.swappedFrom ?? old.exercise_id;
+              const fresh: LExercise = { key: uid(), exercise_id: ids[0], plan: old.plan, sets: todo.length ? todo : [emptySet()], swappedFrom: from === ids[0] ? undefined : from };
+              const next = [...d.exercises];
+              if (done.length) next.splice(i, 1, { ...old, sets: done }, fresh);
+              else next.splice(i, 1, { ...fresh, key: old.key });
+              return { ...d, exercises: next };
+            });
           } else {
             update((d) => ({ ...d, exercises: [...d.exercises, ...ids.map((id) => ({ key: uid(), exercise_id: id, plan: null, sets: [emptySet(), emptySet(), emptySet()] }))] }));
           }
@@ -617,6 +634,7 @@ export default function WorkoutLogger({ workout, template, data, onClose, onSave
                 <button className="icon-btn" aria-label="Remove exercise" onClick={() => update((d) => ({ ...d, exercises: d.exercises.filter((x) => x.key !== ex.key) }))}>✕</button>
               </div>
             </div>
+            {ex.swappedFrom && <p className="small lift-swapped">Swapped from {exMap.get(ex.swappedFrom)?.name ?? "the plan"} for this workout only. Your template keeps the original.</p>}
             {(ex.plan?.notes || info?.notes) && <p className="small lift-note">{ex.plan?.notes || info?.notes}</p>}
             {sug.presc && (
               <div className={`coach-box tone-${STATUS_TONE[sug.presc.status]}`}>

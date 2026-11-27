@@ -1595,3 +1595,6 @@ select.input { appearance: auto; }
 .more-head h2 { margin: 0; font-size: 1.15rem; }
 .desk .prog > .page-head { display: none; }
 .desk .prog-body > .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.pick-h { margin: 14px 4px 6px; }
+.lift-swapped { margin: 2px 0 6px; color: var(--signal); }

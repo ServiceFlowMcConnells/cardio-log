@@ -35,6 +35,7 @@ export default function SessionPreview({ data, hero, onStart, onClose, onCreated
       <ExercisePicker
         exercises={exercises}
         title="Swap for"
+        swapFor={exercises.find((e) => e.id === swapFor)}
         onClose={() => setSwapFor(null)}
         onCreated={onCreatedExercise}
         onPick={(ids) => {
