@@ -1471,7 +1471,7 @@ select.input { appearance: auto; }
 .hero-card:active { transform: scale(0.995); }
 .hero-chev { position: absolute; right: -36px; bottom: -58px; width: 230px; height: 230px; color: var(--signal); opacity: 0.13; pointer-events: none; }
 .hero-kicker { font-size: 0.85rem; color: var(--muted); position: relative; padding-right: 28px; }
-.hero-name { position: relative; font-family: var(--display); font-size: 2.9rem; font-weight: 800; line-height: 0.92; letter-spacing: 0.01em; overflow-wrap: anywhere; }
+.hero-name { --hero-fs: 2.9rem; display: block; min-width: 0; max-width: 100%; position: relative; font-family: var(--display); font-size: var(--hero-fs); font-weight: 800; line-height: 0.92; letter-spacing: 0.01em; overflow-wrap: normal; word-break: keep-all; hyphens: none; }
 .hero-facts { position: relative; display: grid; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 0.92rem; }
 .hero-facts > span { display: flex; align-items: flex-start; gap: 8px; }
 .hero-facts svg { flex: none; margin-top: 2px; }
@@ -1504,7 +1504,7 @@ select.input { appearance: auto; }
   .home-grid { grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); gap: 20px; align-items: start; }
   .home-week { max-width: none; }
   .quote { font-size: 2.3rem; }
-  .hero-name { font-size: 3.4rem; }
+  .hero-name { --hero-fs: 3.4rem; }
   .tile { min-height: 132px; }
 }
 /* Session preview */
@@ -1703,3 +1703,9 @@ select.input { appearance: auto; }
 .gap-plus { font-size: 1.2rem; line-height: 1; color: var(--muted); }
 .food-hero .hero-chev { width: 150px; height: 150px; right: -30px; bottom: -48px; opacity: 0.08; }
 .food-side { position: sticky; top: var(--tb-h, 84px); align-self: start; }
+
+/* More sub-views: the back row already names the screen */
+.more-view .sub-hide { display: none; }
+/* Desktop: pages live in the sidebar, so no Done buttons */
+.desk .done-btn { display: none; }
+.desk .evening { max-width: 760px; margin-inline: auto; }

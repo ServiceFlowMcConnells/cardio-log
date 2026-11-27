@@ -546,7 +546,7 @@ function PlanWeek({ data, onClose, onSaved, start, today, nav }: Props & { start
     <>
       <div className="editor-bar">
         <div>
-          <h1>Plan your week</h1>
+          <h1>Plan my week</h1>
           <p className="muted small">{active ? `Fills in ${active.name} in order. Change any day.` : "Pick the days you can train."}</p>
         </div>
         <button className="btn ghost" onClick={onClose}>Cancel</button>

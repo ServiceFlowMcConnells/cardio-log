@@ -83,7 +83,7 @@ export default function SettingsView({ settings, sessions, workouts, exercises, 
     <>
       <div className="editor-bar">
         <h1>Settings</h1>
-        <button className="btn ghost" onClick={onBack}>Done</button>
+        <button className="btn ghost done-btn" onClick={onBack}>Done</button>
       </div>
       <form className="panel stack" onSubmit={save}>
         <h2>Targets</h2>

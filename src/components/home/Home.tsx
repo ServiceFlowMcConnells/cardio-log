@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AppData } from "../../App";
 import type { Template, Workout } from "../../lib/strength";
 import { MUSCLE_LABEL } from "../../lib/strength";
@@ -71,6 +71,24 @@ export function heroSession(data: AppData, today = ymd(new Date())): HeroSession
     if (up) return { template: up.template, date: restToday ? addDaysYmd(today, 1) : today, label: "Next up", sub: up.program && up.step != null ? `${up.program.name} · workout ${String.fromCharCode(65 + up.step)} of ${up.program.steps.length}` : null };
   }
   return null;
+}
+
+/** Shrinks a display title until its longest word fits on one line, so names never break mid-word. */
+function FitName({ text, className = "hero-name" }: { text: string; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.fontSize = "";
+      let size = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollWidth > el.clientWidth + 1 && size > 22) { size -= 2; el.style.fontSize = `${size}px`; }
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [text]);
+  return <span ref={ref} className={className}>{text}</span>;
 }
 
 export default function Home({ data, onPreview, onPlan, goSettings, onScan, onSteps, onCardio, onEvening, onOpenWorkout, side }: Props) {
@@ -230,7 +248,7 @@ function HeroCard({ data, hero, onOpen }: { data: AppData; hero: HeroSession; on
     <button className="hero-card" onClick={onOpen} aria-label={`${t.name}, ${hero.label}. Open the session`}>
       <Chevrons />
       <span className="hero-kicker">{hero.label === "Today" || hero.label === "Next up" ? (hero.sub ?? "Strength session") : `${hero.label}${hero.sub ? ` · ${hero.sub}` : ""}`}</span>
-      <span className="hero-name">{t.name.toUpperCase()}</span>
+      <FitName text={t.name.toUpperCase()} />
       <span className="hero-facts">
         <span><Ico d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" />≈ {mins} min</span>
         <span><Ico d="M4 12h2M18 12h2M6 8v8M18 8v8M8 10v4M16 10v4M8 12h8" />{t.exercises.length} exercise{t.exercises.length === 1 ? "" : "s"} · {sets} sets</span>

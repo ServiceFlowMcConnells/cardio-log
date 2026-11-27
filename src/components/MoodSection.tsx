@@ -62,7 +62,7 @@ export default function MoodSection({ data, part = "all" }: { data: AppData; par
       {show("headspace") && gadList.length > 0 && (
         <section className="section panel">
           <div className="page-head" style={{ marginBottom: 4 }}>
-            <h2>{HEADSPACE_NAME}</h2>
+            <h2 className={part === "headspace" ? "sub-hide" : undefined}>{HEADSPACE_NAME}</h2>
             <span className="muted small">Every 2 weeks</span>
           </div>
           <div className="gad-latest">
@@ -76,7 +76,7 @@ export default function MoodSection({ data, part = "all" }: { data: AppData; par
 
       {show("habits") && mood.size > 0 && (
         <section className="section panel">
-          <h2>Mood and your habits</h2>
+          <h2 className={part === "habits" ? "sub-hide" : undefined}>Mood and your habits</h2>
           {links.length > 0 ? (
             <div className="mlinks">
               {links.map((l) => {

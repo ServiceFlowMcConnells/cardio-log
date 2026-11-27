@@ -165,10 +165,10 @@ export function RecoveryHero({ data, onActivity }: { data: AppData; onActivity: 
           gad?.gad7 ? `Headspace ${gadBand(gadScore(gad.gad7)).toLowerCase()} · ${gadScore(gad.gad7)} on ${formatShort(new Date(gad.checked_at))}` : null,
         ]} />
       <div className="tiles">
-        <Tile h="Sleep" v={sleep != null ? `${sleep.toFixed(1)} h` : "–"} s="7–9 h recommended" tone={sleep != null ? (sleep >= 7 ? "ok" : "warn") : undefined} onClick={jump("chart-sleep")} />
+        <Tile h="Sleep" v={sleep != null ? `${sleep.toFixed(1)} h` : "–"} s="7–9 h recommended" tone={sleep != null ? (Math.round(sleep * 10) >= 70 ? "ok" : "warn") : undefined} onClick={jump("chart-sleep")} />
         <Tile h="Steps" v={steps != null ? n0(steps) : "–"} s={`avg · target ${n0(data.settings.step_target || 15000)}`} onClick={onActivity} />
-        <Tile h="Water" v={waterAvg != null ? `${(waterAvg / 1000).toFixed(1)} L` : "–"} s={`avg · target ${((data.settings.water_target_ml || 3000) / 1000).toFixed(1)}`} onClick={onActivity} />
-        <Tile h="Meditation" v={`${medMin} min`} s={`${streak(mByDay)}-day streak`} onClick={onActivity} />
+        <Tile h="Water" v={waterAvg != null ? `${(waterAvg / 1000).toFixed(1)} L` : "–"} s={`avg · target ${((data.settings.water_target_ml || 3000) / 1000).toFixed(1)} L`} onClick={onActivity} />
+        <Tile h="Meditation" v={`${medMin} min`} s={streak(mByDay) > 1 ? `${streak(mByDay)}-day streak` : "this period"} onClick={onActivity} />
       </div>
     </>
   );

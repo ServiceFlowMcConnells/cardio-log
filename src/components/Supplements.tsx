@@ -28,7 +28,7 @@ export default function Supplements({ onBack }: { onBack: () => void }) {
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <button className="btn ghost" onClick={() => { setEditing((e) => !e); setForm(null); setConfirm(null); }}>{editing ? "Finish editing" : "Edit"}</button>
-          {!editing && <button className="btn ghost" onClick={onBack}>Done</button>}
+          {!editing && <button className="btn ghost done-btn" onClick={onBack}>Done</button>}
         </div>
       </div>
       {error && <p className="error">{error}</p>}
