@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useBackHandler } from "../lib/backNav";
+import Chevrons from "./Chevrons";
 import type { DayActivity } from "../lib/health";
 import { hm } from "../lib/health";
 import type { Checkin, Phase } from "../lib/readiness";
@@ -111,7 +113,27 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
     setHours(String(Math.max(0, Math.min(16, Math.round((cur + d) * 2) / 2))));
   };
 
-  async function save() {
+  // ---------- Stepped flow (new scans): one topic per screen ----------
+  type Step = "feel" | "sleep" | "body" | "mood" | "head" | "details" | "result";
+  const steps: Step[] = ["feel", "sleep", "body", "mood", ...(gadAsk ? (["head"] as Step[]) : []), "details", "result"];
+  const [si, setSi] = useState(0);
+  const [gq, setGq] = useState(0); // which Headspace question
+  const [editCal, setEditCal] = useState(false);
+  const [editWeight, setEditWeight] = useState(false);
+  const [saved, setSaved] = useState<Checkin | null>(null);
+  const step = steps[Math.min(si, steps.length - 1)];
+  const top = useRef<HTMLDivElement>(null);
+  useEffect(() => { top.current?.scrollIntoView({ block: "start" }); window.scrollTo({ top: 0 }); }, [si]);
+  const next = () => setSi((i) => Math.min(i + 1, steps.length - 1));
+  const back = () => {
+    if (step === "head" && gq > 0) return setGq((q) => q - 1);
+    if (si === 0 || step === "result") return onCancel();
+    setSi((i) => i - 1);
+  };
+  useBackHandler(!existing && si > 0 && step !== "result", back);
+  const later = (fn: () => void) => window.setTimeout(fn, 220); // let the tap show before moving on
+
+  async function save(stay = false) {
     if (unwell && !symptoms.length) return setError("Tick at least one symptom, or switch back to I'm well.");
     if (unwell && !sickChoice) return setError("Choose what to do with today's session.");
     if (gadAsk && !gadSkip && gadStarted && !gadDone) return setError(`Answer all seven ${HEADSPACE_NAME} questions, or skip them for today.`);
@@ -129,7 +151,7 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
         sick: unwell, symptoms: unwell ? symptoms : [], sick_choice: sickChoice,
         mood, gad7: gadAsk && gadDone && !gadSkip ? (gad as number[]) : null, gad7_skipped: gadAsk && !existing && !gadDone,
       });
-      onSaved(c);
+      if (stay) { setSaved(c); setBusy(false); next(); } else onSaved(c);
     } catch (e) {
       setError(e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save.");
       setBusy(false);
@@ -144,6 +166,191 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
       setError(e instanceof Error ? `Couldn't delete: ${e.message}` : "Couldn't delete.");
       setBusy(false);
     }
+  }
+
+  if (!existing) {
+    const total = steps.length - 1;
+    const gadAnswer = (v: number) => {
+      setGad((g) => g.map((x, j) => (j === gq ? v : x)));
+      later(() => { if (gq < 6) setGq(gq + 1); else next(); });
+    };
+    const avg28 = (() => {
+      const cut = Date.now() - 28 * 86400000;
+      const xs = history.filter((c) => new Date(c.checked_at).getTime() >= cut).map((c) => c.score);
+      return xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
+    })();
+    const feelOk = !unwell || (symptoms.length > 0 && sickChoice != null);
+    return (
+      <div className="scan-steps" ref={top}>
+        <div className="scan-top">
+          <button className="icon-btn" onClick={back} aria-label={si === 0 ? "Cancel" : "Back"}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+          </button>
+          <span className="kicker">{step === "result" ? "Readiness scan" : `Readiness scan · ${si + 1} of ${total}`}</span>
+          {step === "result" ? <span /> : <button className="link small" onClick={onCancel}>Cancel</button>}
+        </div>
+        {step !== "result" && (
+          <div className="ticker scan-prog" role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={si + 1} aria-label="Progress">
+            {Array.from({ length: total }, (_, i) => <span key={i} className={`tick${i <= si ? " on" : ""}`} />)}
+          </div>
+        )}
+
+        {step === "feel" && (
+          <div className="scan-step">
+            <span className="kicker">Before anything else</span>
+            <h1 className="scan-q">{prevSick ? "Still unwell?" : "How are you feeling?"}</h1>
+            {prevSick && <p className="small muted" style={{ margin: "-6px 0 10px" }}>Carried over from {formatDay(new Date(prevSick.checked_at))}</p>}
+            <div className="scan-big2" role="radiogroup" aria-label="How are you feeling?">
+              <button role="radio" aria-checked={!unwell} className={!unwell ? "on" : ""} onClick={() => setUnwell(false)}><b>{prevSick ? "I'm better" : "I'm well"}</b><span>Straight on</span></button>
+              <button role="radio" aria-checked={unwell} className={unwell ? "on" : ""} onClick={() => setUnwell(true)}><b>{prevSick ? "Still unwell" : "I'm unwell"}</b><span>Symptoms and what to do today</span></button>
+            </div>
+            {unwell && (
+              <div className="scan-sick">
+                <div className="sym-groups">
+                  <div>
+                    <span className="sym-h small">Above the neck</span>
+                    <div className="chips">{SYMPTOMS.filter((x) => x.above).map((x) => <button key={x.id} type="button" className={`chip-btn${symptoms.includes(x.id) ? " on" : ""}`} aria-pressed={symptoms.includes(x.id)} onClick={() => toggleSymptom(x.id)}>{x.label}</button>)}</div>
+                  </div>
+                  <div>
+                    <span className="sym-h small">Below the neck or all over</span>
+                    <div className="chips">{SYMPTOMS.filter((x) => !x.above).map((x) => <button key={x.id} type="button" className={`chip-btn bad${symptoms.includes(x.id) ? " on" : ""}`} aria-pressed={symptoms.includes(x.id)} onClick={() => toggleSymptom(x.id)}>{x.label}</button>)}</div>
+                  </div>
+                </div>
+                {symptoms.length > 0 && (forcedRest ? (
+                  <div className="sick-verdict rest">
+                    <strong>Rest today.</strong> With symptoms below the neck{symptoms.includes("fever") ? " or a fever" : ""}, training makes things worse. Today's strength session is skipped (the program waits) and planned cardio is cleared.
+                    {symptoms.includes("fever") && " Once you're better, you'll get a full day clear of fever before lifting again."}
+                  </div>
+                ) : (
+                  <>
+                    <p className="small" style={{ margin: "12px 0 6px" }}>Above the neck only, so light training is usually fine. What would you like to do today?</p>
+                    <div className="seg" role="radiogroup" aria-label="Today's session">
+                      {(["normal", "light", "rest"] as SickChoice[]).map((c) => <button key={c} role="radio" aria-checked={choice === c} className={choice === c ? "on" : ""} onClick={() => setChoice(c)}>{CHOICE_LABEL[c]}</button>)}
+                    </div>
+                  </>
+                ))}
+                <p className="small muted sick-flags">See a doctor if you have chest pain, trouble breathing, or a fever that lasts more than a few days.</p>
+              </div>
+            )}
+            {onSkip && !unwell && <button className="link small scan-skip" onClick={onSkip}>Skip the scan, use the plan as written</button>}
+          </div>
+        )}
+
+        {step === "sleep" && (
+          <div className="scan-step">
+            <span className="kicker">Last night</span>
+            <Rating label="How did you sleep?" hint="" labels={SLEEP_LABELS} value={sleepQ} onChange={setSleepQ} />
+            <div className="scan-hours">
+              <span className="kicker">Hours slept</span>
+              <div className="stepper scan-stepper">
+                <button type="button" onClick={() => stepHours(-0.5)} aria-label="Half an hour less">−</button>
+                <input className="input" inputMode="decimal" value={hours} placeholder="7.5" onChange={(e) => setHours(e.target.value)} aria-label="Hours slept" />
+                <button type="button" onClick={() => stepHours(0.5)} aria-label="Half an hour more">+</button>
+              </div>
+              {hcSleep?.sleep_minutes != null && (
+                <span className="small muted">
+                  Health Connect: {hm(hcSleep.sleep_minutes)} asleep
+                  {hcHours != null && String(hcHours) !== hours && <> · <button type="button" className="link small" onClick={() => setHours(String(hcHours))}>Use {hcHours} h</button></>}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {step === "body" && (
+          <div className="scan-step">
+            <span className="kicker">This morning</span>
+            <Rating label="Energy" hint="" labels={ENERGY_LABELS} value={energy} onChange={(v) => { setEnergy(v); if (soreness != null) later(next); }} />
+            <Rating label="Soreness" hint="5 means not sore at all" labels={SORENESS_LABELS} value={soreness} onChange={(v) => { setSoreness(v); if (energy != null) later(next); }} />
+          </div>
+        )}
+
+        {step === "mood" && (
+          <div className="scan-step">
+            <span className="kicker">Optional</span>
+            <Rating label="Mood" hint="" labels={MOOD_LABELS} value={mood} onChange={(v) => { setMood(v); later(next); }} />
+          </div>
+        )}
+
+        {step === "head" && (
+          <div className="scan-step">
+            <span className="kicker">{HEADSPACE_NAME} · every 2 weeks · {gq + 1} of 7</span>
+            <p className="small muted" style={{ margin: "2px 0 4px" }}>{GAD_INTRO}</p>
+            <h1 className="scan-q">{GAD_ITEMS[gq]}</h1>
+            <div className="scan-list" role="radiogroup" aria-label={GAD_ITEMS[gq]}>
+              {GAD_OPTIONS.map((o, v) => <button key={v} role="radio" aria-checked={gad[gq] === v} className={gad[gq] === v ? "on" : ""} onClick={() => gadAnswer(v)}>{o}</button>)}
+            </div>
+            <div className="ticker scan-sub" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <span key={i} className={`tick${gad[i] != null ? " on" : ""}`} />)}</div>
+            <button className="link scan-skip" onClick={() => { setGadSkip(true); setGad(Array(7).fill(null)); setGq(0); next(); }}>Skip the check-in today</button>
+          </div>
+        )}
+
+        {step === "details" && (
+          <div className="scan-step">
+            <span className="kicker">Last details</span>
+            <h1 className="scan-q">Anything else?</h1>
+            <div className="panel scan-sum">
+              <div>
+                <span className="kicker">Calories</span>
+                <b>{phase ? PHASE_LABEL[phase] : "Phase not set"}{kcal != null && !Number.isNaN(kcal) ? ` · ${kcal.toLocaleString("en-IE")} kcal` : ""}</b>
+                <span className="small muted">{dayTarget != null && kcal === Math.round(dayTarget) ? "From your food target for today" : phase && prevPhase === phase ? "Same as your last scan" : "Used to decide how hard to push progression"}</span>
+              </div>
+              <button className="link small" onClick={() => setEditCal((e) => !e)}>{editCal ? "Done" : "Change"}</button>
+            </div>
+            {editCal && (
+              <div className="panel" style={{ marginTop: -4 }}>
+                <div className="seg" role="radiogroup" aria-label="Calories">
+                  {(["deficit", "maintenance", "surplus"] as Phase[]).map((ph) => <button key={ph} role="radio" aria-checked={phase === ph} className={phase === ph ? "on" : ""} onClick={() => setPhase(ph)}>{PHASE_LABEL[ph]}</button>)}
+                </div>
+                <label className="field" style={{ marginTop: 10 }}><span>Daily calorie target</span><input className="input" inputMode="numeric" value={calories} placeholder="e.g. 2200" onChange={(e) => setCalories(e.target.value)} /></label>
+              </div>
+            )}
+            <div className="panel scan-sum">
+              <div>
+                <span className="kicker">Weight</span>
+                <b>{w != null && weightOk ? `${w} kg` : "Not logged"}</b>
+                <span className="small muted">{w != null && weightOk && lastWeight != null ? `${w - lastWeight > 0 ? "+" : ""}${(Math.round((w - lastWeight) * 10) / 10).toFixed(1)} kg since last` : "Optional · same time each morning"}</span>
+              </div>
+              <button className="link small" onClick={() => setEditWeight((e) => !e)}>{editWeight ? "Done" : w != null ? "Edit" : "Add"}</button>
+            </div>
+            {editWeight && (
+              <div className="panel" style={{ marginTop: -4 }}>
+                <label className="field"><span>Current weight (kg)</span><input className="input" inputMode="decimal" value={weight} placeholder={lastWeight != null ? String(lastWeight) : "Morning weight"} onChange={(e) => setWeight(e.target.value)} autoFocus /></label>
+              </div>
+            )}
+            <label className="field"><span>Notes (optional)</span><input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Late night, niggle in left knee…" /></label>
+          </div>
+        )}
+
+        {step === "result" && result && adj && (
+          <div className="scan-step">
+            <div className={`hero-card prog-hero band-${adj.band}`}>
+              <Chevrons />
+              <span className="hero-kicker">Today · saved</span>
+              <span className="hero-name ready-hero">{BAND_LABEL[adj.band].toUpperCase()} · {result.score}</span>
+              <span className="hero-facts"><span>{adj.headline}</span>{saved?.sick && <span>Unwell: {CHOICE_LABEL[sickChoice ?? "normal"].toLowerCase()}</span>}</span>
+            </div>
+            <div className="tiles">
+              <div className="tile"><span className="tile-h">Sleep</span><span className="tile-v num">{h != null && !Number.isNaN(h) ? `${h} h` : "–"}</span><span className="tile-s small">quality {sleepQ} of 5</span></div>
+              <div className="tile"><span className="tile-h">vs your average</span><span className="tile-v num">{avg28 != null ? `${result.score - avg28 >= 0 ? "+" : ""}${result.score - avg28}` : "–"}</span><span className="tile-s small">{avg28 != null ? `28-day avg ${avg28}` : "first scans"}</span></div>
+            </div>
+            {[...result.notes, ...adj.reasons].length > 0 && (
+              <ul className="panel scan-reasons">{[...result.notes, ...adj.reasons].map((n, i) => <li key={i} className="small">{n}</li>)}</ul>
+            )}
+          </div>
+        )}
+
+        {error && <p className="error panel" role="alert">{error}</p>}
+        <div className="scan-foot">
+          {step === "feel" && <button className="btn primary block" disabled={!feelOk} onClick={next}>Next</button>}
+          {step === "sleep" && <button className="btn primary block" disabled={sleepQ == null || !hoursOk} onClick={next}>Next</button>}
+          {step === "body" && <button className="btn primary block" disabled={energy == null || soreness == null} onClick={next}>Next</button>}
+          {step === "mood" && <button className={`btn block ${mood == null ? "ghost" : "primary"}`} onClick={next}>{mood == null ? "Skip" : "Next"}</button>}
+          {step === "details" && <button className="btn primary block" disabled={busy || !complete} onClick={() => save(true)}>{busy ? "Saving…" : "See today's readiness"}</button>}
+          {step === "result" && saved && <button className="btn primary block" onClick={() => onSaved(saved)}>{saveLabel === "Save scan" ? "Back to dashboard" : saveLabel.replace(/^Save and /, "").replace(/^./, (c) => c.toUpperCase())}</button>}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -317,7 +524,7 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
 
       <div className="save-bar static" style={{ marginTop: 16 }}>
         {error && <p className="error panel" role="alert">{error}</p>}
-        <button className="btn dark block" onClick={save} disabled={busy || !complete}>{busy ? "Saving…" : saveLabel}</button>
+        <button className="btn dark block" onClick={() => save()} disabled={busy || !complete}>{busy ? "Saving…" : saveLabel}</button>
         {onSkip && <button className="btn ghost block" onClick={onSkip}>Skip scan, use the plan as written</button>}
       </div>
 

@@ -1626,3 +1626,36 @@ select.input { appearance: auto; }
 .hab-cell.on { background: var(--in); }
 .hab-cell.today { outline: 2px solid var(--ink); outline-offset: 1px; }
 .mlink-row:has(> :nth-child(3)) { grid-template-columns: 1fr auto auto; }
+
+/* ---------- Readiness scan: one topic per step ---------- */
+.scan-steps { display: grid; gap: 12px; padding-bottom: 100px; }
+.desk .scan-steps { max-width: 520px; margin: 0 auto; }
+.scan-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.scan-prog { margin: 2px 0 8px; }
+.scan-step { display: grid; gap: 12px; align-content: start; }
+.scan-q, .scan-step .rating h3 { font-family: var(--display); font-size: 1.9rem; font-weight: 700; line-height: 1.05; margin: 0; }
+.scan-step .rating { background: none; padding: 0; }
+.scan-step .rating-head { flex-wrap: wrap; margin-bottom: 12px; }
+.scan-step .rating-row button { min-height: 72px; border-radius: 14px; }
+.scan-step .rating-row .rn { font-size: 1.6rem; }
+.scan-big2 { display: grid; gap: 10px; }
+.scan-big2 button { display: grid; gap: 2px; text-align: left; padding: 18px; border-radius: 18px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+.scan-big2 button b { font-size: 1.15rem; }
+.scan-big2 button span { color: var(--muted); font-size: 0.85rem; }
+.scan-big2 button.on { box-shadow: inset 0 0 0 2px var(--ink); }
+.scan-sick { display: grid; gap: 6px; padding: 12px; border-radius: 16px; background: var(--panel); box-shadow: inset 4px 0 0 var(--ill); }
+.scan-hours { display: grid; gap: 8px; margin-top: 8px; }
+.scan-stepper { max-width: 260px; }
+.scan-stepper input { font-family: var(--display); font-size: 1.6rem; text-align: center; }
+.scan-list { display: grid; gap: 8px; }
+.scan-list button { min-height: 56px; text-align: left; padding: 0 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.scan-list button.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.scan-sub .tick { height: 4px; }
+.scan-skip { justify-self: center; margin-top: 6px; }
+.scan-sum { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.scan-sum > div { display: grid; gap: 2px; }
+.scan-sum b { font-size: 1.1rem; }
+.scan-reasons { margin: 0; padding: 12px 14px 12px 30px; display: grid; gap: 6px; }
+.scan-foot { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 76px); padding: 10px 0 4px; background: var(--ground); z-index: 3; }
+.desk .scan-foot { bottom: 16px; }
+.ready-hero { color: var(--band, var(--ink)); }
