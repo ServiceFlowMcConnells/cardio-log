@@ -3,24 +3,27 @@ import type { Checkin } from "./readiness";
 
 export const MOOD_LABELS = ["Awful", "Bad", "Meh", "Good", "Great"];
 
-/** GAD-7 (Spitzer et al., 2006): over the last 2 weeks, how often have you been bothered by... */
+/** The fortnightly Headspace check-in: the seven GAD-7 topics (Spitzer et al., 2006), scored the same way (0–3 each,
+ *  0–21 in total), in gentler wording chosen by the user. A consistent personal trend; not the exact clinical scale. */
+export const HEADSPACE_NAME = "Headspace";
+export const GAD_INTRO = "Over the last 2 weeks, how often have you noticed the following?";
 export const GAD_ITEMS = [
-  "Feeling nervous, anxious or on edge",
-  "Not being able to stop or control worrying",
-  "Worrying too much about different things",
-  "Trouble relaxing",
-  "Being so restless that it's hard to sit still",
-  "Becoming easily annoyed or irritable",
-  "Feeling afraid, as if something awful might happen",
+  "Feeling on edge or keyed up",
+  "Finding it hard to switch off your thoughts",
+  "Your mind running over lots of different things",
+  "Finding it hard to unwind",
+  "Feeling too restless to sit still",
+  "Getting irritated easily",
+  "A sense that something bad might happen",
 ];
 export const GAD_OPTIONS = ["Not at all", "Several days", "More than half the days", "Nearly every day"];
 export const gadScore = (a: number[]) => a.reduce((x, y) => x + y, 0);
-/** Standard bands: 5, 10 and 15 are the cut-offs for mild, moderate and severe. */
+/** The standard cut-offs (5, 10, 15), with softer names. */
 export function gadBand(score: number): string {
-  if (score >= 15) return "Severe";
-  if (score >= 10) return "Moderate";
-  if (score >= 5) return "Mild";
-  return "Minimal";
+  if (score >= 15) return "Stretched";
+  if (score >= 10) return "Unsettled";
+  if (score >= 5) return "Mostly settled";
+  return "Settled";
 }
 
 const DAY = 86400000;

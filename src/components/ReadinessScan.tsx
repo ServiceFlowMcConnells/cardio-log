@@ -9,7 +9,7 @@ import { deleteCheckin, saveCheckin } from "../lib/strengthData";
 import { formatDay, formatTime } from "../lib/dates";
 import type { SickChoice } from "../lib/illness";
 import { CHOICE_LABEL, SYMPTOMS, belowNeck, stillUnwell } from "../lib/illness";
-import { GAD_ITEMS, GAD_OPTIONS, MOOD_LABELS, gadBand, gadDue, gadScore } from "../lib/mood";
+import { GAD_INTRO, GAD_ITEMS, GAD_OPTIONS, HEADSPACE_NAME, MOOD_LABELS, gadBand, gadDue, gadScore } from "../lib/mood";
 
 interface Props {
   existing: Checkin | null;
@@ -83,7 +83,7 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
   const forcedRest = unwell && belowNeck(symptoms);
   const sickChoice: SickChoice | null = !unwell ? null : forcedRest ? "rest" : choice;
   const toggleSymptom = (id: string) => setSymptoms((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  // Mood (optional) and the fortnightly GAD-7
+  // Mood (optional) and the fortnightly Headspace check-in
   const [mood, setMood] = useState<number | null>(existing?.mood ?? null);
   const gadAsk = existing ? Boolean(existing.gad7) : gadDue(checkins);
   const [gad, setGad] = useState<(number | null)[]>(existing?.gad7 ?? Array(7).fill(null));
@@ -114,7 +114,7 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
   async function save() {
     if (unwell && !symptoms.length) return setError("Tick at least one symptom, or switch back to I'm well.");
     if (unwell && !sickChoice) return setError("Choose what to do with today's session.");
-    if (gadAsk && !gadSkip && gadStarted && !gadDone) return setError("Answer all seven anxiety questions, or skip them for today.");
+    if (gadAsk && !gadSkip && gadStarted && !gadDone) return setError(`Answer all seven ${HEADSPACE_NAME} questions, or skip them for today.`);
     if (!complete) return setError("Rate sleep, energy and soreness first.");
     if (!hoursOk) return setError("Hours of sleep should be between 0 and 16.");
     if (!weightOk) return setError("Bodyweight should be between 30 and 300 kg.");
@@ -211,14 +211,14 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
       {gadAsk && (
         <section className="panel gad-panel" aria-labelledby="gad-h" style={{ marginTop: 12 }}>
           <div className="rating-head">
-            <h3 id="gad-h">Anxiety check-in</h3>
+            <h3 id="gad-h">{HEADSPACE_NAME} check-in</h3>
             <span className="muted small">{gadDone ? `${gadScore(gad as number[])} · ${gadBand(gadScore(gad as number[]))}` : gadSkip ? "Skipped" : "Every 2 weeks"}</span>
           </div>
           {gadSkip ? (
             <p className="small muted" style={{ margin: 0 }}>Skipped for today. <button className="link small" onClick={() => setGadSkip(false)}>Answer it now</button></p>
           ) : (
             <>
-              <p className="small muted" style={{ margin: "0 0 8px" }}>Over the last 2 weeks, how often have you been bothered by the following? (GAD-7)</p>
+              <p className="small muted" style={{ margin: "0 0 8px" }}>{GAD_INTRO}</p>
               <ol className="gad-list">
                 {GAD_ITEMS.map((q, i) => (
                   <li key={i}>

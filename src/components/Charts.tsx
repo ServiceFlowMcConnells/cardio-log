@@ -67,7 +67,7 @@ export function WeeklyBars({ weeks, target, unit, format = (v) => String(Math.ro
   );
 }
 
-export function TrendChart({ points, color, unit, avg, band, deloads, ill }: { points: Point[]; color: string; unit: string; avg?: Point[]; band?: [number, number]; deloads?: { from: number; to: number }[]; ill?: { from: number; to: number }[] }) {
+export function TrendChart({ points, color, unit, avg, band, deloads, ill, whole }: { points: Point[]; color: string; unit: string; avg?: Point[]; band?: [number, number]; deloads?: { from: number; to: number }[]; ill?: { from: number; to: number }[]; whole?: boolean }) {
   const W = 340, H = 160, padL = 34, padB = 22, padT = 10, padR = 8;
   const ts = points.map((p) => p.t);
   const vs = points.map((p) => p.v);
@@ -88,7 +88,7 @@ export function TrendChart({ points, color, unit, avg, band, deloads, ill }: { p
       {yTicks.map((v, i) => (
         <g key={i}>
           <line className="axis" x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} opacity={0.6} />
-          <text x={padL - 6} y={y(v) + 4} textAnchor="end">{round(v, v < 10 ? 2 : 1)}</text>
+          <text x={padL - 6} y={y(v) + 4} textAnchor="end">{whole ? Math.round(v) : round(v, v < 10 ? 2 : 1)}</text>
         </g>
       ))}
       {xTicks.map((t, i) => (

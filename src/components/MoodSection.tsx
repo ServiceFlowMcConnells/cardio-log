@@ -2,7 +2,7 @@ import type { AppData } from "../App";
 import { DayChartCard } from "./DayChart";
 import { TrendChart, type Point } from "./Charts";
 import { ymd } from "../lib/nutrition";
-import { MOOD_LABELS, gadBand, gadScore, moodLinks } from "../lib/mood";
+import { HEADSPACE_NAME, MOOD_LABELS, gadBand, gadScore, moodLinks } from "../lib/mood";
 import { illnessSpans, isSickDay } from "../lib/illness";
 import { deloadSpans, isDeloadDay } from "../lib/deload";
 import { useMeditation } from "../lib/meditation";
@@ -18,7 +18,7 @@ export const shadeDays = (start: string, end: string): "ill" | "deload" | null =
   return deload ? "deload" : null;
 };
 
-/** Recovery page: daily mood, the fortnightly GAD-7, and how mood lines up with your habits. */
+/** Recovery page: daily mood, the fortnightly Headspace check-in, and how mood lines up with your habits. */
 export default function MoodSection({ data }: { data: AppData }) {
   const med = useMeditation();
   const asc = [...data.checkins].sort((a, b) => a.checked_at.localeCompare(b.checked_at));
@@ -58,15 +58,15 @@ export default function MoodSection({ data }: { data: AppData }) {
       {gadList.length > 0 && (
         <section className="section panel">
           <div className="page-head" style={{ marginBottom: 4 }}>
-            <h2>Anxiety check-ins</h2>
-            <span className="muted small">GAD-7, every 2 weeks</span>
+            <h2>{HEADSPACE_NAME}</h2>
+            <span className="muted small">Every 2 weeks</span>
           </div>
           <div className="gad-latest">
             <span className="tile-v num">{latest.score}</span>
             <span><strong>{gadBand(latest.score)}</strong><span className="small muted" style={{ display: "block" }}>{formatShort(new Date(latest.at))} · out of 21</span></span>
           </div>
-          {gadPts.length >= 2 && <TrendChart points={gadPts} color="var(--m-k)" unit="points" band={[0, 4]} deloads={deloadSpans()} ill={illnessSpans()} />}
-          <p className="chart-note">Over the previous 2 weeks. 0–4 minimal, 5–9 mild, 10–14 moderate, 15–21 severe. The shaded band is minimal.</p>
+          {gadPts.length >= 2 && <TrendChart points={gadPts} color="var(--m-k)" unit="points" band={[0, 4]} whole deloads={deloadSpans()} ill={illnessSpans()} />}
+          <p className="chart-note">Over the previous 2 weeks. 0–4 settled, 5–9 mostly settled, 10–14 unsettled, 15–21 stretched. The shaded band is settled.</p>
         </section>
       )}
 
