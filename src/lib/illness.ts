@@ -96,11 +96,13 @@ export function stillUnwell(checkins: Checkin[], excludeId?: string): Checkin | 
 export function dayMode(day: string, workouts: Workout[] = lastWorkouts): Mode | null {
   const c = byDay.get(day);
   if (c?.sick) return { mode: choiceOf(c), reason: "sick" };
-  if (!c) {
+  // Carry-over covers today and earlier days without a scan, never the future: a planned day ahead isn't sick yet
+  if (!c && day <= ymdOf(new Date())) {
     const before = [...byDay.keys()].filter((d) => d < day).sort().pop();
     const last = before ? byDay.get(before)! : null;
     if (last?.sick && gap(before!, day) <= 3) return { mode: choiceOf(last), reason: "sick" };
   }
+  if (day > ymdOf(new Date())) return null; // future days: decided by that day's scan
   const prev = episodes().filter((e) => e.end < day).pop();
   if (!prev) return null;
   // the first well scan after the episode
