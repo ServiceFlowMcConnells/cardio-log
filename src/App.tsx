@@ -31,7 +31,8 @@ import type { DayActivity } from "./lib/health";
 import { healthConnected, healthSupported, lastSync, loadActivity, syncHealth } from "./lib/health";
 import type { Exercise, Template, Workout } from "./lib/strength";
 import Auth from "./components/Auth";
-import WeekView from "./components/WeekView";
+import Home, { type HeroSession } from "./components/home/Home";
+import SessionPreview from "./components/home/SessionPreview";
 import History from "./components/History";
 import Progress, { MODE_KEY as PROGRESS_MODE_KEY, PROGRESS_MODES, type Mode as ProgressMode } from "./components/Progress";
 import SettingsView from "./components/SettingsView";
@@ -63,6 +64,7 @@ export type View =
   | { k: "tabs" }
   | { k: "cardio"; session: Session | null }
   | { k: "workout"; workout: Workout | null; template: Template | null }
+  | { k: "preview"; hero: HeroSession }
   | { k: "summary"; workoutId: string }
   | { k: "template"; template: Template | null }
   | { k: "exercise"; id: string }
@@ -120,6 +122,7 @@ export default function App() {
   const setDeskRange = useCallback((r: DeskRange) => { setDeskRangeState(r); saveDeskRange(r); }, []);
   const [progMode, setProgModeState] = useState<ProgressMode>(() => { try { return (localStorage.getItem(PROGRESS_MODE_KEY) as ProgressMode) || "strength"; } catch { return "strength"; } });
   const setProgMode = (m: ProgressMode) => { setProgModeState(m); try { localStorage.setItem(PROGRESS_MODE_KEY, m); } catch { /* private mode */ } };
+  const [deskPreview, setDeskPreview] = useState<HeroSession | null>(null);
   const [deskExercise, setDeskExercise] = useState<string | null>(null);
   const [sideCollapsed, setSideCollapsed] = useState(() => { try { return localStorage.getItem("rlntls:side-collapsed") === "1"; } catch { return false; } });
 
@@ -288,6 +291,8 @@ export default function App() {
         onDeleted={async () => { home("history"); await refresh(); }}
       />
     );
+  } else if (view.k === "preview") {
+    body = <SessionPreview data={data} hero={view.hero} onStart={startWorkout} onClose={() => back()} onCreatedExercise={refresh} />;
   } else if (view.k === "readiness") {
     const next = view.next;
     const proceed = () => {
@@ -405,17 +410,20 @@ export default function App() {
     );
   } else if (tab === "week") {
     body = (
-      <WeekView
+      <Home
         data={data}
-        onLogCardio={() => go({ k: "cardio", session: null })}
-        onOpenSession={(s) => go({ k: "cardio", session: s })}
+        onPreview={(h) => (desktop ? setDeskPreview((cur) => (cur && cur.template.id === h.template.id && cur.date === h.date ? null : h)) : go({ k: "preview", hero: h }))}
         onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })}
-        onTrain={() => home("train")}
-        onStart={startWorkout}
         onPlan={() => go({ k: "plan" })}
         goSettings={() => go({ k: "settings" })}
         onScan={(c) => go({ k: "readiness", checkin: c, next: "home" })}
-        onSteps={() => { try { localStorage.setItem("cardio-log:progress-mode", "body"); } catch { /* private mode */ } home("progress"); }}
+        onSteps={() => { setProgMode("body"); home("progress"); }}
+        onCardio={() => { setProgMode("cardio"); home("progress"); }}
+        side={desktop && deskPreview ? (
+          <div className="panel detail-panel home-preview">
+            <SessionPreview key={`${deskPreview.template.id}-${deskPreview.date}`} data={data} hero={deskPreview} onStart={startWorkout} onClose={() => setDeskPreview(null)} onCreatedExercise={refresh} />
+          </div>
+        ) : null}
       />
     );
   } else if (tab === "history") {
@@ -512,6 +520,7 @@ export default function App() {
         case "weight": return "Weight";
         case "photos": return "Progress photos";
         case "workout": return "Workout";
+        case "preview": return view.hero.template.name;
         default: return null;
       }
     })();
