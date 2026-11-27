@@ -5,6 +5,7 @@ import { useDesktop } from "../lib/desktop";
 import { useChartGestures } from "../lib/chartGestures";
 import type { Agg, Range } from "./food/Weight";
 import { WindowControls, WindowNav, autoAgg, useTimeWindow } from "./food/Weight";
+import Note from "./Note";
 
 /** One value per day (readiness score, hours slept, steps). */
 export type DayValues = Map<string, number>;
@@ -49,6 +50,8 @@ export interface DayChartProps {
   clamp?: [number, number];
   /** Shade a bucket: "ill" for sick days, "deload" for deload days. */
   shade?: (start: string, end: string) => "ill" | "deload" | null;
+  /** Anchor for tiles that jump to this chart. */
+  id?: string;
 }
 
 /** Recovery charts: same behaviour as the macros and weight charts. Ranges and day/week/month grouping, ‹ › to step,
@@ -90,7 +93,7 @@ export function DayChartCard(p: DayChartProps) {
   const reset = () => { setSel(null); setHover(null); };
 
   return (
-    <section className="section panel">
+    <section className="section panel prog-card" id={p.id}>
       <div className="page-head" style={{ marginBottom: 4 }}>
         <h2>{p.title}</h2>
         {(() => {
@@ -125,7 +128,7 @@ export function DayChartCard(p: DayChartProps) {
           {wide ? "Hover or click to read; drag to move, ctrl + scroll to zoom." : "Tap to read · hold and slide · drag to move · pinch to zoom."}
         </p>
       )}
-      {p.note && <p className="chart-note">{p.note}</p>}
+      {p.note && <Note>{p.note}</Note>}
     </section>
   );
 }

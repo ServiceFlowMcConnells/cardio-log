@@ -19,6 +19,7 @@ import { writeWaterToHealth } from "../../lib/health";
 import { inAndroidApp } from "../../lib/nativeTimer";
 import { todayYmd, addDays as addYmd } from "../../lib/nutrition";
 import { useDesktop } from "../../lib/desktop";
+import Chevrons from "../Chevrons";
 import { MODE_TEXT, isSickDay, sickRestDay, todayMode } from "../../lib/illness";
 
 export interface HeroSession { template: Template; date: string; label: string; sub: string | null }
@@ -212,13 +213,6 @@ export default function Home({ data, onPreview, onPlan, goSettings, onScan, onSt
   );
 }
 
-function Chevrons() {
-  return (
-    <svg className="hero-chev" viewBox="0 0 512 512" aria-hidden="true">
-      {[425, 323, 221].map((y, i) => <path key={y} d={`M126 ${y - 7} L256 ${y - 125} L386 ${y - 7}`} fill="none" stroke="currentColor" strokeOpacity={[0.35, 0.6, 1][i]} strokeWidth="47" strokeLinecap="square" strokeLinejoin="miter" />)}
-    </svg>
-  );
-}
 
 function HeroCard({ data, hero, onOpen }: { data: AppData; hero: HeroSession; onOpen: () => void }) {
   const base = plannedTemplate(hero.template, data.planned, hero.date);

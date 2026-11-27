@@ -153,9 +153,9 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
             </div>
           </div>
           <div className="ntr-range">
-            {range || custom ? <button className="icon-btn" aria-label="Earlier" disabled={start <= first} onClick={() => shift(-1)}>‹</button> : null}
+            {(range || custom) && !deskWin ? <button className="icon-btn" aria-label="Earlier" disabled={start <= first} onClick={() => shift(-1)}>‹</button> : null}
             <span className="small">{label}{zoomed && <span className="muted"> · zoomed</span>}<span className="muted"> · daily average of {past.length} logged day{past.length === 1 ? "" : "s"}{plannedN ? `, ${plannedN} planned` : ""}{past.length < spanDays ? ` (of ${spanDays})` : ""}</span></span>
-            {range || custom ? <button className="icon-btn" aria-label="Later" disabled={end >= lastDay} onClick={() => shift(1)}>›</button> : null}
+            {(range || custom) && !deskWin ? <button className="icon-btn" aria-label="Later" disabled={end >= lastDay} onClick={() => shift(1)}>›</button> : null}
           </div>
         </div>
 
@@ -173,11 +173,11 @@ export default function NutritionTrends({ nutri, onOpenDay }: { nutri: Nutrition
               {RANGES.map(({ r, label: l }) => <button key={l} className={range === r && !zoomed ? "on" : ""} aria-pressed={range === r && !zoomed} onClick={() => { setRange(r); setEnd(today); setCustom(null); setSel(null); setAggPick(null); }}>{l}</button>)}
             </div>
           )}
-          <select className="input ntr-agg" value={agg} onChange={(e) => { setAggPick(e.target.value as Agg); setSel(null); }} aria-label="Group by">
+          {!deskWin && <select className="input ntr-agg" value={agg} onChange={(e) => { setAggPick(e.target.value as Agg); setSel(null); }} aria-label="Group by">
             <option value="D">Days</option>
             <option value="W">Weeks</option>
             <option value="M">Months</option>
-          </select>
+          </select>}
         </div>
         <div className="ntr-legend" role="group" aria-label="Show">
           {SERIES.map(({ s, label: l }) => (
@@ -316,7 +316,10 @@ function Habits({ nutri, totals, today }: { nutri: NutritionData; totals: Map<st
 function DayList({ totals, start, end, today, tgt, onOpenDay }: { buckets: Bucket[]; totals: Map<string, DayTotal>; start: string; end: string; today: string; tgt: (d: string) => ReturnType<typeof targetFor>; onOpenDay: (d: string) => void }) {
   const days: DayTotal[] = [];
   for (let d = end; d >= start; d = addDays(d, -1)) { const t = totals.get(d); if (t && t.entries > 0) days.push(t); if (days.length >= 120) break; }
+  const [all, setAll] = useState(false);
   if (!days.length) return <div className="empty"><p>Nothing logged in this period.</p></div>;
+  const total = days.length;
+  if (!all) days.splice(7); // the last week; the rest on request
   let month = "";
   return (
     <section>
@@ -348,6 +351,7 @@ function DayList({ totals, start, end, today, tgt, onOpenDay }: { buckets: Bucke
           </div>
         );
       })}
+      {!all && total > 7 && <button className="link small" style={{ marginTop: 8 }} onClick={() => setAll(true)}>See all {total} days</button>}
     </section>
   );
 }

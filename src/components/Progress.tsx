@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { CardioHero, NutritionHero, RecoveryHero, WeightHero } from "./progress/Heroes";
+import { DeskRangeContext, PHONE_PRESETS, PHONE_RANGE_KEY, loadDeskRange, rangeLabel, saveDeskRange, type DeskRange } from "../lib/deskRange";
 import { PhotosCard } from "./photos/ProgressPhotos";
 import type { AppData } from "../App";
 import type { Block, Machine, Session, Settings } from "../lib/types";
@@ -16,6 +18,7 @@ import { inRange, rangeWeeks, useDeskRange } from "../lib/deskRange";
 import { useDesktop } from "../lib/desktop";
 import { weekHasIllness } from "../lib/illness";
 import type { Workout } from "../lib/strength";
+import Note from "./Note";
 
 function OutputSection({ machine, sessions }: { machine: Machine; sessions: Session[] }) {
   const desk = useDeskRange();
@@ -39,16 +42,16 @@ function OutputSection({ machine, sessions }: { machine: Machine; sessions: Sess
       <h3><i className={`dot ${machine}`} /> {MACHINE_LABEL[machine]}</h3>
       {trend && <p className={`trend ${trend.dir}`}>{trend.text}</p>}
       {points.length === 0 ? (
-        <p className="chart-note">Log {needs} on a {MACHINE_LABEL[machine].toLowerCase()} block to start this chart.</p>
+        <Note>Log {needs} on a {MACHINE_LABEL[machine].toLowerCase()} block to start this chart.</Note>
       ) : (
         <>
           <TrendChart points={points} color={color} unit={unit} />
-          <p className="chart-note">
+          <Note>
             {machine === "treadmill"
               ? "Estimated workload (from speed and incline) per 100 heartbeats."
               : "Watts produced per heartbeat."}{" "}
             Going up means you're doing more work at the same heart rate.
-          </p>
+          </Note>
         </>
       )}
     </div>
@@ -70,10 +73,10 @@ function Benchmarks({ sessions }: { sessions: Session[] }) {
     return (
       <div className="panel">
         <p>No benchmark tests yet.</p>
-        <p className="chart-note">
+        <Note>
           Every 4 weeks, repeat the same test, for example 20 min at 5 km/h and 12% incline. Tick "Benchmark test" when you log it.
           A lower average heart rate at the same settings means you're fitter.
-        </p>
+        </Note>
       </div>
     );
   }
@@ -118,6 +121,7 @@ function Benchmarks({ sessions }: { sessions: Session[] }) {
 }
 
 function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; settings: Settings; onLog: () => void }) {
+  // (Records moved to the tab's tiles)
   const z = zoneFor(settings);
   const map = groupByWeek(sessions, z);
   const desk = useDeskRange();
@@ -164,20 +168,20 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
   return (
     <>
 
-      <section className="panel">
+      <section className="panel prog-card" id="chart-cardio-weeks">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
           <h2>Weekly minutes</h2>
           <span className="muted small">Last {nWeeks} weeks</span>
         </div>
         <WeeklyBars weeks={weeks.map((w) => ({ start: w.start, value: w.minutes }))} target={target} unit="min" ill={weekHasIllness} />
-        <p className="chart-note">
+        <Note>
           {completed.length > 0
             ? `Target hit in ${hits} of ${completed.length} finished week${completed.length === 1 ? "" : "s"} since you started. Dashed line is your ${target} min target; green bars hit it.`
             : `Dashed line is your ${target} min target. Weeks turn green when you hit it.`}
-        </p>
+        </Note>
       </section>
 
-      <section className="section">
+      <section className="section prog-group" id="chart-cardio-output">
         <h2>Fitness: output per heartbeat</h2>
         <p className="muted small" style={{ marginBottom: 10 }}>Your cardio version of lifting more for the same reps.</p>
         <div className="stack">
@@ -186,40 +190,11 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
         </div>
       </section>
 
-      <section className="section">
+      <section className="section prog-group">
         <h2>Benchmark tests</h2>
         <Benchmarks sessions={sessions} />
       </section>
 
-      <section className="section">
-        <h2>Records</h2>
-        <div className="records">
-          {longest && (
-            <div className="stat">
-              <div className="v">{Math.round(longest.min)} min</div>
-              <div className="l">Longest session, {formatShort(longest.date)}</div>
-            </div>
-          )}
-          {bestWeek && (
-            <div className="stat">
-              <div className="v">{Math.round(bestWeek.minutes)} min</div>
-              <div className="l">Biggest week, {/^(This|Last) week$/.test(weekLabel(bestWeek.start)) ? weekLabel(bestWeek.start).toLowerCase() : weekLabel(bestWeek.start)}</div>
-            </div>
-          )}
-          {steepest && (
-            <div className="stat">
-              <div className="v">{steepest.incline}%</div>
-              <div className="l">Steepest incline (at {steepest.speed} km/h), {formatShort(steepest.date)}</div>
-            </div>
-          )}
-          {bestWatts && (
-            <div className="stat">
-              <div className="v">{bestWatts.w} W</div>
-              <div className="l">Highest bike average, {formatShort(bestWatts.date)}</div>
-            </div>
-          )}
-        </div>
-      </section>
     </>
   );
 }
@@ -236,29 +211,51 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, o
     try { return (localStorage.getItem(MODE_KEY) as Mode) || "strength"; } catch { return "strength"; }
   });
   const mode = modeProp ?? ownMode;
+  // Phone: one range for the whole tab, under the tabs (the laptop's is in the top bar)
+  const [phoneRange, setPhoneRangeState] = useState<DeskRange>(() => loadDeskRange(PHONE_RANGE_KEY, "3m"));
+  const setPhoneRange = (r: DeskRange) => { setPhoneRangeState(r); saveDeskRange(r, PHONE_RANGE_KEY); };
+  const [bodyMore, setBodyMore] = useState<null | "activity">(null);
   const pick = (m: Mode) => {
     setMode(m);
     try { localStorage.setItem(MODE_KEY, m); } catch { /* ignore */ }
   };
-  return (
+  const content = (
     <>
+      {mode === "cardio" && data.sessions.length > 0 && <CardioHero data={data} />}
+      {mode === "nutrition" && <NutritionHero data={data} />}
+      {mode === "weight" && <WeightHero data={data} onLog={() => document.getElementById("weigh-in")?.scrollIntoView({ behavior: "smooth", block: "center" })} />}
+      {mode === "body" && data.checkins.length > 0 && <RecoveryHero data={data} onActivity={() => setBodyMore("activity")} />}
+      {mode === "nutrition" && <div id="chart-nutrition" className="prog-has-hero"><NutritionTrends nutri={data.nutrition} onOpenDay={onOpenFoodDay} /></div>}
+      {mode === "weight" && <PhotosCard onOpen={() => onPhotos()} onAdd={() => onPhotos(true)} />}
+      {mode === "weight" && <div id="chart-weight"><WeightView nutri={data.nutrition} checkins={data.checkins} setNutri={setNutri} embedded /></div>}
+      {mode === "strength" && desktop && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} onChanged={onChanged} onOpenWorkout={onOpenWorkout} />}
+      <div className="progress-body">
+      {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}
+      {mode === "strength" && !desktop && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
+      {mode === "body" && <BodyProgress data={data} onScan={onOpenCheckin} more={bodyMore} setMore={setBodyMore} />}
+      </div>
+    </>
+  );
+  return (
+    <div className="prog">
       <div className="page-head"><h1>Progress</h1></div>
-      {!modeProp && <div className="seg progress-seg" role="group" aria-label="Progress type" style={{ marginBottom: 14 }}>
+      {!modeProp && <div className="seg progress-seg" role="group" aria-label="Progress type" >
         <button className={mode === "strength" ? "on" : ""} aria-pressed={mode === "strength"} onClick={() => pick("strength")}>Strength</button>
         <button className={mode === "cardio" ? "on" : ""} aria-pressed={mode === "cardio"} onClick={() => pick("cardio")}>Cardio</button>
         <button className={mode === "nutrition" ? "on" : ""} aria-pressed={mode === "nutrition"} onClick={() => pick("nutrition")}>Nutrition</button>
         <button className={mode === "weight" ? "on" : ""} aria-pressed={mode === "weight"} onClick={() => pick("weight")}>Weight</button>
         <button className={mode === "body" ? "on" : ""} aria-pressed={mode === "body"} onClick={() => pick("body")}>Recovery</button>
       </div>}
-      {mode === "nutrition" && <NutritionTrends nutri={data.nutrition} onOpenDay={onOpenFoodDay} />}
-      {mode === "weight" && <PhotosCard onOpen={() => onPhotos()} onAdd={() => onPhotos(true)} />}
-      {mode === "weight" && <WeightView nutri={data.nutrition} checkins={data.checkins} setNutri={setNutri} embedded />}
-      {mode === "strength" && desktop && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} onChanged={onChanged} onOpenWorkout={onOpenWorkout} />}
-      <div className="progress-body">
-      {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}
-      {mode === "strength" && !desktop && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
-      {mode === "body" && <BodyProgress data={data} onScan={onOpenCheckin} />}
-      </div>
-    </>
+      {desktop ? <div className="home prog-body">{content}</div> : (
+        <DeskRangeContext.Provider value={{ range: phoneRange, setRange: setPhoneRange }}>
+          <div className="prog-range">
+            <div className="seg-range" role="group" aria-label={`Range: ${rangeLabel(phoneRange)}`}>
+              {PHONE_PRESETS.map((p) => <button key={p.id} className={phoneRange.preset === p.id ? "on" : ""} aria-pressed={phoneRange.preset === p.id} onClick={() => setPhoneRange({ preset: p.id })}>{p.label}</button>)}
+            </div>
+          </div>
+          <div className="home prog-body">{content}</div>
+        </DeskRangeContext.Provider>
+      )}
+    </div>
   );
 }

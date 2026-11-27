@@ -7,6 +7,7 @@ import { illnessSpans, isSickDay } from "../lib/illness";
 import { deloadSpans, isDeloadDay } from "../lib/deload";
 import { useMeditation } from "../lib/meditation";
 import { formatShort } from "../lib/dates";
+import Note from "./Note";
 
 /** Shade a chart bucket: sick days first, then deload days. */
 export const shadeDays = (start: string, end: string): "ill" | "deload" | null => {
@@ -19,7 +20,8 @@ export const shadeDays = (start: string, end: string): "ill" | "deload" | null =
 };
 
 /** Recovery page: daily mood, the fortnightly Headspace check-in, and how mood lines up with your habits. */
-export default function MoodSection({ data }: { data: AppData }) {
+export default function MoodSection({ data, part = "all" }: { data: AppData; part?: "all" | "chart" | "headspace" | "habits" }) {
+  const show = (x: string) => part === "all" || part === x;
   const med = useMeditation();
   const asc = [...data.checkins].sort((a, b) => a.checked_at.localeCompare(b.checked_at));
   const mood = new Map<string, number>();
@@ -45,7 +47,7 @@ export default function MoodSection({ data }: { data: AppData }) {
 
   return (
     <>
-      {mood.size > 0 && (
+      {show("chart") && mood.size > 0 && (
         <DayChartCard
           title="Mood" kind="line" color="var(--m-p)" floor={1} clamp={[1, 5]}
           sub={({ avg, label }) => (avg != null ? `${label} ${avg.toFixed(1)} (${MOOD_LABELS[Math.round(avg) - 1]})` : undefined)}
@@ -55,7 +57,7 @@ export default function MoodSection({ data }: { data: AppData }) {
         />
       )}
 
-      {gadList.length > 0 && (
+      {show("headspace") && gadList.length > 0 && (
         <section className="section panel">
           <div className="page-head" style={{ marginBottom: 4 }}>
             <h2>{HEADSPACE_NAME}</h2>
@@ -66,11 +68,11 @@ export default function MoodSection({ data }: { data: AppData }) {
             <span><strong>{gadBand(latest.score)}</strong><span className="small muted" style={{ display: "block" }}>{formatShort(new Date(latest.at))} · out of 21</span></span>
           </div>
           {gadPts.length >= 2 && <TrendChart points={gadPts} color="var(--m-k)" unit="points" band={[0, 4]} whole deloads={deloadSpans()} ill={illnessSpans()} />}
-          <p className="chart-note">Over the previous 2 weeks. 0–4 settled, 5–9 mostly settled, 10–14 unsettled, 15–21 stretched. The shaded band is settled.</p>
+          <Note>Over the previous 2 weeks. 0–4 settled, 5–9 mostly settled, 10–14 unsettled, 15–21 stretched. The shaded band is settled.</Note>
         </section>
       )}
 
-      {mood.size > 0 && (
+      {show("habits") && mood.size > 0 && (
         <section className="section panel">
           <h2>Mood and your habits</h2>
           {links.length > 0 ? (
@@ -89,7 +91,7 @@ export default function MoodSection({ data }: { data: AppData }) {
             </div>
           ) : <p className="small muted">Patterns appear once there are at least 5 days on each side of a comparison.</p>}
           {pending.length > 0 && links.length > 0 && <p className="small muted" style={{ marginTop: 8 }}>Not enough days yet for: {pending.join(", ").toLowerCase()}.</p>}
-          <p className="chart-note">Average mood (1–5) on each kind of day. These are patterns in your own data, not causes: a good night's sleep and a good mood can share a reason.</p>
+          <Note>Average mood (1–5) on each kind of day. These are patterns in your own data, not causes: a good night's sleep and a good mood can share a reason.</Note>
         </section>
       )}
     </>

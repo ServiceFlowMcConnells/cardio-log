@@ -211,6 +211,8 @@ export function useTimeWindow(first: string, last: string, initial: Range) {
 export type TimeWindow = ReturnType<typeof useTimeWindow>;
 
 export function WindowNav({ w }: { w: TimeWindow }) {
+  // Following the shared range: no arrows, just a way back after a pinch or drag
+  if (w.desk) return w.zoomed ? <div className="ntr-range"><button className="link small" onClick={() => w.pickRange(w.range)}>Back to the full range</button></div> : null;
   return (
     <div className="ntr-range">
       <button className="icon-btn" aria-label="Earlier" disabled={!w.canShift || w.start <= w.first} onClick={() => w.shift(-1)}>‹</button>
@@ -221,6 +223,7 @@ export function WindowNav({ w }: { w: TimeWindow }) {
 }
 
 export function WindowControls({ w, agg }: { w: TimeWindow; agg: Agg }) {
+  if (w.desk) return null; // the shared range is in charge, and days/weeks/months follow from its length
   return (
     <div className="ntr-controls">
       {!w.desk && (
@@ -291,7 +294,7 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
         </div>
       )}
 
-      <section className="panel weigh-row">
+      <section id="weigh-in" className="panel weigh-row">
         <form className="weigh-form" onSubmit={(e) => { e.preventDefault(); if (v != null) act(() => saveWeight(day, Math.round(v * 10) / 10)); }}>
           <div className="field"><span>Day</span><DateField value={day} max={today} onChange={pickDay} label="Day" /></div>
           <label className="field"><span>Scale weight (kg)</span><input className="input" inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} placeholder="e.g. 78.2" /></label>
@@ -348,7 +351,7 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
         <section className="section">
           <h2 style={{ marginBottom: 8 }}>Weigh-ins</h2>
           <div className="panel list-panel">
-            {[...nutri.weights].reverse().slice(0, all ? undefined : 30).map((w) => {
+            {[...nutri.weights].reverse().slice(0, all ? undefined : 3).map((w) => {
               const t = pts.find((p) => p.day === w.measured_on)?.trend;
               return (
                 <div key={w.id} className="list-row">
@@ -361,7 +364,7 @@ export default function WeightView({ nutri, checkins, setNutri, onClose, embedde
               );
             })}
           </div>
-          {!all && nutri.weights.length > 30 && <button className="link small" style={{ marginTop: 8 }} onClick={() => setAll(true)}>Show all {nutri.weights.length}</button>}
+          {!all && nutri.weights.length > 3 && <button className="link small" style={{ marginTop: 8 }} onClick={() => setAll(true)}>See all {nutri.weights.length}</button>}
         </section>
       )}
       <p className="muted small" style={{ marginTop: 10 }}>Readiness scans with a weight add it here too. Tap a weigh-in to change it.</p>
@@ -413,7 +416,7 @@ function BodyFatSection({ nutri, setNutri, weightPts }: { nutri: NutritionData; 
 
   return (
     <section className="section bf-section">
-      <h2 style={{ marginBottom: 8 }}>Body fat</h2>
+      <h2 style={{ marginBottom: 8 }} id="chart-bodyfat">Body fat</h2>
       <section className="panel weigh-row">
         <form className="weigh-form" onSubmit={(e) => { e.preventDefault(); if (v != null) act(() => saveBodyFat(day, Math.round(v * 10) / 10)); }}>
           <div className="field"><span>Day</span><DateField value={day} max={today} onChange={pickDay} label="Day" /></div>
@@ -447,7 +450,7 @@ function BodyFatSection({ nutri, setNutri, weightPts }: { nutri: NutritionData; 
 
       {readings.length > 0 && (
         <div className="panel list-panel section">
-          {[...readings].reverse().slice(0, all ? undefined : 10).map((b, i) => {
+          {[...readings].reverse().slice(0, all ? undefined : 3).map((b, i) => {
             const prev = readings[readings.length - 2 - i];
             return (
               <div key={b.id} className="list-row">
@@ -461,7 +464,7 @@ function BodyFatSection({ nutri, setNutri, weightPts }: { nutri: NutritionData; 
           })}
         </div>
       )}
-      {!all && readings.length > 10 && <button className="link small" style={{ marginTop: 8 }} onClick={() => setAll(true)}>Show all {readings.length}</button>}
+      {!all && readings.length > 3 && <button className="link small" style={{ marginTop: 8 }} onClick={() => setAll(true)}>See all {readings.length}</button>}
     </section>
   );
 }

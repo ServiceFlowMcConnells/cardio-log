@@ -6,6 +6,8 @@ import type { LiftStatus, LiftTrend, Stat } from "../lib/strengthReport";
 import { STATUS_LABEL, strengthReport } from "../lib/strengthReport";
 import type { Muscle } from "../lib/strength";
 import { fmtKg } from "../lib/strength";
+import Note from "./Note";
+import Chevrons from "./Chevrons";
 
 type Group = "shoulders" | "chest" | "back" | "legs" | "arms" | "other";
 const GROUPS: Group[] = ["shoulders", "chest", "back", "legs", "arms", "other"];
@@ -48,42 +50,38 @@ export default function StrengthReport({ data, onOpenExercise, selected }: { dat
   }, [r, data.exercises]);
   const toggle = (g: Group) => setOpen((s) => { const n = new Set(s); if (n.has(g)) n.delete(g); else n.add(g); return n; });
 
+  const toneWord = r.tone === "good" ? "On track" : r.tone === "watch" ? "Watch" : "Needs attention";
   return (
-    <section className="panel sr">
-      <div className="page-head" style={{ marginBottom: 6 }}>
-        <h2>Strength report</h2>
+    <div className="prog-stack sr">
+      <div className={`hero-card prog-hero tone-${r.tone}`} role="region" aria-label="Strength report">
+        <Chevrons />
+        <span className="hero-kicker">Strength · last {r.weeks} weeks vs the {r.weeks} before{r.phase ? ` · ${r.phase}` : ""}</span>
+        <span className="hero-name">{toneWord.toUpperCase()}</span>
+        <span className="hero-facts"><span>{r.headline}</span></span>
         {!desk && (
-          <div className="seg sr-weeks" role="group" aria-label="Period">
+          <div className="seg sr-weeks prog-hero-seg" role="group" aria-label="Period">
             {[4, 8, 12].map((w) => <button key={w} className={weeks === w ? "on" : ""} aria-pressed={weeks === w} onClick={() => setWeeks(w)}>{w}W</button>)}
           </div>
         )}
       </div>
-      <p className="small muted" style={{ margin: "0 0 10px" }}>
-        Last {r.weeks} weeks vs the {r.weeks} before{r.phase ? ` · ${r.phase} phase` : ""}
-      </p>
-
-      {/* 1. Headline */}
-      <div className={`sr-headline ${r.tone}`}>
-        <span className="sr-chip">{r.tone === "good" ? "On track" : r.tone === "watch" ? "Watch" : "Needs attention"}</span>
-        <p>{r.headline}</p>
-      </div>
 
       {/* 2. Key numbers */}
-      <div className="sr-stats">
+      <div className="tiles">
         <Tile label="Sessions / week" s={r.sessionsPerWeek} d={1} />
         <Tile label="Working sets / week" s={r.setsPerWeek} d={0} />
-        <div className="sr-tile">
-          <span className="small muted">Lift change</span>
-          <strong className="num">{r.medianChange != null ? `${sign(r.medianChange)}%` : "–"}</strong>
-          <span className="small muted">median best e1RM</span>
+        <div className="tile">
+          <span className="tile-h">Lift change</span>
+          <span className="tile-v num">{r.medianChange != null ? `${sign(r.medianChange)}%` : "–"}</span>
+          <span className="tile-s small">median best e1RM</span>
         </div>
         <Tile label="Average RPE" s={r.avgRpe} d={1} lowerBetter />
       </div>
 
+      <section className="panel prog-card">
       {/* 3. Lift by lift */}
       {r.lifts.length > 0 && (
         <>
-          <h3 className="sr-h">Lifts</h3>
+          <h3 className="sr-h">Lifts by muscle</h3>
           <div className="sr-lifts">
             {groups.map(({ g, lifts, rate, status, tally }) => (
               <div key={g} className={`sr-group${open.has(g) ? " open" : ""}`}>
@@ -109,7 +107,10 @@ export default function StrengthReport({ data, onOpenExercise, selected }: { dat
         </>
       )}
 
+      </section>
+
       {/* 4. Context */}
+      <section className="panel prog-card">
       <h3 className="sr-h">Context</h3>
       <div className="sr-context">
         <Ctx label="Bodyweight" now={c.weight.now != null ? `${fmtKg(Math.round(c.weight.now * 10) / 10)} kg` : null}
@@ -122,16 +123,20 @@ export default function StrengthReport({ data, onOpenExercise, selected }: { dat
           tone={c.protein.avg != null && c.protein.target != null && c.protein.avg < c.protein.target * 0.9 ? "bad" : undefined} />
       </div>
 
+      </section>
+
       {/* 5. Flags and next steps */}
+      <section className="panel prog-card">
       <h3 className="sr-h">Flags and next steps</h3>
       <ul className="sr-flags">
         {r.flags.map((f, i) => <li key={i} className={f.tone}>{f.text}</li>)}
       </ul>
-      <p className="chart-note" style={{ marginBottom: 0 }}>
+      <Note style={{ marginBottom: 0 }}>
         {deloadSpans().some((d) => d.to >= r.from && d.from <= Date.now()) && "This period includes a deload week; its sessions are left out of the trends. "}
         Groups show the median trend of their lifts; tap one to see each exercise. Trends are a straight-line fit through each lift's estimated 1RM per session, as % per week. {r.phase === "deficit" ? "In a deficit, +0.25% a week counts as progressing and only below −0.75% as slipping." : "Above +0.5% a week is progressing; below −0.5% is slipping."}
-      </p>
-    </section>
+      </Note>
+      </section>
+    </div>
   );
 }
 
@@ -139,10 +144,10 @@ function Tile({ label, s, d, lowerBetter }: { label: string; s: Stat; d: number;
   const diff = s.now != null && s.before != null ? s.now - s.before : null;
   const good = diff != null && Math.abs(diff) >= 10 ** -d / 2 ? (lowerBetter ? diff < 0 : diff > 0) : null;
   return (
-    <div className="sr-tile">
-      <span className="small muted">{label}</span>
-      <strong className="num">{s.now != null ? s.now.toFixed(d) : "–"}</strong>
-      <span className={`small ${good == null ? "muted" : good ? "ok" : "warn"}`}>{diff != null ? `${sign(diff, d)} vs ${s.before!.toFixed(d)}` : "no earlier data"}</span>
+    <div className="tile">
+      <span className="tile-h">{label}</span>
+      <span className="tile-v num">{s.now != null ? s.now.toFixed(d) : "–"}</span>
+      <span className={`tile-s small ${good == null ? "" : good ? "ok" : "warn"}`}>{diff != null ? `${sign(diff, d)} vs ${s.before!.toFixed(d)}` : "no earlier data"}</span>
     </div>
   );
 }

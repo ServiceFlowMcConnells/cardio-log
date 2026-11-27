@@ -2,17 +2,16 @@ import { weekHasDeload } from "../lib/deload";
 import { weekHasIllness } from "../lib/illness";
 import type { AppData } from "../App";
 import type { Muscle, Workout } from "../lib/strength";
-import { MUSCLE_LABEL, bestE1rm, fmtKg, fmtTonnage, hardSetsByMuscle, pctChange, volume } from "../lib/strength";
+import { MUSCLE_LABEL, fmtTonnage, hardSetsByMuscle, volume } from "../lib/strength";
 import { addDays, startOfWeek, weekKey } from "../lib/dates";
 import { WeeklyBars } from "./Charts";
-import { Delta } from "./WorkoutLogger";
 import StrengthReport from "./StrengthReport";
 import ExerciseDetail from "./ExerciseDetail";
 import { useState } from "react";
 import { rangeWeeks, useDeskRange } from "../lib/deskRange";
 import { useDesktop } from "../lib/desktop";
+import Note from "./Note";
 
-const DAY = 86400000;
 // Common evidence-based range for weekly hard sets per muscle for growth (e.g. Schoenfeld et al.; RP volume landmarks).
 const SETS_LOW = 10;
 const SETS_HIGH = 20;
@@ -21,8 +20,7 @@ export default function StrengthProgress({ data, onLog, onOpenExercise, onChange
   const desktop = useDesktop();
   const desk = useDeskRange();
   const [selLift, setSelLift] = useState<string | null>(null);
-  const { workouts, exercises, settings } = data;
-  const f = settings.e1rm_formula;
+  const { workouts, exercises } = data;
 
   if (workouts.length === 0) {
     return (
@@ -54,51 +52,28 @@ export default function StrengthProgress({ data, onLog, onOpenExercise, onChange
   const muscles = (Object.keys(MUSCLE_LABEL) as Muscle[]).filter((m) => (setsNow.get(m) ?? 0) > 0 || (setsAvg.get(m) ?? 0) > 0);
   const maxSets = Math.max(SETS_HIGH + 4, ...muscles.map((m) => Math.max(setsNow.get(m) ?? 0, setsAvg.get(m) ?? 0)));
 
-  // Per lift: best e1RM in the last 4 weeks vs the 4 weeks before
-  const now = Date.now();
-  const lifts = exercises
-    .map((e) => {
-      const done = workouts.filter((w) => w.sets.some((s) => s.exercise_id === e.id));
-      if (!done.length) return null;
-      const best = (from: number, to: number) => {
-        let b: number | null = null;
-        for (const w of done) {
-          const t = new Date(w.started_at).getTime();
-          if (t < from || t >= to) continue;
-          const v = bestE1rm(w.sets.filter((s) => s.exercise_id === e.id), f);
-          if (v != null && (b == null || v > b)) b = v;
-        }
-        return b;
-      };
-      const recent = best(now - 28 * DAY, now + DAY);
-      const before = best(now - 56 * DAY, now - 28 * DAY);
-      const allTime = best(0, now + DAY);
-      return { e, recent, before, allTime, last: done[0].started_at, sessions: done.length };
-    })
-    .filter((x): x is NonNullable<typeof x> => x != null)
-    .sort((a, b) => b.last.localeCompare(a.last));
 
   const lastFull = weeks[weeks.length - 2];
   const volumeEl = (
-      <section className="panel">
+      <section className="panel prog-card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
           <h2>Weekly volume</h2>
           <span className="muted small">Last {nWeeks} weeks</span>
         </div>
         <WeeklyBars weeks={weeks} unit="kg" format={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}t` : String(Math.round(v)))} deload={weekHasDeload} ill={weekHasIllness} />
-        <p className="chart-note">
+        <Note>
           Weight × reps over working sets. This week so far: {fmtTonnage(thisWeek.value)}
           {lastFull.value > 0 ? `, last week ${fmtTonnage(lastFull.value)}` : ""}.
           {weeks.some((w) => weekHasDeload(w.start)) && <> <span className="deload-key">Deload weeks</span> are shaded and marked D.</>}
-        </p>
+        </Note>
       </section>
   );
   const setsEl = (
-      <section className="section panel">
+      <section className="section panel prog-card">
         <h2>Hard sets per muscle</h2>
-        <p className="chart-note" style={{ marginTop: 2 }}>
+        <Note style={{ marginTop: 2 }}>
           Working sets at RPE 7 or harder (or with no RPE logged). Each set counts in full for the exercise's main muscle and half for muscles that help (triceps on bench, glutes on squats), the counting that best predicts growth. The shaded band is {SETS_LOW}–{SETS_HIGH} sets a week, a common evidence-based range for muscle growth. In a calorie deficit, holding volume steady is a good result.
-        </p>
+        </Note>
         {muscles.length === 0 ? (
           <p className="muted small" style={{ marginTop: 8 }}>No working sets in the last 5 weeks.</p>
         ) : (
@@ -151,25 +126,6 @@ export default function StrengthProgress({ data, onLog, onOpenExercise, onChange
       {volumeEl}
       {setsEl}
 
-      <section className="section">
-        <h2>Lifts</h2>
-        <p className="muted small" style={{ marginBottom: 10 }}>Best estimated 1RM in the last 4 weeks, against the 4 weeks before. Tap a lift for charts, rep maxes and a load calculator.</p>
-        <div className="panel list-panel">
-          {lifts.map(({ e, recent, before, allTime, sessions }) => (
-            <button key={e.id} className="list-row" onClick={() => onOpenExercise(e.id)}>
-              <span>
-                <strong>{e.name}</strong>
-                <span className="muted small" style={{ display: "block" }}>{MUSCLE_LABEL[e.muscle]}, {sessions} session{sessions === 1 ? "" : "s"}</span>
-              </span>
-              <span className="row-v num">
-                {fmtKg(Math.round((recent ?? allTime ?? 0) * 10) / 10)}<span className="muted small"> kg</span>
-                {recent != null && before != null ? <Delta v={pctChange(recent, before)} /> : null}
-                {recent == null && <span className="muted small" style={{ display: "block" }}>not in 4 wks</span>}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
     </>
   );
 }

@@ -14,6 +14,7 @@ import { NewExerciseForm } from "./ExercisePicker";
 import { useBackHandler } from "../lib/backNav";
 import { STATUS_LABEL, STATUS_TONE, coachExercise, deloadActive, planVariants, rangeLabel } from "../lib/coach";
 import { adjustmentFor, latestPhase, todaysCheckin, lowReadinessCount } from "../lib/readiness";
+import Note from "./Note";
 
 const FORMULA_LABEL = { rpe: "RTS RPE chart", epley: "Epley formula", brzycki: "Brzycki formula" } as const;
 const DAY = 86400000;
@@ -157,21 +158,21 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
             <section className="section panel">
               <h2>Estimated 1RM</h2>
               <TrendChart points={e1rmPts} color="var(--lift)" unit="kg" deloads={dl} ill={illnessSpans()} />
-              {dl.length > 0 && <p className="chart-note"><span className="deload-key">Deload weeks</span> are shaded; those sessions (hollow dots) are planned to be lighter and don't count towards progression.</p>}
+              {dl.length > 0 && <Note><span className="deload-key">Deload weeks</span> are shaded; those sessions (hollow dots) are planned to be lighter and don't count towards progression.</Note>}
             </section>
           )}
           {volPts.length > 0 && (
             <section className="section panel">
               <h2>Volume per session</h2>
               <TrendChart points={volPts} color="var(--ink)" unit="kg" deloads={dl} ill={illnessSpans()} />
-              <p className="chart-note">Weight × reps across working sets. Warm-ups aren't counted.</p>
+              <Note>Weight × reps across working sets. Warm-ups aren't counted.</Note>
             </section>
           )}
 
           {working1rm && (
             <section className="section panel">
               <h2>Rep maxes</h2>
-              <p className="chart-note" style={{ marginTop: 2 }}>What you should manage for each rep count to failure, rounded down to {fmtKg(inc)} kg.</p>
+              <Note style={{ marginTop: 2 }}>What you should manage for each rep count to failure, rounded down to {fmtKg(inc)} kg.</Note>
               <table className="bench" style={{ marginTop: 8 }}>
                 <thead><tr><th>Reps</th><th>%1RM</th><th>Weight</th></tr></thead>
                 <tbody>
@@ -188,14 +189,14 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
                   })}
                 </tbody>
               </table>
-              <p className="chart-note">Above {RELIABLE_REPS} reps the estimates get less reliable.</p>
+              <Note>Above {RELIABLE_REPS} reps the estimates get less reliable.</Note>
             </section>
           )}
 
           {working1rm && (
             <section className="section panel">
               <h2>Load calculator</h2>
-              <p className="chart-note" style={{ marginTop: 2 }}>Pick reps and how hard it should feel. RPE 8 means about 2 reps left in the tank.</p>
+              <Note style={{ marginTop: 2 }}>Pick reps and how hard it should feel. RPE 8 means about 2 reps left in the tank.</Note>
               <div className="grid c2" style={{ marginTop: 10 }}>
                 <label className="field"><span>Reps</span><input className="input" inputMode="numeric" value={calcReps} onChange={(e) => setCalcReps(e.target.value)} /></label>
                 <label className="field"><span>RPE</span><input className="input" inputMode="decimal" value={calcRpe} onChange={(e) => setCalcRpe(e.target.value)} placeholder="10" /></label>

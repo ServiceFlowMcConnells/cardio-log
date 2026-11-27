@@ -4,6 +4,7 @@ import type { DayActivity } from "../lib/health";
 import { hm } from "../lib/health";
 import { addDays, fromYmd, todayYmd } from "../lib/nutrition";
 import { DayChartCard } from "./DayChart";
+import Note from "./Note";
 
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const fmt = (n: number) => Math.round(n).toLocaleString("en-IE");
@@ -131,7 +132,7 @@ export function ActivitySections({ activity, target }: { activity: DayActivity[]
               <div key={k}><span className="small muted">{l}</span><strong className="num">{hm(s(k)!)}</strong></div>
             ))}
           </div>
-          <p className="chart-note">From Health Connect: the longest sleep that ended each morning. Your readiness scan fills in last night's hours from this.</p>
+          <Note>From Health Connect: the longest sleep that ended each morning. Your readiness scan fills in last night's hours from this.</Note>
         </section>
       )}
     </>

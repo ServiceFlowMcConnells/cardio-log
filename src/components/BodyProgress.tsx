@@ -1,15 +1,21 @@
 import type { AppData } from "../App";
 import type { Checkin } from "../lib/readiness";
-import { BAND_LABEL, PHASE_LABEL, bandFor } from "../lib/readiness";
+import { BAND_LABEL, bandFor } from "../lib/readiness";
 import { formatShort } from "../lib/dates";
 import { DayChartCard } from "./DayChart";
 import { hm } from "../lib/health";
 import { ymd } from "../lib/nutrition";
 import { ActivitySections, HydrationChart, MeditationChart } from "./Activity";
 import MoodSection, { shadeDays } from "./MoodSection";
+import { useBackHandler } from "../lib/backNav";
+import { gadBand, gadScore } from "../lib/mood";
 
-export default function BodyProgress({ data, onScan }: { data: AppData; onScan: (c: Checkin | null) => void }) {
+export type BodyMore = null | "activity" | "headspace" | "habits" | "scans";
+const MORE_TITLE: Record<Exclude<BodyMore, null>, string> = { activity: "Steps, sleep stages, water and meditation", headspace: "Headspace", habits: "Mood and your habits", scans: "Recent scans" };
+
+export default function BodyProgress({ data, onScan, more = null, setMore }: { data: AppData; onScan: (c: Checkin | null) => void; more?: string | null; setMore?: (m: BodyMore) => void }) {
   const { checkins } = data;
+  useBackHandler(more != null, () => setMore?.(null));
   if (!checkins.length) {
     return (
       <>
@@ -34,9 +40,53 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
     if (c.sleep_hours != null) sleepByDay.set(d, c.sleep_hours);
   }
 
+  const gad = checkins.find((c) => c.gad7 && c.gad7.length === 7);
+  const scansList = (
+      <section className="section">
+        <div className="panel list-panel" style={{ marginTop: 8 }}>
+          {checkins.slice(0, more === "scans" ? 60 : 14).map((c) => (
+            <button key={c.id} className="list-row" onClick={() => onScan(c)}>
+              <span>
+                <strong>{formatShort(new Date(c.checked_at))}</strong>
+                <span className="muted small" style={{ display: "block" }}>
+                  Sleep {c.sleep_quality}, energy {c.energy}, soreness {c.soreness}
+                  {c.sleep_hours != null ? `, ${c.sleep_hours} h` : ""}{c.bodyweight_kg != null ? `, ${c.bodyweight_kg} kg` : ""}
+                  {c.sick ? ", unwell" : ""}{c.mood != null ? `, mood ${c.mood}` : ""}
+                </span>
+              </span>
+              <span className={`ready-score sm band-${bandFor(c.score)}`}>{c.score}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+  );
+  if (more && setMore) {
+    const m = more as Exclude<BodyMore, null>;
+    return (
+      <div className="more-view">
+        <div className="more-head">
+          <button className="icon-btn" onClick={() => setMore(null)} aria-label="Back to Recovery">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+          </button>
+          <h2>{MORE_TITLE[m]}</h2>
+        </div>
+        {m === "activity" && (<><ActivitySections activity={data.activity} target={data.settings.step_target} /><HydrationChart target={data.settings.water_target_ml} /><MeditationChart /></>)}
+        {m === "headspace" && <MoodSection data={data} part="headspace" />}
+        {m === "habits" && <MoodSection data={data} part="habits" />}
+        {m === "scans" && scansList}
+      </div>
+    );
+  }
+  const row = (k: Exclude<BodyMore, null>, label: string, value: string) => (
+    <button key={k} className="list-row" onClick={() => { setMore?.(k); window.scrollTo({ top: 0 }); }}>
+      <span><strong>{label}</strong></span>
+      <span className="row-v small muted">{value} ›</span>
+    </button>
+  );
   return (
     <>
       <DayChartCard
+        id="chart-readiness"
         title="Readiness" kind="line" color="var(--lift)" band={[70, 100]} floor={40} clamp={[0, 100]}
         sub={({ avg, label }) => (avg != null ? `${label} ${Math.round(avg)} (${BAND_LABEL[bandFor(avg)]})` : undefined)}
         values={scoreByDay} fmt={(v) => String(Math.round(v))} axis={(v) => String(Math.round(v))}
@@ -47,6 +97,7 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
 
       {sleepByDay.size > 0 && (
         <DayChartCard
+          id="chart-sleep"
           title="Sleep" kind="line" color="var(--bike)" band={[7, 9]}
           sub={({ avg, label }) => (avg != null ? `${label} ${avg.toFixed(1)} h` : undefined)}
           values={sleepByDay} fmt={(v) => hm(v * 60)} axis={(v) => `${Math.round(v * 10) / 10}h`}
@@ -54,29 +105,15 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
         />
       )}
 
-      <MoodSection data={data} />
+      <MoodSection data={data} part="chart" />
 
-      <ActivitySections activity={data.activity} target={data.settings.step_target} />
-      <HydrationChart target={data.settings.water_target_ml} />
-      <MeditationChart />
-
-      <section className="section">
-        <h2>Recent scans</h2>
-        <div className="panel list-panel" style={{ marginTop: 8 }}>
-          {checkins.slice(0, 14).map((c) => (
-            <button key={c.id} className="list-row" onClick={() => onScan(c)}>
-              <span>
-                <strong>{formatShort(new Date(c.checked_at))}</strong>
-                <span className="muted small" style={{ display: "block" }}>
-                  Sleep {c.sleep_quality}, energy {c.energy}, soreness {c.soreness}
-                  {c.sleep_hours != null ? `, ${c.sleep_hours} h` : ""}{c.bodyweight_kg != null ? `, ${c.bodyweight_kg} kg` : ""}
-                  {c.calorie_status ? `, ${PHASE_LABEL[c.calorie_status].toLowerCase()}${c.calories ? ` ${c.calories} kcal` : ""}` : ""}
-                  {c.sick ? ", unwell" : ""}{c.mood != null ? `, mood ${c.mood}` : ""}
-                </span>
-              </span>
-              <span className={`ready-score sm band-${bandFor(c.score)}`}>{c.score}</span>
-            </button>
-          ))}
+      <section className="section panel prog-card">
+        <h2>More</h2>
+        <div className="list-panel more-list">
+          {gad?.gad7 && row("headspace", "Headspace", `${gadScore(gad.gad7)} · ${gadBand(gadScore(gad.gad7))}`)}
+          {checkins.some((c) => c.mood != null) && row("habits", "Mood and your habits", "patterns")}
+          {row("activity", "Steps, sleep stages, water, meditation", "")}
+          {row("scans", "Recent scans", String(checkins.length))}
         </div>
       </section>
     </>
