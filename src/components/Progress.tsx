@@ -5,7 +5,7 @@ import { PhotosCard } from "./photos/ProgressPhotos";
 import type { AppData } from "../App";
 import type { Block, Machine, Session, Settings } from "../lib/types";
 import StrengthProgress from "./StrengthProgress";
-import BodyProgress from "./BodyProgress";
+import BodyProgress, { type BodyMore } from "./BodyProgress";
 import NutritionTrends from "./food/NutritionTrends";
 import WeightView from "./food/Weight";
 import type { NutritionData } from "../lib/nutrition";
@@ -214,7 +214,7 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, o
   // Phone: one range for the whole tab, under the tabs (the laptop's is in the top bar)
   const [phoneRange, setPhoneRangeState] = useState<DeskRange>(() => loadDeskRange(PHONE_RANGE_KEY, "3m"));
   const setPhoneRange = (r: DeskRange) => { setPhoneRangeState(r); saveDeskRange(r, PHONE_RANGE_KEY); };
-  const [bodyMore, setBodyMore] = useState<null | "activity">(null);
+  const [bodyMore, setBodyMore] = useState<BodyMore>(null);
   const pick = (m: Mode) => {
     setMode(m);
     try { localStorage.setItem(MODE_KEY, m); } catch { /* ignore */ }
