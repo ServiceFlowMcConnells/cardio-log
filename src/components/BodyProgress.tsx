@@ -6,6 +6,7 @@ import { DayChartCard } from "./DayChart";
 import { hm } from "../lib/health";
 import { ymd } from "../lib/nutrition";
 import { ActivitySections, HydrationChart, MeditationChart } from "./Activity";
+import MoodSection, { shadeDays } from "./MoodSection";
 
 export default function BodyProgress({ data, onScan }: { data: AppData; onScan: (c: Checkin | null) => void }) {
   const { checkins } = data;
@@ -40,7 +41,8 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
         sub={({ avg, label }) => (avg != null ? `${label} ${Math.round(avg)} (${BAND_LABEL[bandFor(avg)]})` : undefined)}
         values={scoreByDay} fmt={(v) => String(Math.round(v))} axis={(v) => String(Math.round(v))}
         extra={({ avg }) => BAND_LABEL[bandFor(avg)]}
-        note='The shaded band is "Ready" or better. A run of low scores in a deficit is a sign to talk to your coach about a diet break or a deload.'
+        shade={shadeDays}
+        note='The green band is "Ready" or better; sick days are shaded S and deload days D. A run of low scores in a deficit is a sign to talk to your coach about a diet break or a deload.'
       />
 
       {sleepByDay.size > 0 && (
@@ -51,6 +53,8 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
           note="Hours from your readiness scans, or Health Connect on days without a scan. 7–9 hours is the recommended range for adults; under 6 cuts into strength and recovery."
         />
       )}
+
+      <MoodSection data={data} />
 
       <ActivitySections activity={data.activity} target={data.settings.step_target} />
       <HydrationChart target={data.settings.water_target_ml} />
@@ -67,6 +71,7 @@ export default function BodyProgress({ data, onScan }: { data: AppData; onScan: 
                   Sleep {c.sleep_quality}, energy {c.energy}, soreness {c.soreness}
                   {c.sleep_hours != null ? `, ${c.sleep_hours} h` : ""}{c.bodyweight_kg != null ? `, ${c.bodyweight_kg} kg` : ""}
                   {c.calorie_status ? `, ${PHASE_LABEL[c.calorie_status].toLowerCase()}${c.calories ? ` ${c.calories} kcal` : ""}` : ""}
+                  {c.sick ? ", unwell" : ""}{c.mood != null ? `, mood ${c.mood}` : ""}
                 </span>
               </span>
               <span className={`ready-score sm band-${bandFor(c.score)}`}>{c.score}</span>

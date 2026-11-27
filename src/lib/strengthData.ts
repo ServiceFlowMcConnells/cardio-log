@@ -178,7 +178,7 @@ export async function deleteWorkout(id: string): Promise<void> {
 export async function loadCheckins(): Promise<Checkin[]> {
   const { data, error } = await supabase
     .from("readiness_checkins")
-    .select("id, checked_at, sleep_quality, energy, soreness, sleep_hours, bodyweight_kg, score, notes, calorie_status, calories")
+    .select("id, checked_at, sleep_quality, energy, soreness, sleep_hours, bodyweight_kg, score, notes, calorie_status, calories, sick, symptoms, sick_choice, mood, gad7, gad7_skipped")
     .order("checked_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((c: Row) => ({
@@ -193,6 +193,12 @@ export async function loadCheckins(): Promise<Checkin[]> {
     notes: (c.notes as string) ?? null,
     calorie_status: (c.calorie_status as Checkin["calorie_status"]) ?? null,
     calories: num(c.calories),
+    sick: Boolean(c.sick),
+    symptoms: (c.symptoms as string[] | null) ?? [],
+    sick_choice: (c.sick_choice as Checkin["sick_choice"]) ?? null,
+    mood: num(c.mood),
+    gad7: Array.isArray(c.gad7) ? (c.gad7 as number[]).map(Number) : null,
+    gad7_skipped: Boolean(c.gad7_skipped),
   }));
 }
 
@@ -201,6 +207,8 @@ export async function saveCheckin(c: Omit<Checkin, "id"> & { id?: string }): Pro
     checked_at: c.checked_at, sleep_quality: c.sleep_quality, energy: c.energy, soreness: c.soreness,
     sleep_hours: c.sleep_hours, bodyweight_kg: c.bodyweight_kg, score: c.score, notes: c.notes?.trim() || null,
     calorie_status: c.calorie_status, calories: c.calories,
+    sick: c.sick ?? false, symptoms: c.symptoms ?? [], sick_choice: c.sick ? c.sick_choice ?? null : null,
+    mood: c.mood ?? null, gad7: c.gad7 ?? null, gad7_skipped: c.gad7_skipped ?? false,
   };
   const q = c.id ? supabase.from("readiness_checkins").update(row).eq("id", c.id) : supabase.from("readiness_checkins").insert(row);
   const { data, error } = await q.select("id").single();

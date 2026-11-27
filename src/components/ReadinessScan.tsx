@@ -7,6 +7,9 @@ import {
 } from "../lib/readiness";
 import { deleteCheckin, saveCheckin } from "../lib/strengthData";
 import { formatDay, formatTime } from "../lib/dates";
+import type { SickChoice } from "../lib/illness";
+import { CHOICE_LABEL, SYMPTOMS, belowNeck, stillUnwell } from "../lib/illness";
+import { GAD_ITEMS, GAD_OPTIONS, MOOD_LABELS, gadBand, gadDue, gadScore } from "../lib/mood";
 
 interface Props {
   existing: Checkin | null;
@@ -24,13 +27,16 @@ interface Props {
   dayTarget?: number | null;
 }
 
-function Rating({ label, hint, labels, value, onChange }: { label: string; hint: string; labels: string[]; value: number | null; onChange: (v: number) => void }) {
+function Rating({ label, hint, labels, value, onChange, onClear }: { label: string; hint: string; labels: string[]; value: number | null; onChange: (v: number) => void; onClear?: () => void }) {
   const id = label.replace(/\W/g, "");
   return (
     <div className="rating">
       <div className="rating-head">
         <h3 id={id}>{label}</h3>
-        <span className="muted small">{value ? labels[value - 1] : hint}</span>
+        <span className="muted small">
+          {value ? labels[value - 1] : hint}
+          {onClear && value != null && <> · <button type="button" className="link small" onClick={onClear}>Clear</button></>}
+        </span>
       </div>
       <div className="rating-row" role="radiogroup" aria-labelledby={id}>
         {labels.map((l, i) => (
@@ -69,6 +75,21 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Sickness: carries over from your last scan until you say you're better
+  const prevSick = existing ? null : stillUnwell(checkins);
+  const [unwell, setUnwell] = useState<boolean>(existing ? Boolean(existing.sick) : prevSick != null);
+  const [symptoms, setSymptoms] = useState<string[]>(existing?.symptoms ?? prevSick?.symptoms ?? []);
+  const [choice, setChoice] = useState<SickChoice | null>(existing?.sick_choice ?? (prevSick && !belowNeck(prevSick.symptoms ?? []) ? prevSick.sick_choice ?? null : null));
+  const forcedRest = unwell && belowNeck(symptoms);
+  const sickChoice: SickChoice | null = !unwell ? null : forcedRest ? "rest" : choice;
+  const toggleSymptom = (id: string) => setSymptoms((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  // Mood (optional) and the fortnightly GAD-7
+  const [mood, setMood] = useState<number | null>(existing?.mood ?? null);
+  const gadAsk = existing ? Boolean(existing.gad7) : gadDue(checkins);
+  const [gad, setGad] = useState<(number | null)[]>(existing?.gad7 ?? Array(7).fill(null));
+  const [gadSkip, setGadSkip] = useState(false);
+  const gadDone = gad.every((v) => v != null);
+  const gadStarted = gad.some((v) => v != null);
 
   const at = existing?.checked_at ?? new Date().toISOString();
   const h = parse(hours);
@@ -91,6 +112,9 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
   };
 
   async function save() {
+    if (unwell && !symptoms.length) return setError("Tick at least one symptom, or switch back to I'm well.");
+    if (unwell && !sickChoice) return setError("Choose what to do with today's session.");
+    if (gadAsk && !gadSkip && gadStarted && !gadDone) return setError("Answer all seven anxiety questions, or skip them for today.");
     if (!complete) return setError("Rate sleep, energy and soreness first.");
     if (!hoursOk) return setError("Hours of sleep should be between 0 and 16.");
     if (!weightOk) return setError("Bodyweight should be between 30 and 300 kg.");
@@ -102,6 +126,8 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
         id: existing?.id, checked_at: at, sleep_quality: sleepQ!, energy: energy!, soreness: soreness!,
         sleep_hours: h, bodyweight_kg: w, score: result!.score, notes: notes || null,
         calorie_status: phase, calories: kcal,
+        sick: unwell, symptoms: unwell ? symptoms : [], sick_choice: sickChoice,
+        mood, gad7: gadAsk && gadDone && !gadSkip ? (gad as number[]) : null, gad7_skipped: gadAsk && !existing && !gadDone,
       });
       onSaved(c);
     } catch (e) {
@@ -130,11 +156,84 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
         <button className="btn ghost" onClick={onCancel}>Cancel</button>
       </div>
 
+      <section className={`panel sick-panel${unwell ? " on" : ""}`} aria-labelledby="feel-h">
+        <div className="rating-head">
+          <h3 id="feel-h">{prevSick ? "Still unwell?" : "How are you feeling?"}</h3>
+          {prevSick && <span className="muted small">Carried over from {formatDay(new Date(prevSick.checked_at))}</span>}
+        </div>
+        <div className="seg" role="radiogroup" aria-labelledby="feel-h">
+          <button role="radio" aria-checked={!unwell} className={!unwell ? "on" : ""} onClick={() => setUnwell(false)}>{prevSick ? "I'm better" : "I'm well"}</button>
+          <button role="radio" aria-checked={unwell} className={unwell ? "on" : ""} onClick={() => setUnwell(true)}>{prevSick ? "Still unwell" : "I'm unwell"}</button>
+        </div>
+        {unwell && (
+          <>
+            <p className="small muted" style={{ margin: "10px 0 6px" }}>Symptoms</p>
+            <div className="sym-groups">
+              <div>
+                <span className="sym-h small">Above the neck</span>
+                <div className="chips">{SYMPTOMS.filter((s) => s.above).map((s) => <button key={s.id} type="button" className={`chip-btn${symptoms.includes(s.id) ? " on" : ""}`} aria-pressed={symptoms.includes(s.id)} onClick={() => toggleSymptom(s.id)}>{s.label}</button>)}</div>
+              </div>
+              <div>
+                <span className="sym-h small">Below the neck or all over</span>
+                <div className="chips">{SYMPTOMS.filter((s) => !s.above).map((s) => <button key={s.id} type="button" className={`chip-btn bad${symptoms.includes(s.id) ? " on" : ""}`} aria-pressed={symptoms.includes(s.id)} onClick={() => toggleSymptom(s.id)}>{s.label}</button>)}</div>
+              </div>
+            </div>
+            {symptoms.length > 0 && (forcedRest ? (
+              <div className="sick-verdict rest">
+                <strong>Rest today.</strong> With symptoms below the neck{symptoms.includes("fever") ? " or a fever" : ""}, training makes things worse, not better. Today's strength session is skipped (the program waits for you) and planned cardio is cleared.
+                {symptoms.includes("fever") && " Once you're better, you'll get a full day clear of fever before lifting again."}
+              </div>
+            ) : (
+              <>
+                <p className="small" style={{ margin: "10px 0 6px" }}>Above the neck only, so light training is usually fine. What would you like to do today?</p>
+                <div className="seg" role="radiogroup" aria-label="Today's session">
+                  {(["normal", "light", "rest"] as SickChoice[]).map((c) => <button key={c} role="radio" aria-checked={choice === c} className={choice === c ? "on" : ""} onClick={() => setChoice(c)}>{CHOICE_LABEL[c]}</button>)}
+                </div>
+                {choice && <p className="small muted" style={{ marginTop: 6 }}>
+                  {choice === "normal" && "Full session as planned. The day is marked as unwell, so a dip doesn't count against your progress."}
+                  {choice === "light" && "About half the sets, a little lighter, stopping by RPE 7. It doesn't count towards progression. Keep any cardio easy and short."}
+                  {choice === "rest" && "Today's session is skipped (the program waits) and planned cardio is cleared. Your first session back will be an easy one."}
+                </p>}
+              </>
+            ))}
+            <p className="small muted sick-flags">See a doctor if you have chest pain, trouble breathing, or a fever that lasts more than a few days.</p>
+          </>
+        )}
+      </section>
+
       <div className="stack">
         <Rating label="Sleep quality" hint="How well did you sleep?" labels={SLEEP_LABELS} value={sleepQ} onChange={setSleepQ} />
         <Rating label="Energy" hint="How fresh do you feel?" labels={ENERGY_LABELS} value={energy} onChange={setEnergy} />
         <Rating label="Soreness" hint="5 means not sore at all" labels={SORENESS_LABELS} value={soreness} onChange={setSoreness} />
+        <Rating label="Mood" hint="Optional" labels={MOOD_LABELS} value={mood} onChange={setMood} onClear={() => setMood(null)} />
       </div>
+
+      {gadAsk && (
+        <section className="panel gad-panel" aria-labelledby="gad-h" style={{ marginTop: 12 }}>
+          <div className="rating-head">
+            <h3 id="gad-h">Anxiety check-in</h3>
+            <span className="muted small">{gadDone ? `${gadScore(gad as number[])} · ${gadBand(gadScore(gad as number[]))}` : gadSkip ? "Skipped" : "Every 2 weeks"}</span>
+          </div>
+          {gadSkip ? (
+            <p className="small muted" style={{ margin: 0 }}>Skipped for today. <button className="link small" onClick={() => setGadSkip(false)}>Answer it now</button></p>
+          ) : (
+            <>
+              <p className="small muted" style={{ margin: "0 0 8px" }}>Over the last 2 weeks, how often have you been bothered by the following? (GAD-7)</p>
+              <ol className="gad-list">
+                {GAD_ITEMS.map((q, i) => (
+                  <li key={i}>
+                    <span className="small">{q}</span>
+                    <div className="seg gad-seg" role="radiogroup" aria-label={q}>
+                      {GAD_OPTIONS.map((o, v) => <button key={v} role="radio" aria-checked={gad[i] === v} className={gad[i] === v ? "on" : ""} onClick={() => setGad((g) => g.map((x, j) => (j === i ? v : x)))}>{o}</button>)}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              {!existing && <button className="link small" onClick={() => { setGadSkip(true); setGad(Array(7).fill(null)); }}>Skip for today</button>}
+            </>
+          )}
+        </section>
+      )}
 
       <div className="grid c2" style={{ marginTop: 12 }}>
         <div className="panel">

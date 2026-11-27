@@ -47,6 +47,8 @@ export interface DayChartProps {
   floor?: number;
   /** Hard limits of the value axis (readiness is 0–100). */
   clamp?: [number, number];
+  /** Shade a bucket: "ill" for sick days, "deload" for deload days. */
+  shade?: (start: string, end: string) => "ill" | "deload" | null;
 }
 
 /** Recovery charts: same behaviour as the macros and weight charts. Ranges and day/week/month grouping, ‹ › to step,
@@ -128,7 +130,7 @@ export function DayChartCard(p: DayChartProps) {
   );
 }
 
-function Chart({ buckets, agg, active, wide, today, kind, color = "var(--ink)", band, target, axis, barClass, floor, clamp, onPinch, onHover, onTap, onHoldEnd, title }: DayChartProps & {
+function Chart({ buckets, agg, active, wide, today, kind, color = "var(--ink)", band, target, axis, barClass, floor, clamp, shade, onPinch, onHover, onTap, onHoldEnd, title }: DayChartProps & {
   buckets: Bucket[]; agg: Agg; active: number | null; wide: boolean; today: string;
   onPinch: Parameters<typeof useChartGestures>[0]["onPinch"]; onHover: (i: number | null) => void; onTap: (i: number) => void; onHoldEnd: (i: number) => void;
 }) {
@@ -190,6 +192,7 @@ function Chart({ buckets, agg, active, wide, today, kind, color = "var(--ink)", 
       {target != null && target <= top && <line className="ntr-target" x1={padL} x2={W - padR} y1={y(target)} y2={y(target)} />}
       {buckets.map((b, i) => (
         <g key={b.key} opacity={active != null && active !== i ? 0.45 : 1}>
+          {(() => { const sh = shade?.(b.start, b.end); return sh ? <rect x={padL + slot * i} y={padT} width={slot} height={H - padT - padB} className={sh === "ill" ? "ill-band" : "deload-band"} /> : null; })()}
           <rect x={padL + slot * i} y={padT} width={slot} height={H - padT - padB} fill="transparent" />
           {kind === "bar" && b.avg != null && (
             <rect x={x(i) - bw / 2} width={bw} y={y(b.avg)} height={Math.max(1, y(0) - y(b.avg))} rx={Math.min(2, bw / 3)} className={`${barClass?.(b.avg) ?? ""}${b.end >= today && b.start <= today ? " today" : ""}`} fill={barClass ? undefined : color} />

@@ -10,7 +10,7 @@ function niceMax(v: number): number {
 
 export interface Point { t: number; v: number }
 
-export function WeeklyBars({ weeks, target, unit, format = (v) => String(Math.round(v)), deload }: { weeks: { start: Date; value: number }[]; target?: number; unit: string; format?: (v: number) => string; deload?: (weekStart: Date) => boolean }) {
+export function WeeklyBars({ weeks, target, unit, format = (v) => String(Math.round(v)), deload, ill }: { weeks: { start: Date; value: number }[]; target?: number; unit: string; format?: (v: number) => string; deload?: (weekStart: Date) => boolean; ill?: (weekStart: Date) => boolean }) {
   const W = 340, H = 170, padL = 30, padB = 22, padT = 10;
   const max = niceMax(Math.max((target ?? 0) * 1.15, ...weeks.map((w) => w.value), unit === "min" ? 30 : 1));
   const bw = (W - padL) / weeks.length;
@@ -30,8 +30,15 @@ export function WeeklyBars({ weeks, target, unit, format = (v) => String(Math.ro
         const h = y(0) - y(w.value);
         const hit = target != null && w.value >= target;
         const dl = deload?.(w.start) ?? false;
+        const sk = !dl && (ill?.(w.start) ?? false);
         return (
           <g key={i}>
+            {sk && (
+              <>
+                <rect className="ill-band" x={padL + i * bw} y={padT} width={bw} height={y(0) - padT}><title>Unwell this week</title></rect>
+                <text className="ill-label" x={padL + i * bw + bw / 2} y={padT + 9} textAnchor="middle">S</text>
+              </>
+            )}
             {dl && (
               <>
                 <rect className="deload-band" x={padL + i * bw} y={padT} width={bw} height={y(0) - padT} />
@@ -60,7 +67,7 @@ export function WeeklyBars({ weeks, target, unit, format = (v) => String(Math.ro
   );
 }
 
-export function TrendChart({ points, color, unit, avg, band, deloads }: { points: Point[]; color: string; unit: string; avg?: Point[]; band?: [number, number]; deloads?: { from: number; to: number }[] }) {
+export function TrendChart({ points, color, unit, avg, band, deloads, ill }: { points: Point[]; color: string; unit: string; avg?: Point[]; band?: [number, number]; deloads?: { from: number; to: number }[]; ill?: { from: number; to: number }[] }) {
   const W = 340, H = 160, padL = 34, padB = 22, padT = 10, padR = 8;
   const ts = points.map((p) => p.t);
   const vs = points.map((p) => p.v);
@@ -88,6 +95,15 @@ export function TrendChart({ points, color, unit, avg, band, deloads }: { points
         <text key={i} x={x(t)} y={H - 6} textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"}>{formatShort(new Date(t))}</text>
       ))}
       {band && <rect x={padL} width={W - padL - padR} y={y(band[1])} height={Math.max(0, y(band[0]) - y(band[1]))} fill="var(--in)" opacity={0.12} />}
+      {(ill ?? []).filter((d) => d.to >= t0 && d.from <= t1).map((d, i) => {
+        const a = x(Math.max(d.from, t0)), b = x(Math.min(d.to, t1));
+        return (
+          <g key={`ill${i}`}>
+            <rect className="ill-band" x={a} y={padT} width={Math.max(3, b - a)} height={H - padT - padB}><title>Unwell</title></rect>
+            <text className="ill-label" x={(a + b) / 2} y={padT + 9} textAnchor="middle">S</text>
+          </g>
+        );
+      })}
       {(deloads ?? []).filter((d) => d.to >= t0 && d.from <= t1).map((d, i) => {
         const a = x(Math.max(d.from, t0)), b = x(Math.min(d.to, t1));
         return (

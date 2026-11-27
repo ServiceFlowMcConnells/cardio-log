@@ -14,6 +14,7 @@ import { benchmarkKey, groupByWeek, outputPerBeat, recentWeeks, sessionMinutes, 
 import { WeeklyBars, TrendChart, trendText, type Point } from "./Charts";
 import { inRange, rangeWeeks, useDeskRange } from "../lib/deskRange";
 import { useDesktop } from "../lib/desktop";
+import { weekHasIllness } from "../lib/illness";
 import type { Workout } from "../lib/strength";
 
 function OutputSection({ machine, sessions }: { machine: Machine; sessions: Session[] }) {
@@ -168,7 +169,7 @@ function CardioProgress({ sessions, settings, onLog }: { sessions: Session[]; se
           <h2>Weekly minutes</h2>
           <span className="muted small">Last {nWeeks} weeks</span>
         </div>
-        <WeeklyBars weeks={weeks.map((w) => ({ start: w.start, value: w.minutes }))} target={target} unit="min" />
+        <WeeklyBars weeks={weeks.map((w) => ({ start: w.start, value: w.minutes }))} target={target} unit="min" ill={weekHasIllness} />
         <p className="chart-note">
           {completed.length > 0
             ? `Target hit in ${hits} of ${completed.length} finished week${completed.length === 1 ? "" : "s"} since you started. Dashed line is your ${target} min target; green bars hit it.`

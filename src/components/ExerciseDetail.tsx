@@ -1,4 +1,5 @@
 import { deloadSpans } from "../lib/deload";
+import { illnessSpans } from "../lib/illness";
 import { useState } from "react";
 import type { AppData } from "../App";
 import type { Workout } from "../lib/strength";
@@ -155,14 +156,14 @@ export default function ExerciseDetail({ exerciseId, data, onBack, onChanged, on
           {e1rmPts.length > 0 && (
             <section className="section panel">
               <h2>Estimated 1RM</h2>
-              <TrendChart points={e1rmPts} color="var(--lift)" unit="kg" deloads={dl} />
+              <TrendChart points={e1rmPts} color="var(--lift)" unit="kg" deloads={dl} ill={illnessSpans()} />
               {dl.length > 0 && <p className="chart-note"><span className="deload-key">Deload weeks</span> are shaded; those sessions (hollow dots) are planned to be lighter and don't count towards progression.</p>}
             </section>
           )}
           {volPts.length > 0 && (
             <section className="section panel">
               <h2>Volume per session</h2>
-              <TrendChart points={volPts} color="var(--ink)" unit="kg" deloads={dl} />
+              <TrendChart points={volPts} color="var(--ink)" unit="kg" deloads={dl} ill={illnessSpans()} />
               <p className="chart-note">Weight × reps across working sets. Warm-ups aren't counted.</p>
             </section>
           )}

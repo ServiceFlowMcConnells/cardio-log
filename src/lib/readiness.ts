@@ -34,6 +34,15 @@ export interface Checkin {
   notes: string | null;
   calorie_status: Phase | null;
   calories: number | null;
+  /** Unwell today: symptoms ticked in the scan, and what to do with today's session (see illness.ts). */
+  sick?: boolean;
+  symptoms?: string[];
+  sick_choice?: "normal" | "light" | "rest" | null;
+  /** Mood, 1 (awful) to 5 (great); optional. */
+  mood?: number | null;
+  /** The fortnightly GAD-7: seven answers 0–3, or skipped. */
+  gad7?: number[] | null;
+  gad7_skipped?: boolean;
 }
 
 /** Nutrition phase. Carried forward from the last scan until you change it. */

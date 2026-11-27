@@ -24,6 +24,7 @@ import { plannedTemplate } from "./lib/schedule";
 import { loadPlanned } from "./lib/schedule";
 import type { Checkin } from "./lib/readiness";
 import { todaysCheckin } from "./lib/readiness";
+import { setIllnessData } from "./lib/illness";
 import ReadinessScan from "./components/ReadinessScan";
 import type { Session, Settings } from "./lib/types";
 import { DEFAULT_SETTINGS } from "./lib/types";
@@ -242,6 +243,7 @@ export default function App() {
     setView({ k: "tabs" });
   };
   const { sessions, settings, exercises, templates, workouts, checkins } = data;
+  setIllnessData(checkins, workouts); // sick days: what they do to today's session, and which sessions the coach ignores
   const today = todaysCheckin(checkins);
   // Starting a workout: scan first if there's no scan today
   const startWorkout = (base: Template | null) => {

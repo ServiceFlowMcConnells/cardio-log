@@ -1,4 +1,5 @@
 import { weekHasDeload } from "../lib/deload";
+import { weekHasIllness } from "../lib/illness";
 import type { AppData } from "../App";
 import type { Muscle, Workout } from "../lib/strength";
 import { MUSCLE_LABEL, bestE1rm, fmtKg, fmtTonnage, hardSetsByMuscle, pctChange, volume } from "../lib/strength";
@@ -84,7 +85,7 @@ export default function StrengthProgress({ data, onLog, onOpenExercise, onChange
           <h2>Weekly volume</h2>
           <span className="muted small">Last {nWeeks} weeks</span>
         </div>
-        <WeeklyBars weeks={weeks} unit="kg" format={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}t` : String(Math.round(v)))} deload={weekHasDeload} />
+        <WeeklyBars weeks={weeks} unit="kg" format={(v) => (v >= 1000 ? `${Math.round(v / 100) / 10}t` : String(Math.round(v)))} deload={weekHasDeload} ill={weekHasIllness} />
         <p className="chart-note">
           Weight × reps over working sets. This week so far: {fmtTonnage(thisWeek.value)}
           {lastFull.value > 0 ? `, last week ${fmtTonnage(lastFull.value)}` : ""}.

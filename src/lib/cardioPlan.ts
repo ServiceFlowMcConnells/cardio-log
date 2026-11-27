@@ -1,3 +1,4 @@
+import { sickRestDay } from "./illness";
 // Cardio planned in the week planner: a type and target minutes on a day. Shown against the weekly cardio target.
 import { supabase } from "./supabase";
 import type { Session } from "./types";
@@ -37,7 +38,7 @@ export const loggedOn = (sessions: Session[], day: string) =>
  */
 export function plannedRemaining(plan: PlannedCardio[], sessions: Session[], weekDates: string[], today = ymdOf(new Date())): { total: number; byDay: number[] } {
   const byDay = weekDates.map((d) => {
-    if (d < today) return 0;
+    if (d < today || sickRestDay(d)) return 0; // a sick rest day clears planned cardio
     const p = plan.filter((x) => x.planned_on === d).reduce((a, x) => a + x.minutes, 0);
     return d === today ? Math.max(0, p - loggedOn(sessions, d)) : p;
   });

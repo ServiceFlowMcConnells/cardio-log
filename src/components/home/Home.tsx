@@ -19,6 +19,7 @@ import { writeWaterToHealth } from "../../lib/health";
 import { inAndroidApp } from "../../lib/nativeTimer";
 import { todayYmd, addDays as addYmd } from "../../lib/nutrition";
 import { useDesktop } from "../../lib/desktop";
+import { MODE_TEXT, isSickDay, sickRestDay, todayMode } from "../../lib/illness";
 
 export interface HeroSession { template: Template; date: string; label: string; sub: string | null }
 
@@ -52,7 +53,8 @@ export function heroSession(data: AppData, today = ymd(new Date())): HeroSession
     return up && up.template.id === t.id && up.program && up.step != null ? `${up.program.name} · workout ${String.fromCharCode(65 + up.step)} of ${up.program.steps.length}` : null;
   };
   const todayPlan = planned.find((p) => p.planned_on === today && tpl(p.template_id));
-  if (todayPlan && !doneToday) {
+  const restToday = sickRestDay(today);
+  if (todayPlan && !doneToday && !restToday) {
     const t = tpl(todayPlan.template_id)!;
     return { template: t, date: today, label: "Today", sub: programSub(t) };
   }
@@ -63,7 +65,7 @@ export function heroSession(data: AppData, today = ymd(new Date())): HeroSession
   }
   if (!doneToday) {
     const up = nextUp(data);
-    if (up) return { template: up.template, date: today, label: "Next up", sub: up.program && up.step != null ? `${up.program.name} · workout ${String.fromCharCode(65 + up.step)} of ${up.program.steps.length}` : null };
+    if (up) return { template: up.template, date: restToday ? addDaysYmd(today, 1) : today, label: "Next up", sub: up.program && up.step != null ? `${up.program.name} · workout ${String.fromCharCode(65 + up.step)} of ${up.program.steps.length}` : null };
   }
   return null;
 }
@@ -80,8 +82,9 @@ export default function Home({ data, onPreview, onPlan, goSettings, onScan, onSt
   const tpl = (id: string) => templates.find((t) => t.id === id);
 
   // Ticker: one segment per planned strength session; any session this week fills the next one
-  const plannedWeek = planned.filter((p) => days.includes(p.planned_on) && tpl(p.template_id));
   const doneWeek = workouts.filter((w) => days.includes(ymd(new Date(w.started_at))));
+  // A session skipped for sickness drops out of the week's count
+  const plannedWeek = planned.filter((p) => days.includes(p.planned_on) && tpl(p.template_id) && !(sickRestDay(p.planned_on) && !doneWeek.some((w) => sameDay(w, p.planned_on))));
   const P = plannedWeek.length;
   const D = doneWeek.length;
   const left = Math.max(0, P - D);
@@ -102,7 +105,8 @@ export default function Home({ data, onPreview, onPlan, goSettings, onScan, onSt
   const hero = heroSession(data, today);
   const doneToday = workouts.filter((w) => sameDay(w, today));
   const restToday = !planned.some((p) => p.planned_on === today && tpl(p.template_id)) && !doneToday.length;
-  const kicker = doneToday.length ? "Done today" : hero && hero.date === today ? "Today" : restToday ? "Rest day" : hero ? hero.label : "Today";
+  const sick = todayMode(workouts);
+  const kicker = sick?.mode === "rest" ? "Sick day" : doneToday.length ? "Done today" : hero && hero.date === today ? "Today" : restToday ? "Rest day" : hero ? hero.label : "Today";
 
   return (
     <div className={`home${deload ? " deload" : ""}`}>
@@ -137,11 +141,12 @@ export default function Home({ data, onPreview, onPlan, goSettings, onScan, onSt
             const plan = planned.some((p) => p.planned_on === d && tpl(p.template_id));
             const isToday = d === today;
             const dt = new Date(d + "T12:00:00");
-            const st = did ? "done" : plan ? (d < today ? "missed" : "planned") : "rest";
+            const ill = isSickDay(d) && !did;
+            const st = did ? "done" : ill ? "sick" : plan ? (d < today ? "missed" : "planned") : "rest";
             return (
-              <div key={d} className={`wk-day ${st}${isToday ? " today" : ""}`} aria-label={`${dt.toLocaleDateString("en-IE", { weekday: "long" })}: ${did ? "trained" : plan ? (d < today ? "planned, missed" : "planned") : "rest"}`}>
+              <div key={d} className={`wk-day ${st}${isToday ? " today" : ""}`} aria-label={`${dt.toLocaleDateString("en-IE", { weekday: "long" })}: ${did ? "trained" : ill ? "unwell" : plan ? (d < today ? "planned, missed" : "planned") : "rest"}`}>
                 <span className="wk-mark" aria-hidden="true">
-                  {did ? <svg viewBox="0 0 16 16" width="16" height="16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : plan ? <i className="wk-circle" /> : <i className="wk-dot" />}
+                  {did ? <svg viewBox="0 0 16 16" width="16" height="16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : ill ? <svg viewBox="0 0 16 16" width="16" height="16"><path d="M8 2.5v7.2M8 9.7a2.4 2.4 0 1 0 .01 0M10.5 4.5h2M10.5 7h2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg> : plan ? <i className="wk-circle" /> : <i className="wk-dot" />}
                 </span>
                 <span className="wk-lbl">{isToday ? `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}` : dt.toLocaleDateString("en-IE", { weekday: "short" }).toUpperCase()}</span>
               </div>
@@ -157,6 +162,18 @@ export default function Home({ data, onPreview, onPlan, goSettings, onScan, onSt
             <span className="kicker">{kicker}</span>
             <p className="quote">{dailyQuote(now)}</p>
           </section>
+
+          {sick && MODE_TEXT[sick.reason][sick.mode] && (
+            <div className={`sick-strip ${sick.mode}`} role="status">
+              <strong>{MODE_TEXT[sick.reason][sick.mode]}</strong>
+              <span className="small">
+                {sick.mode === "rest" && (sick.reason === "fever_clear" ? "You had a fever, so today stays a rest day: a full day clear before lifting. Tomorrow's session starts easy." : "Today's session is skipped and planned cardio cleared. The program waits for you.")}
+                {!todaysCheckin(data.checkins) && sick.reason === "sick" && " Carried over from your last scan: do today's scan to update it."}
+                {sick.mode === "light" && (sick.reason === "comeback" ? "Your first session back is an easy one: about half the sets, a little lighter, RPE 7 max." : "Today's session is the easy version: about half the sets, a little lighter, RPE 7 max. Keep cardio easy and short.")}
+                {sick.mode === "normal" && "Full session as planned. Keep cardio easy, and a dip won't count against your progress."}
+              </span>
+            </div>
+          )}
 
           {doneToday.length > 0 && (
             <div className="done-strip">
@@ -341,7 +358,7 @@ function CardioTile({ data, onOpen }: { data: AppData; onOpen: () => void }) {
         <span className="tile-bar-done" style={{ width: `${(Math.min(w.minutes, scale) / scale) * 100}%` }} />
         {ahead.total > 0 && <span className="tile-bar-plan" style={{ width: `${(ahead.total / scale) * 100}%` }} />}
       </span>
-      <span className="tile-s small">{done ? "Target hit" : ahead.total > 0 ? `${Math.round(ahead.total)} min planned` : `${Math.round(target - w.minutes)} min to go`}</span>
+      <span className="tile-s small">{todayMode()?.mode === "light" || todayMode()?.mode === "normal" && todayMode()?.reason === "sick" ? "Easy only today" : done ? "Target hit" : ahead.total > 0 ? `${Math.round(ahead.total)} min planned` : `${Math.round(target - w.minutes)} min to go`}</span>
     </button>
   );
 }

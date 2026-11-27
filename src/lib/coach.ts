@@ -29,13 +29,14 @@ import { isWorking, loadFor, pctOf1rm, rirFromRpe, roundTo, sessionE1rm, trainin
 import type { Adjustment, Phase } from "./readiness";
 import { LOW_RUN, adjustedRpe, adjustedSets } from "./readiness";
 import { DELOAD, deloadToday, isDeloadAt } from "./deload";
+import { illnessLightToday, isIllWorkout, todayMode } from "./illness";
 
 /** Workouts outside deload weeks (deload sessions don't count towards progression or stalls). */
-export const outsideDeloads = (ws: Workout[]) => ws.filter((w) => !isDeloadAt(w.started_at));
+export const outsideDeloads = (ws: Workout[]) => ws.filter((w) => !isDeloadAt(w.started_at) && !isIllWorkout(w)); // and sessions while unwell, or the easy one back
 
 const DAY = 86400000;
 
-export type CoachStatus = "new" | "build_reps" | "add_weight" | "add_set" | "consolidate" | "reset" | "protect" | "recover" | "deload" | "readiness_hold";
+export type CoachStatus = "new" | "build_reps" | "add_weight" | "add_set" | "consolidate" | "reset" | "protect" | "recover" | "deload" | "easy" | "readiness_hold";
 
 export const STATUS_LABEL: Record<CoachStatus, string> = {
   new: "Starting point",
@@ -48,11 +49,12 @@ export const STATUS_LABEL: Record<CoachStatus, string> = {
   recover: "Easy day",
   deload: "Deload",
   readiness_hold: "Hold for readiness",
+  easy: "Easy session",
 };
 // Tone for the status chip
 export const STATUS_TONE: Record<CoachStatus, "good" | "neutral" | "warn" | "bad"> = {
   new: "neutral", build_reps: "good", add_weight: "good", add_set: "neutral", consolidate: "neutral", reset: "warn",
-  protect: "bad", recover: "warn", deload: "warn", readiness_hold: "warn",
+  protect: "bad", recover: "warn", deload: "warn", easy: "warn", readiness_hold: "warn",
 };
 
 export type Progression = "rep_range" | "fixed";
@@ -348,16 +350,20 @@ export function coachExercise(
   const recentE1rm = trainingE1rm(exerciseId, workouts, before, formula, excludeId);
 
   if (deload) {
-    status = "deload";
+    // A one-day easy session for sickness (mildly unwell, or the first one back) uses the deload's shape, capped at RPE 7
+    const easy = !isDeloadAt(before) && illnessLightToday();
+    status = easy ? "easy" : "deload";
     sets = Math.max(1, Math.round(plan.sets * DELOAD.setsFactor));
-    rpe = DELOAD.rpe;
+    rpe = easy ? 7 : DELOAD.rpe;
     // From your last normal session: ~10% lighter, ~¾ of the reps you'd normally aim for
     const usual = last && last.topReps.length ? Math.min(plan.rep_max, Math.round(last.topReps.reduce((x, y) => x + y, 0) / last.topReps.length)) : plan.rep_min;
     const seed = !last && recentE1rm != null ? loadFor(recentE1rm, plan.rep_min, 8, formula) : null;
     const lighter = (kg: number) => { const r = roundTo(kg * DELOAD.loadFactor, inc, "nearest"); return r < kg ? r : roundTo(kg * DELOAD.loadFactor, inc, "down"); };
     weight = last ? lighter(last.top) : seed != null ? roundTo(seed * DELOAD.loadFactor, inc, "nearest") : null;
     reps = Array(sets).fill(Math.max(3, Math.round(Math.max(plan.rep_min, usual) * DELOAD.repsFactor)));
-    why = `Deload week: ${sets} of your ${plan.sets} sets, about 10% lighter and a few reps short of usual, stopping around RPE ${DELOAD.rpe} (4 or so in the tank). It lets fatigue clear so strength shows through; next week carries on from your last normal session${last ? ` (${fmtKg(last.top)} kg)` : ""}.`;
+    why = easy
+      ? `${todayMode()?.reason === "comeback" ? "First session back after being unwell" : "Easy session while you're unwell"}: ${sets} of your ${plan.sets} sets, about 10% lighter and a few reps short of usual, stopping by RPE 7. It doesn't count towards progression or stalls; next time picks up from your last normal session${last ? ` (${fmtKg(last.top)} kg)` : ""}.`
+      : `Deload week: ${sets} of your ${plan.sets} sets, about 10% lighter and a few reps short of usual, stopping around RPE ${DELOAD.rpe} (4 or so in the tank). It lets fatigue clear so strength shows through; next week carries on from your last normal session${last ? ` (${fmtKg(last.top)} kg)` : ""}.`;
   } else if (adj?.band === "very_low") {
     status = "recover";
     weight = last ? roundTo(last.top * 0.85, inc, "down") : null;
@@ -562,10 +568,10 @@ export function coachExercise(
     why = `Your last session was cut for readiness and there's no full session in the last 3 weeks, so this scales it back up to ${fmtKg(last.top)} kg. Match those reps here first; the weight goes up once you've owned it.`;
     bounce = "";
   }
-  if (bounce && status !== "deload" && status !== "recover" && status !== "new") why += bounce;
+  if (bounce && status !== "deload" && status !== "easy" && status !== "recover" && status !== "new") why += bounce;
 
   // Readiness load scaling (never up); deload/recover/new already set their own loads
-  if (adj && adj.loadFactor < 1 && weight != null && status !== "deload" && status !== "recover") {
+  if (adj && adj.loadFactor < 1 && weight != null && status !== "deload" && status !== "easy" && status !== "recover") {
     const scaled = roundTo(weight * adj.loadFactor, inc, "nearest");
     if (scaled < weight) {
       why += ` Readiness: ${fmtKg(weight)} → ${fmtKg(scaled)} kg today${weights ? " (the other sets scale the same)" : ""}.`;
@@ -621,7 +627,7 @@ export function coachOverview(exercises: Exercise[], workouts: Workout[], templa
 
 /** A deload today: a deload week from the planner, or the older "deload until" setting. */
 export function deloadActive(until: string | null): boolean {
-  if (deloadToday()) return true;
+  if (deloadToday() || illnessLightToday()) return true;
   if (!until) return false;
   const today = new Date();
   const d = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;

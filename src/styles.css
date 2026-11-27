@@ -1525,3 +1525,32 @@ select.input { appearance: auto; }
 .preview-foot { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 76px); display: grid; gap: 6px; padding: 10px 0 4px; background: var(--ground); z-index: 3; }
 .desk .preview-foot, .home-preview .preview-foot { position: static; background: none; }
 .home-preview { padding: 18px 20px; }
+
+/* ---------- Sickness and mood ---------- */
+:root { --ill: #d9822b; }
+.chart .ill-band { fill: var(--ill); opacity: 0.16; }
+.chart .ill-label { fill: var(--ill); font-size: 9px; font-weight: 700; }
+.sick-panel { margin: 4px 0 12px; }
+.sick-panel.on { box-shadow: inset 4px 0 0 var(--ill); }
+.sym-groups { display: grid; gap: 10px; }
+.sym-h { display: block; color: var(--muted); margin-bottom: 4px; }
+.sym-groups .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 0.88rem; cursor: pointer; }
+.chip-btn.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.chip-btn.bad.on { background: var(--ill); border-color: var(--ill); color: #fff; }
+.sick-verdict { margin-top: 10px; padding: 10px 12px; border-radius: 12px; font-size: 0.92rem; line-height: 1.45; }
+.sick-verdict.rest { background: color-mix(in srgb, var(--ill) 15%, transparent); }
+.sick-flags { margin: 10px 0 0; }
+.sick-strip { display: grid; gap: 2px; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--ill) 14%, var(--panel)); border-left: 5px solid var(--ill); }
+.sick-strip.light, .sick-strip.normal { background: var(--panel); }
+.wk-day.sick .wk-mark { color: var(--ill); }
+.gad-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 10px; }
+.gad-list li { display: grid; gap: 4px; }
+.gad-seg { display: grid; grid-template-columns: repeat(4, 1fr); }
+.gad-seg button { font-size: 0.72rem; padding: 6px 2px; white-space: normal; line-height: 1.15; }
+.gad-latest { display: flex; align-items: center; gap: 12px; margin: 6px 0 8px; }
+.mlinks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 8px; }
+.mlink { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--ground); }
+.mlink-h { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.mlink-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: baseline; font-size: 0.9rem; }
+.mlink .ok { color: var(--in); } .mlink .warn { color: var(--over); }

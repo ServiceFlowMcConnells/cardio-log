@@ -1,4 +1,5 @@
 import { isDeloadAt } from "./deload";
+import { isIllWorkout } from "./illness";
 // Strength report: recent performance against the period before, in one standard format.
 // Each lift's trend is a least-squares line through its per-session e1RM (so one good or bad day can't swing it),
 // expressed as % per week; its "now" is the best e1RM in the period. Thresholds loosen in a deficit, where
@@ -86,7 +87,7 @@ export function strengthReport(input: {
   const tpl = new Map(templates.map((t) => [t.id, t]));
   // Strength sessions only (conditioning circuits don't count towards strength)
   // Deload-week sessions are deliberately light: they'd read as a dip, so trends leave them out
-  const strength = input.workouts.filter((w) => !isConditioning(w.template_id ? tpl.get(w.template_id) : null) && !isDeloadAt(w.started_at));
+  const strength = input.workouts.filter((w) => !isConditioning(w.template_id ? tpl.get(w.template_id) : null) && !isDeloadAt(w.started_at) && !isIllWorkout(w));
   const inA = (t: number) => t >= from && t < end, inB = (t: number) => t >= prevFrom && t < from;
   const wA = strength.filter((w) => inA(new Date(w.started_at).getTime()));
   const wB = strength.filter((w) => inB(new Date(w.started_at).getTime()));
