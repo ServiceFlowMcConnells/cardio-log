@@ -1709,3 +1709,14 @@ select.input { appearance: auto; }
 /* Desktop: pages live in the sidebar, so no Done buttons */
 .desk .done-btn { display: none; }
 .desk .evening { max-width: 760px; margin-inline: auto; }
+/* Evening check-in steps */
+.ev-list { gap: 8px; }
+.ev-list button { display: flex; align-items: center; gap: 12px; text-align: left; }
+.ev-tick { width: 24px; height: 24px; flex: none; border-radius: 7px; border: 1.5px solid var(--line); display: grid; place-items: center; font-size: 0.85rem; font-weight: 700; }
+.ev-list button.on .ev-tick { background: var(--accent); border-color: var(--accent); color: #fff; }
+.scan-big2.two { grid-template-columns: 1fr 1fr; }
+.danger-link { color: var(--bad, #e5202e); }
+.ev-list button.on .muted { color: inherit; opacity: 0.7; }
+.ev-list button.on .ev-tick { border-color: var(--accent); }
+.ev-list button.on { background: var(--panel); color: var(--ink); border-color: var(--accent); }
+.ev-list button.on .muted { color: var(--muted); opacity: 1; }

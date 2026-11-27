@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useBackHandler } from "../lib/backNav";
+import { Rating } from "./ReadinessScan";
 import { SLOTS, activeItems, useSupplementItems } from "../lib/supplements";
 import { saveEvening, snapshotOf, useEvenings, type EveningCheckin as Evening, type StackEntry } from "../lib/evening";
 import { addMeditation, minutesByDay, useMeditation } from "../lib/meditation";
@@ -6,17 +8,6 @@ import { todayYmd } from "../lib/nutrition";
 
 const STRESS = ["Very low", "Low", "Moderate", "High", "Very high"];
 const DAY = ["Awful", "Bad", "Meh", "Good", "Great"];
-
-function Scale({ label, labels, value, onChange }: { label: string; labels: string[]; value: number | null; onChange: (v: number | null) => void }) {
-  return (
-    <div className="rating">
-      <div className="rating-head"><h3>{label}</h3><span className="muted small">{value ? labels[value - 1] : "Optional"}</span></div>
-      <div className="seg" role="radiogroup" aria-label={label}>
-        {labels.map((l, i) => <button key={l} role="radio" aria-checked={value === i + 1} aria-label={l} className={value === i + 1 ? "on" : ""} onClick={() => onChange(value === i + 1 ? null : i + 1)}>{i + 1}</button>)}
-      </div>
-    </div>
-  );
-}
 
 /** The evening check-in for one day: supplements taken, meditation, stress, day rating, screens before bed,
  *  three good things and a note. */
@@ -60,76 +51,103 @@ function Form({ day, onClose, existing, snapshot, medMin }: { day: string; onClo
     }
   }
 
+  type Step = "stack" | "mind" | "day" | "good";
+  const steps: Step[] = [...(stack.length ? (["stack"] as Step[]) : []), "mind", "day", "good"];
+  const [si, setSi] = useState(0);
+  const step = steps[Math.min(si, steps.length - 1)];
+  const last = si >= steps.length - 1;
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [si]);
+  const back = () => (si === 0 ? onClose() : setSi(si - 1));
+  useBackHandler(si > 0, back);
+  const later = (fn: () => void) => window.setTimeout(fn, 220);
+
   return (
-    <div className="evening">
-      <div className="editor-bar">
-        <div>
-          <span className="kicker">Evening check-in · {label}</span>
-          <h1>How was today?</h1>
-        </div>
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
+    <div className="scan-steps evening">
+      <div className="scan-top">
+        <button className="icon-btn" onClick={back} aria-label={si === 0 ? "Cancel" : "Back"}>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <span className="kicker">{isToday ? "Evening check-in" : label} · {si + 1} of {steps.length}</span>
+        <button className="link small" onClick={onClose}>Cancel</button>
+      </div>
+      <div className="ticker scan-prog" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={si + 1} aria-label="Progress">
+        {steps.map((_, i) => <span key={i} className={`tick${i <= si ? " on" : ""}`} />)}
       </div>
 
-      <section className="panel ev-sec">
-        <div className="rating-head"><h3>Supplements</h3><span className="muted small">{stack.length ? `${taken} of ${stack.length} taken` : "None on your list"}</span></div>
-        {existing && <p className="small muted" style={{ margin: "0 0 6px" }}>Your list as it was that day.</p>}
-        {SLOTS.map((slot) => {
-          const list = stack.filter((s) => s.slot === slot.id);
-          if (!list.length) return null;
-          const allOn = list.every((s) => s.taken);
-          return (
-            <div key={slot.id} className="ev-slot">
-              <div className="ev-slot-head">
-                <span className="sym-h small">{slot.title}</span>
-                <button className="link small" onClick={() => setSlot(slot.id, !allOn)}>{allOn ? "Clear" : `All of ${slot.title.toLowerCase()}`}</button>
+      {step === "stack" && (
+        <div className="scan-step">
+          <span className="kicker">{taken} of {stack.length} taken{existing ? " · your list as it was that day" : ""}</span>
+          <h1 className="scan-q">Supplements today</h1>
+          {SLOTS.map((slot) => {
+            const list = stack.filter((s) => s.slot === slot.id);
+            if (!list.length) return null;
+            const allOn = list.every((s) => s.taken);
+            return (
+              <div key={slot.id} className="ev-slot">
+                <div className="ev-slot-head">
+                  <span className="sym-h small">{slot.title}</span>
+                  <button className="link small" onClick={() => setSlot(slot.id, !allOn)}>{allOn ? "Clear" : "All"}</button>
+                </div>
+                <div className="scan-list ev-list">
+                  {list.map((s) => (
+                    <button key={s.id} role="checkbox" aria-checked={s.taken} className={s.taken ? "on" : ""} onClick={() => toggle(s.id)}>
+                      <span className="ev-tick" aria-hidden="true">{s.taken ? "✓" : ""}</span>
+                      <span><strong>{s.name}</strong>{s.dose && <span className="muted small"> · {s.dose}</span>}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              {list.map((s) => (
-                <label key={s.id} className={`ev-item${s.taken ? " on" : ""}`}>
-                  <input type="checkbox" checked={s.taken} onChange={() => toggle(s.id)} />
-                  <span><strong>{s.name}</strong>{s.dose && <span className="muted small"> · {s.dose}</span>}</span>
-                </label>
-              ))}
-            </div>
-          );
-        })}
-      </section>
-
-      <section className="panel ev-sec">
-        <div className="rating-head"><h3>Meditation</h3><span className="muted small">{medMin ? `${medMin} min logged` : "None logged"}</span></div>
-        <div className="ev-med">
-          <input className="input" inputMode="numeric" placeholder="Add minutes" value={medAdd} onChange={(e) => setMedAdd(e.target.value.replace(/[^0-9]/g, ""))} aria-label="Meditation minutes to add" />
-          <span className="small muted">Added to your meditation log when you save.</span>
+            );
+          })}
         </div>
-      </section>
+      )}
 
-      <section className="panel ev-sec stack">
-        <Scale label="Stress" labels={STRESS} value={stress} onChange={setStress} />
-        <Scale label="Day rating" labels={DAY} value={rating} onChange={setRating} />
-        <div className="rating">
-          <div className="rating-head"><h3>Screens in the last hour before bed</h3><span className="muted small">{screens == null ? "Optional" : screens ? "Yes" : "No"}</span></div>
-          <div className="seg" role="radiogroup" aria-label="Screens in the last hour before bed">
-            <button role="radio" aria-checked={screens === false} className={screens === false ? "on" : ""} onClick={() => setScreens(screens === false ? null : false)}>No</button>
-            <button role="radio" aria-checked={screens === true} className={screens === true ? "on" : ""} onClick={() => setScreens(screens === true ? null : true)}>Yes</button>
+      {step === "mind" && (
+        <div className="scan-step">
+          <span className="kicker">Optional</span>
+          <Rating label="Stress today" hint="" labels={STRESS} value={stress} onChange={setStress} onClear={() => setStress(null)} invert />
+          <div className="scan-hours">
+            <span className="kicker">Meditation{medMin ? ` · ${medMin} min already logged` : ""}</span>
+            <div className="stepper scan-stepper">
+              <button type="button" onClick={() => setMedAdd(String(Math.max(0, (Number(medAdd) || 0) - 5) || ""))} aria-label="5 minutes less">−</button>
+              <input className="input" inputMode="numeric" placeholder="0" value={medAdd} onChange={(e) => setMedAdd(e.target.value.replace(/[^0-9]/g, ""))} aria-label="Meditation minutes to add" />
+              <button type="button" onClick={() => setMedAdd(String((Number(medAdd) || 0) + 5))} aria-label="5 minutes more">+</button>
+            </div>
+            <span className="small muted">Minutes to add to your meditation log</span>
           </div>
         </div>
-      </section>
+      )}
 
-      <section className="panel ev-sec">
-        <div className="rating-head"><h3>Three good things</h3><span className="muted small">Optional</span></div>
-        <p className="small muted" style={{ margin: "0 0 8px" }}>Small is fine: a good coffee counts.</p>
-        {good.map((g, i) => (
-          <input key={i} className="input ev-good" value={g} maxLength={200} placeholder={`${i + 1}.`} onChange={(e) => setGood((x) => x.map((y, j) => (j === i ? e.target.value : y)))} aria-label={`Good thing ${i + 1}`} />
-        ))}
-      </section>
+      {step === "day" && (
+        <div className="scan-step">
+          <span className="kicker">Optional</span>
+          <Rating label="How was the day?" hint="" labels={DAY} value={rating} onChange={setRating} onClear={() => setRating(null)} />
+          <div className="rating">
+            <div className="rating-head"><h3 style={{ fontSize: "1.3rem" }}>Screens in the last hour before bed?</h3></div>
+            <div className="scan-big2 two" role="radiogroup" aria-label="Screens in the last hour before bed">
+              <button role="radio" aria-checked={screens === false} className={screens === false ? "on" : ""} onClick={() => { setScreens(screens === false ? null : false); if (screens !== false) later(() => setSi(si + 1)); }}><b>No</b><span>Screens off</span></button>
+              <button role="radio" aria-checked={screens === true} className={screens === true ? "on" : ""} onClick={() => { setScreens(screens === true ? null : true); if (screens !== true) later(() => setSi(si + 1)); }}><b>Yes</b><span>Phone, TV or laptop</span></button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <section className="panel ev-sec">
-        <div className="rating-head"><h3>Note</h3><span className="muted small">Optional</span></div>
-        <textarea className="input" rows={3} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything worth remembering about today" />
-      </section>
+      {step === "good" && (
+        <div className="scan-step">
+          <span className="kicker">Optional · small is fine, a good coffee counts</span>
+          <h1 className="scan-q">Three good things</h1>
+          {good.map((g, i) => (
+            <input key={i} className="input ev-good" value={g} maxLength={200} placeholder={`${i + 1}.`} onChange={(e) => setGood((x) => x.map((y, j) => (j === i ? e.target.value : y)))} aria-label={`Good thing ${i + 1}`} />
+          ))}
+          <label className="field"><span>Note</span><textarea className="input" rows={3} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything worth remembering about today" /></label>
+        </div>
+      )}
 
-      {error && <p className="error">{error}</p>}
-      <div className="save-bar">
-        <button className="btn primary block" onClick={save} disabled={busy}>{busy ? "Saving…" : existing ? "Save changes" : "Save check-in"}</button>
+      {error && <p className="error panel" role="alert">{error}</p>}
+      <div className="scan-foot">
+        {last
+          ? <button className="btn primary block" onClick={save} disabled={busy}>{busy ? "Saving…" : existing ? "Save changes" : "Save check-in"}</button>
+          : <button className="btn primary block" onClick={() => setSi(si + 1)}>Next</button>}
       </div>
     </div>
   );
