@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 
 import type { Food, LogEntry, NewEntry, NutritionData } from "../../lib/nutrition";
 import { UNIT_LABEL, addDays, addEntries, convertAmount, copyOf, deleteEntries, deleteEntry, fromYmd, hourOf, hourTime, ingredientsFrom, isTime, macrosFor, moveEntries, nowHour, perServing, scaleMacros, sumMacros, targetFor, todayYmd, updateEntry } from "../../lib/nutrition";
 import { HourPicker, MacroInputs, MacroLine, MacroSub, fmtG, fmtKcal, formKcal, macroForm, num, type MacroForm } from "./bits";
-import { DayCalendar, DaySummary } from "./DayHeader";
+import { DayCalendar, MacroBar, MacroHero } from "./DayHeader";
 import { DateField } from "./Pickers";
 import { UnitPicker, amountLabel } from "./AmountPanel";
 import { useDesktop } from "../../lib/desktop";
@@ -25,6 +25,9 @@ function dayTitle(d: string) {
   if (d === addDays(t, 1)) return "Tomorrow";
   return fromYmd(d).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short" });
 }
+
+/** Display names for a meal by its time (labels only; nothing is stored). */
+const mealName = (h: number) => (h < 11 ? "Breakfast" : h < 15 ? "Lunch" : h < 18 ? "Snack" : h < 22 ? "Dinner" : "Late snack");
 
 const amountText = (e: LogEntry, foods: Food[]) => (e.kind === "quick" ? (e.amount !== 1 ? `${fmtG(e.amount)} portion${e.amount === 1 ? "" : "s"} · quick add` : "quick add") : e.kind === "import" ? "imported day total" : e.kind === "food" ? amountLabel(foods.find((f) => f.id === e.food_id) ?? null, e.amount, e.unit) : e.unit !== "serving" ? `${fmtG(e.amount)} ${UNIT_LABEL[e.unit]}` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
 
@@ -262,30 +265,7 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
     onMakeRecipe(items);
   };
 
-  const rows: JSX.Element[] = [];
-  for (let h = first; h <= last; h++) {
-    const t = hourTime(h);
-    const list = byHour.get(h) ?? [];
-    const allOn = list.length > 0 && list.every((e) => sel.has(e.id));
-    const sub = sumMacros(list);
-    rows.push(
-      <section key={t} className={`hour${list.length ? "" : " empty-hour"}${isToday && h === new Date().getHours() ? " now-hour" : ""}`} ref={isToday && h === new Date().getHours() ? (el) => { nowRow.current = el; } : undefined}>
-        <div className="hour-head">
-          {list.length > 0 ? (
-            <MacroSub m={sub} big />
-          ) : <span />}
-          <span className="hour-tools">
-            {sel.size > 0 && !sheet && !(selHours.size === 1 && selHours.has(h)) && (
-              <button className="hour-move" disabled={busy} onClick={() => moveToHour(t)} aria-label={`Move ${selected.length === 1 ? "it" : `the ${selected.length} selected`} to ${t}`}>▶</button>
-            )}
-            {list.length > 0
-              ? <button className={`time-pill num${allOn || selHours.has(h) ? " on" : ""}`} onClick={() => toggle(list.map((e) => e.id))} aria-label={`Select everything at ${t}`}>{t}</button>
-              : <button className="time-pill num" onClick={() => onAdd(t)} aria-label={`Log food at ${t}`}>{t}</button>}
-          </span>
-        </div>
-        {list.length > 0 && (
-          <div className="hour-items">
-            {list.map((e) => open === e.id ? (
+  const renderEntry = (e: LogEntry) => open === e.id ? (
               <div key={e.id} className="panel list-panel"><EntryEditor entry={e} nutri={nutri} setNutri={setNutri} onClose={() => setOpen(null)} /></div>
             ) : (
               <div
@@ -306,11 +286,90 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
                   : <button className="pencil" aria-label={`Edit ${e.name}`} onClick={() => { if (justSwiped.current) return; clearSel(); setSwiped(null); setOpen(e.id); }}><PencilIcon /></button>}
                 {sel.size > 0 && swiped !== e.id && <button className="sel-btn" aria-label={sel.has(e.id) ? "Deselect" : "Select"} onClick={() => toggle([e.id])}><Check on={sel.has(e.id)} /></button>}
               </div>
-            ))}
+  );
+  // One hour as its own row: used while moving foods (each hour gets its ▶) and for an opened gap
+  const hourRow = (h: number) => {
+    const t = hourTime(h);
+    const list = byHour.get(h) ?? [];
+    const allOn = list.length > 0 && list.every((e) => sel.has(e.id));
+    const sub = sumMacros(list);
+    return (
+      <section key={t} className={`hour${list.length ? "" : " empty-hour"}${isToday && h === new Date().getHours() ? " now-hour" : ""}`} ref={isToday && h === new Date().getHours() ? (el) => { nowRow.current = el; } : undefined}>
+        <div className="hour-head">
+          {list.length > 0 ? (
+            <MacroSub m={sub} big />
+          ) : <span />}
+          <span className="hour-tools">
+            {sel.size > 0 && !sheet && !(selHours.size === 1 && selHours.has(h)) && (
+              <button className="hour-move" disabled={busy} onClick={() => moveToHour(t)} aria-label={`Move ${selected.length === 1 ? "it" : `the ${selected.length} selected`} to ${t}`}>▶</button>
+            )}
+            {list.length > 0
+              ? <button className={`time-pill num${allOn || selHours.has(h) ? " on" : ""}`} onClick={() => toggle(list.map((e) => e.id))} aria-label={`Select everything at ${t}`}>{t}</button>
+              : <button className="time-pill num" onClick={() => onAdd(t)} aria-label={`Log food at ${t}`}>{t}</button>}
+          </span>
+        </div>
+        {list.length > 0 && (
+          <div className="hour-items">
+            {list.map(renderEntry)}
           </div>
         )}
-      </section>,
+      </section>
     );
+  };
+
+
+  // The day as meal cards, with runs of empty hours folded into one row and a line at the current hour
+  const nowH = new Date().getHours();
+  const [openGaps, setOpenGaps] = useState<Set<number>>(new Set());
+  const mealCard = (h: number) => {
+    const t = hourTime(h);
+    const list = byHour.get(h) ?? [];
+    const allOn = list.every((e) => sel.has(e.id));
+    const name = mealName(h);
+    return (
+      <section key={t} className={`meal-card${isToday && h === nowH ? " now-hour" : ""}`} ref={isToday && h === nowH ? (el) => { nowRow.current = el; } : undefined}>
+        <div className="meal-head">
+          <button className={`time-pill num${allOn ? " on" : ""}`} onClick={() => toggle(list.map((e) => e.id))} aria-label={`Select everything at ${t}`}>{t}</button>
+          <span className="kicker">{name}</span>
+          <span className="meal-tot"><MacroSub m={sumMacros(list)} /></span>
+        </div>
+        <div className="meal-items">{list.map(renderEntry)}</div>
+        <button className="link small meal-add" onClick={() => onAdd(t)}>+ Add to {name.toLowerCase()}</button>
+      </section>
+    );
+  };
+  const rows: JSX.Element[] = [];
+  if (sel.size > 0) {
+    for (let h = first; h <= last; h++) rows.push(hourRow(h));
+  } else {
+    let run: number[] = [];
+    const flush = () => {
+      if (!run.length) return;
+      const a = run[0], b = run[run.length - 1];
+      if (openGaps.has(a)) for (const h of run) rows.push(hourRow(h));
+      else rows.push(
+        <button key={`gap-${a}`} className="gap-row" onClick={() => (a === b ? onAdd(hourTime(a)) : setOpenGaps((g) => new Set(g).add(a)))} aria-label={a === b ? `Log food at ${hourTime(a)}` : `Nothing logged ${hourTime(a)} to ${hourTime(b)}. Show the hours`}>
+          <span className="num gap-time">{a === b ? hourTime(a) : `${hourTime(a)}–${hourTime(b)}`}</span>
+          <span className="small muted">Nothing logged</span>
+          <span className="gap-plus" aria-hidden="true">+</span>
+        </button>,
+      );
+      run = [];
+    };
+    for (let h = first; h <= last; h++) {
+      const has = (byHour.get(h) ?? []).length > 0;
+      if (isToday && h === nowH && !has) {
+        flush();
+        rows.push(
+          <button key="now" className="now-line" ref={(el) => { nowRow.current = el; }} onClick={() => onAdd(hourTime(h))} aria-label={`Now, ${hourTime(h)}. Log food now`}>
+            <span className="num">{hourTime(h)} · now</span><i aria-hidden="true" /><span className="small">+ Log</span>
+          </button>,
+        );
+        continue;
+      }
+      if (has) { flush(); rows.push(mealCard(h)); } else run.push(h);
+    }
+    flush();
   }
 
   // Swipe left or right on the empty parts of the log to go forward or back a day (foods have their own swipe)
@@ -342,15 +401,27 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
         </div>
       </div>
   );
-  const summary = <DaySummary total={total} target={target} onTargets={onTargets} onTrends={onTrends} />;
+  // The hero scrolls away with the log; then a slim macro bar stays pinned under the title
+  const [heroGone, setHeroGone] = useState(false);
+  const heroObs = useRef<IntersectionObserver | null>(null);
+  const heroRef = (el: HTMLElement | null) => {
+    heroObs.current?.disconnect();
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    heroObs.current = new IntersectionObserver(([en]) => setHeroGone(!en.isIntersecting), { rootMargin: "-120px 0px 0px 0px" });
+    heroObs.current.observe(el);
+  };
+  useEffect(() => () => heroObs.current?.disconnect(), []);
+  const summary = <MacroHero total={total} target={target} dayLabel={dayTitle(day)} onTargets={onTargets} onTrends={onTrends} heroRef={desktop ? undefined : heroRef} />;
+  const [help, setHelp] = useState(false);
 
   return (
     <>
       {/* Phones: the title, day and macros stay pinned at the top while the log scrolls */}
-      {desktop ? head : <div className="food-sticky">{head}{summary}</div>}
+      {desktop ? head : <div className="food-sticky">{head}{heroGone && <MacroBar total={total} target={target} onTop={() => window.scrollTo({ top: 0, behavior: "smooth" })} />}</div>}
+      {!desktop && summary}
 
       <div className="cols">
-        {desktop && <div className="col">{summary}</div>}
+        {desktop && <div className="col food-side">{summary}</div>}
 
         <div className={`col food-swipe${slide ? ` slide-${slide}` : ""}`} key={desktop ? undefined : day} onAnimationEnd={() => setSlide(null)} {...swipeHandlers}>
           {error && <p className="error">{error}</p>}
@@ -367,8 +438,13 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
               Copy everything from {isToday ? "yesterday" : "the day before"} ({fmtKcal(sumMacros(yesterday).kcal)} kcal)
             </button>
           )}
-          {entries.length > 0 && <p className="muted small hint" style={{ visibility: sel.size ? "hidden" : undefined }} aria-hidden={sel.size > 0}>Tap foods to select them: copy, move, remove or make a recipe. The pencil edits one. Tap an empty hour to log food at that time.</p>}
-          <div className="timeline">{rows}</div>
+          {entries.length > 0 && sel.size === 0 && (
+            <div className="food-help">
+              <button className="note-why" aria-expanded={help} onClick={() => setHelp((h) => !h)}>{help ? "Hide tips" : "?"}</button>
+              {help && <p className="muted small">Tap foods to select them: copy, move, remove or make a recipe. The pencil edits one; swipe left to delete. Tap an empty stretch to pick an hour to log at.</p>}
+            </div>
+          )}
+          <div className={`timeline${sel.size > 0 ? "" : " cards"}`}>{rows}</div>
         </div>
       </div>
 
