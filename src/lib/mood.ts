@@ -47,6 +47,8 @@ const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
  *  These are patterns in your own data, not causes. */
 export function moodLinks(input: {
   mood: Map<string, number>; sleep: Map<string, number>; trainedDays: Set<string>; steps: Map<string, number>; stepTarget: number; meditated: Set<string>;
+  /** Evening check-ins: day → took the full stack that day (judged against that day's own list). */
+  fullStack?: Map<string, boolean>;
 }): { links: MoodLink[]; pending: string[] } {
   const MIN = 5;
   const links: MoodLink[] = [];
@@ -61,5 +63,6 @@ export function moodLinks(input: {
   split("training", "Training", "The day after training", "The day after a rest day", (d) => input.trainedDays.has(addDay(d, -1)));
   split("steps", "Steps", "After hitting your step target", "After missing it", (d) => { const s = input.steps.get(addDay(d, -1)); return s == null ? null : s >= input.stepTarget; });
   split("meditation", "Meditation", "The day after meditating", "The day after not", (d) => input.meditated.has(addDay(d, -1)));
+  if (input.fullStack) split("supplements", "Supplements", "The day after your full stack", "The day after missing some", (d) => input.fullStack!.get(addDay(d, -1)) ?? null);
   return { links, pending };
 }

@@ -21,6 +21,7 @@ import { todayYmd, addDays as addYmd } from "../../lib/nutrition";
 import { useDesktop } from "../../lib/desktop";
 import Chevrons from "../Chevrons";
 import { MODE_TEXT, isSickDay, sickRestDay, todayMode } from "../../lib/illness";
+import { fullStack, showEveningCard, useEvenings } from "../../lib/evening";
 
 export interface HeroSession { template: Template; date: string; label: string; sub: string | null }
 
@@ -32,6 +33,7 @@ interface Props {
   onScan: (c: Checkin | null) => void;
   onSteps: () => void;
   onCardio: () => void;
+  onEvening: () => void;
   onOpenWorkout: (w: Workout) => void;
   /** Laptop: the preview shows beside the hero rather than as its own screen. */
   side?: React.ReactNode;
@@ -71,7 +73,8 @@ export function heroSession(data: AppData, today = ymd(new Date())): HeroSession
   return null;
 }
 
-export default function Home({ data, onPreview, onPlan, goSettings, onScan, onSteps, onCardio, onOpenWorkout, side }: Props) {
+export default function Home({ data, onPreview, onPlan, goSettings, onScan, onSteps, onCardio, onEvening, onOpenWorkout, side }: Props) {
+  const evenings = useEvenings();
   const desktop = useDesktop();
   const today = ymd(new Date());
   const now = new Date();
@@ -196,6 +199,7 @@ export default function Home({ data, onPreview, onPlan, goSettings, onScan, onSt
               <span className="small muted">Pick your training days and the coach fills them in.</span>
             </button>
           )}
+          {showEveningCard(now) && <EveningCard done={evenings?.find((e) => e.day === today) ?? null} onOpen={onEvening} />}
           {desktop && side}
         </div>
 
@@ -364,5 +368,27 @@ function LowReadiness({ checkins }: { checkins: Checkin[] }) {
     <div className="coach-alert tone-warn" style={{ marginTop: 10 }}>
       <p><strong>Readiness under 60 on {low} of the last 7 days.</strong> Fatigue is building, so loads are trimmed day to day. Prioritise sleep, and if it carries on, think about a deload.</p>
     </div>
+  );
+}
+
+function EveningCard({ done, onOpen }: { done: import("../../lib/evening").EveningCheckin | null; onOpen: () => void }) {
+  const good = done?.gratitude.filter(Boolean).length ?? 0;
+  const taken = done?.stack.filter((s) => s.taken).length ?? 0;
+  return (
+    <button className={`evening-card${done ? " done" : ""}`} onClick={onOpen}>
+      <span className="kicker">Evening check-in</span>
+      {done ? (
+        <>
+          <span className="evening-title">Done ✓</span>
+          <span className="small muted">{done.stack.length ? (fullStack(done) ? "Full stack" : `${taken} of ${done.stack.length} supplements`) : "No supplements listed"}{good ? ` · ${good} good thing${good === 1 ? "" : "s"}` : ""} · tap to edit</span>
+        </>
+      ) : (
+        <>
+          <span className="evening-title">How was today?</span>
+          <span className="small muted">Supplements, meditation, stress and three good things. About a minute.</span>
+        </>
+      )}
+      <span className="hero-go" aria-hidden="true">›</span>
+    </button>
   );
 }

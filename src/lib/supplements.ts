@@ -1,4 +1,7 @@
-/** The daily supplement stack: a fixed reference, not logged. Edit this list to change what the Supplements page shows. */
+// Supplements: the times of day, your own list (supplement_items, editable on the Supplements page), and the
+// original stack it was seeded from.
+import { useEffect, useState } from "react";
+import { supabase } from "./supabase";
 
 export type Evidence = "strong" | "moderate" | "limited";
 
@@ -60,6 +63,10 @@ export const SUPPLEMENT_STACK: SupplementSlot[] = [
   },
 ];
 
+/** The times of day, in order (the items in each now come from your own list). */
+export const SLOTS = SUPPLEMENT_STACK.map(({ id, title, when }) => ({ id, title, when }));
+export type SlotId = "waking" | "breakfast" | "lunch" | "dinner" | "bed";
+
 export const EVIDENCE_LABEL: Record<Evidence, string> = { strong: "Strong", moderate: "Moderate", limited: "Limited" };
 
 /** The slot to highlight for the time of day, so the page opens on what's next. */
@@ -70,4 +77,70 @@ export function currentSlot(now = new Date()): string {
   if (h < 15) return "lunch";
   if (h < 20) return "dinner";
   return "bed";
+}
+
+// ---------- Your own list (supplement_items) ----------
+
+export interface SupplementItem { id: string; slot: SlotId; name: string; dose: string; benefit: string | null; evidence: Evidence | null; position: number; retired_at: string | null }
+
+let cache: SupplementItem[] | null = null;
+let loading: Promise<SupplementItem[]> | null = null;
+const subs = new Set<(s: SupplementItem[]) => void>();
+const emit = () => subs.forEach((f) => f(cache ?? []));
+const SLOT_ORDER: SlotId[] = ["waking", "breakfast", "lunch", "dinner", "bed"];
+const order = (a: SupplementItem, b: SupplementItem) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot) || a.position - b.position || a.name.localeCompare(b.name);
+
+/** Every item, retired ones included (history needs their names). */
+export async function loadSupplementItems(force = false): Promise<SupplementItem[]> {
+  if (cache && !force) return cache;
+  if (loading && !force) return loading;
+  loading = (async () => {
+    const { data, error } = await supabase.from("supplement_items").select("id, slot, name, dose, benefit, evidence, position, retired_at");
+    if (error) throw error;
+    cache = ((data ?? []) as SupplementItem[]).sort(order);
+    emit();
+    return cache;
+  })().finally(() => { loading = null; });
+  return loading;
+}
+export function useSupplementItems(): SupplementItem[] | null {
+  const [s, setS] = useState<SupplementItem[] | null>(cache);
+  useEffect(() => {
+    subs.add(setS);
+    loadSupplementItems().catch(() => setS((x) => x ?? []));
+    return () => { subs.delete(setS); };
+  }, []);
+  return s;
+}
+/** Your current list: what's not retired. */
+export const activeItems = (items: SupplementItem[]) => items.filter((i) => !i.retired_at);
+
+export async function saveSupplementItem(i: { id?: string; slot: SlotId; name: string; dose: string; benefit: string | null; evidence?: Evidence | null; position?: number }) {
+  const row = { slot: i.slot, name: i.name.trim(), dose: i.dose.trim(), benefit: i.benefit?.trim() || null, ...(i.evidence !== undefined ? { evidence: i.evidence } : {}), ...(i.position !== undefined ? { position: i.position } : {}) };
+  const q = i.id ? supabase.from("supplement_items").update(row).eq("id", i.id) : supabase.from("supplement_items").insert(row);
+  const { error } = await q;
+  if (error) throw error;
+  await loadSupplementItems(true);
+}
+/** Retire, never delete: past check-ins keep showing it. */
+export async function retireSupplementItem(id: string) {
+  const { error } = await supabase.from("supplement_items").update({ retired_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+  await loadSupplementItems(true);
+}
+/** Swap an item with its neighbour in the same time of day. */
+export async function moveSupplementItem(items: SupplementItem[], id: string, dir: -1 | 1) {
+  const it = items.find((x) => x.id === id);
+  if (!it) return;
+  const same = activeItems(items).filter((x) => x.slot === it.slot);
+  const i = same.findIndex((x) => x.id === id);
+  const j = i + dir;
+  if (j < 0 || j >= same.length) return;
+  const re = [...same];
+  [re[i], re[j]] = [re[j], re[i]];
+  const updates = re.map((x, k) => supabase.from("supplement_items").update({ position: k }).eq("id", x.id));
+  const res = await Promise.all(updates);
+  const bad = res.find((r) => r.error);
+  if (bad?.error) throw bad.error;
+  await loadSupplementItems(true);
 }

@@ -205,7 +205,7 @@ export const PROGRESS_MODES: { id: Mode; label: string }[] = [
   { id: "strength", label: "Strength" }, { id: "cardio", label: "Cardio" }, { id: "nutrition", label: "Nutrition" }, { id: "weight", label: "Weight" }, { id: "body", label: "Recovery" },
 ];
 
-export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onOpenFoodDay, setNutri, onPhotos, mode: modeProp, onChanged, onOpenWorkout }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onOpenFoodDay: (day: string) => void; setNutri: (f: (n: NutritionData) => NutritionData) => void; onPhotos: (add?: boolean) => void; mode?: Mode; onChanged?: () => void; onOpenWorkout?: (w: Workout) => void }) {
+export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, onOpenFoodDay, setNutri, onPhotos, mode: modeProp, onChanged, onOpenWorkout, onOpenEvening }: { data: AppData; onLog: () => void; onOpenExercise: (id: string) => void; onOpenCheckin: (c: Checkin | null) => void; onOpenFoodDay: (day: string) => void; setNutri: (f: (n: NutritionData) => NutritionData) => void; onPhotos: (add?: boolean) => void; mode?: Mode; onChanged?: () => void; onOpenWorkout?: (w: Workout) => void; onOpenEvening?: (day: string) => void }) {
   const desktop = useDesktop();
   const [ownMode, setMode] = useState<Mode>(() => {
     try { return (localStorage.getItem(MODE_KEY) as Mode) || "strength"; } catch { return "strength"; }
@@ -232,7 +232,7 @@ export default function Progress({ data, onLog, onOpenExercise, onOpenCheckin, o
       <div className="progress-body">
       {mode === "cardio" && <CardioProgress sessions={data.sessions} settings={data.settings} onLog={onLog} />}
       {mode === "strength" && !desktop && <StrengthProgress data={data} onLog={onLog} onOpenExercise={onOpenExercise} />}
-      {mode === "body" && <BodyProgress data={data} onScan={onOpenCheckin} more={bodyMore} setMore={setBodyMore} />}
+      {mode === "body" && <BodyProgress data={data} onScan={onOpenCheckin} more={bodyMore} setMore={setBodyMore} onOpenEvening={onOpenEvening} />}
       </div>
     </>
   );

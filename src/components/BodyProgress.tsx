@@ -9,11 +9,12 @@ import { ActivitySections, HydrationChart, MeditationChart } from "./Activity";
 import MoodSection, { shadeDays } from "./MoodSection";
 import { useBackHandler } from "../lib/backNav";
 import { gadBand, gadScore } from "../lib/mood";
+import EveningHabits from "./EveningHabits";
 
-export type BodyMore = null | "activity" | "headspace" | "habits" | "scans";
-const MORE_TITLE: Record<Exclude<BodyMore, null>, string> = { activity: "Steps, sleep stages, water and meditation", headspace: "Headspace", habits: "Mood and your habits", scans: "Recent scans" };
+export type BodyMore = null | "activity" | "headspace" | "habits" | "routine" | "scans";
+const MORE_TITLE: Record<Exclude<BodyMore, null>, string> = { activity: "Steps, sleep stages, water and meditation", headspace: "Headspace", habits: "Mood and your habits", routine: "Habits and evening check-ins", scans: "Recent scans" };
 
-export default function BodyProgress({ data, onScan, more = null, setMore }: { data: AppData; onScan: (c: Checkin | null) => void; more?: string | null; setMore?: (m: BodyMore) => void }) {
+export default function BodyProgress({ data, onScan, more = null, setMore, onOpenEvening }: { data: AppData; onScan: (c: Checkin | null) => void; more?: string | null; setMore?: (m: BodyMore) => void; onOpenEvening?: (day: string) => void }) {
   const { checkins } = data;
   useBackHandler(more != null, () => setMore?.(null));
   if (!checkins.length) {
@@ -74,6 +75,7 @@ export default function BodyProgress({ data, onScan, more = null, setMore }: { d
         {m === "headspace" && <MoodSection data={data} part="headspace" />}
         {m === "habits" && <MoodSection data={data} part="habits" />}
         {m === "scans" && scansList}
+        {m === "routine" && <EveningHabits data={data} onOpenDay={(d) => onOpenEvening?.(d)} />}
       </div>
     );
   }
@@ -112,6 +114,7 @@ export default function BodyProgress({ data, onScan, more = null, setMore }: { d
         <div className="list-panel more-list">
           {gad?.gad7 && row("headspace", "Headspace", `${gadScore(gad.gad7)} · ${gadBand(gadScore(gad.gad7))}`)}
           {checkins.some((c) => c.mood != null) && row("habits", "Mood and your habits", "patterns")}
+          {row("routine", "Habits and evening check-ins", "streaks")}
           {row("activity", "Steps, sleep stages, water, meditation", "")}
           {row("scans", "Recent scans", String(checkins.length))}
         </div>

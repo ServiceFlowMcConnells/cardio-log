@@ -34,6 +34,7 @@ import type { Exercise, Template, Workout } from "./lib/strength";
 import Auth from "./components/Auth";
 import Home, { type HeroSession } from "./components/home/Home";
 import SessionPreview from "./components/home/SessionPreview";
+import EveningCheckin from "./components/EveningCheckin";
 import History from "./components/History";
 import Progress, { MODE_KEY as PROGRESS_MODE_KEY, PROGRESS_MODES, type Mode as ProgressMode } from "./components/Progress";
 import SettingsView from "./components/SettingsView";
@@ -66,6 +67,7 @@ export type View =
   | { k: "cardio"; session: Session | null }
   | { k: "workout"; workout: Workout | null; template: Template | null }
   | { k: "preview"; hero: HeroSession }
+  | { k: "evening"; day: string }
   | { k: "summary"; workoutId: string }
   | { k: "template"; template: Template | null }
   | { k: "exercise"; id: string }
@@ -293,6 +295,8 @@ export default function App() {
         onDeleted={async () => { home("history"); await refresh(); }}
       />
     );
+  } else if (view.k === "evening") {
+    body = <EveningCheckin day={view.day} onClose={() => back()} />;
   } else if (view.k === "preview") {
     body = <SessionPreview data={data} hero={view.hero} onStart={startWorkout} onClose={() => back()} onCreatedExercise={refresh} />;
   } else if (view.k === "readiness") {
@@ -421,6 +425,7 @@ export default function App() {
         onScan={(c) => go({ k: "readiness", checkin: c, next: "home" })}
         onSteps={() => { setProgMode("body"); home("progress"); }}
         onCardio={() => { setProgMode("cardio"); home("progress"); }}
+        onEvening={() => go({ k: "evening", day: todayYmd() })}
         side={desktop && deskPreview ? (
           <div className="panel detail-panel home-preview">
             <SessionPreview key={`${deskPreview.template.id}-${deskPreview.date}`} data={data} hero={deskPreview} onStart={startWorkout} onClose={() => setDeskPreview(null)} onCreatedExercise={refresh} />
@@ -482,7 +487,7 @@ export default function App() {
   } else if (tab === "exercises") {
     body = <ExerciseLibrary data={data} onOpen={(id) => go({ k: "exercise", id })} onChanged={refresh} />;
   } else {
-    body = <Progress data={data} mode={desktop ? progMode : undefined} onChanged={refresh} onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} setNutri={setNutri} onPhotos={(add) => go({ k: "photos", add })} />;
+    body = <Progress data={data} mode={desktop ? progMode : undefined} onOpenEvening={(day) => go({ k: "evening", day })} onChanged={refresh} onOpenWorkout={(w) => go({ k: "summary", workoutId: w.id })} onLog={() => home("train")} onOpenExercise={(id) => go({ k: "exercise", id })} onOpenCheckin={(c) => go({ k: "readiness", checkin: c, next: "home" })} onOpenFoodDay={(d) => { setFoodDay(d); home("food"); }} setNutri={setNutri} onPhotos={(add) => go({ k: "photos", add })} />;
   }
 
   const FOOD_VIEWS = new Set<View["k"]>(["food-add", "food-edit", "recipe", "targets", "weight", "nutrition"]);
@@ -523,6 +528,7 @@ export default function App() {
         case "photos": return "Progress photos";
         case "workout": return "Workout";
         case "preview": return view.hero.template.name;
+        case "evening": return "Evening check-in";
         default: return null;
       }
     })();

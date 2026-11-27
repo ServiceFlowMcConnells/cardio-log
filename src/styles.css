@@ -1598,3 +1598,31 @@ select.input { appearance: auto; }
 
 .pick-h { margin: 14px 4px 6px; }
 .lift-swapped { margin: 2px 0 6px; color: var(--signal); }
+
+/* ---------- Evening check-in ---------- */
+.evening-card { position: relative; display: grid; gap: 4px; width: 100%; padding: 16px 18px; border: 1px solid var(--line); border-left: 5px solid var(--bike); border-radius: 18px; background: var(--panel); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.evening-card.done { border-left-color: var(--in); }
+.evening-title { font-family: var(--display); font-size: 1.5rem; font-weight: 700; line-height: 1.05; }
+.evening { display: grid; gap: 12px; padding-bottom: 90px; }
+.evening .editor-bar h1 { margin: 2px 0 0; }
+.ev-sec { display: grid; gap: 6px; }
+.ev-slot { display: grid; gap: 4px; margin-top: 6px; }
+.ev-slot-head { display: flex; justify-content: space-between; align-items: baseline; }
+.ev-item { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; border-radius: 10px; background: var(--ground); cursor: pointer; }
+.ev-item input { width: 20px; height: 20px; accent-color: var(--in); flex: none; }
+.ev-item.on { background: color-mix(in srgb, var(--in) 12%, var(--ground)); }
+.ev-med { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; }
+.ev-good + .ev-good { margin-top: 6px; }
+.supp-tools { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.supp-tools .icon-btn { width: 30px; height: 30px; min-width: 0; }
+.supp-form { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: var(--ground); margin: 6px 0; }
+.link.danger { color: var(--over); }
+/* Habits grid */
+.hab-grid { display: grid; gap: 10px; margin-top: 4px; }
+.hab-row { display: grid; gap: 4px; }
+.hab-label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.hab-cells { display: grid; grid-template-columns: repeat(28, 1fr); gap: 2px; }
+.hab-cell { aspect-ratio: 1; min-height: 9px; border: 0; padding: 0; border-radius: 3px; background: var(--line); cursor: pointer; }
+.hab-cell.on { background: var(--in); }
+.hab-cell.today { outline: 2px solid var(--ink); outline-offset: 1px; }
+.mlink-row:has(> :nth-child(3)) { grid-template-columns: 1fr auto auto; }

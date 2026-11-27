@@ -6,6 +6,7 @@ import { HEADSPACE_NAME, MOOD_LABELS, gadBand, gadScore, moodLinks } from "../li
 import { illnessSpans, isSickDay } from "../lib/illness";
 import { deloadSpans, isDeloadDay } from "../lib/deload";
 import { useMeditation } from "../lib/meditation";
+import { fullStack, useEvenings } from "../lib/evening";
 import { formatShort } from "../lib/dates";
 import Note from "./Note";
 
@@ -23,6 +24,7 @@ export const shadeDays = (start: string, end: string): "ill" | "deload" | null =
 export default function MoodSection({ data, part = "all" }: { data: AppData; part?: "all" | "chart" | "headspace" | "habits" }) {
   const show = (x: string) => part === "all" || part === x;
   const med = useMeditation();
+  const evenings = useEvenings();
   const asc = [...data.checkins].sort((a, b) => a.checked_at.localeCompare(b.checked_at));
   const mood = new Map<string, number>();
   const sleep = new Map<string, number>();
@@ -41,7 +43,7 @@ export default function MoodSection({ data, part = "all" }: { data: AppData; par
   const steps = new Map<string, number>();
   for (const a of data.activity) if (a.steps != null) steps.set(a.day, a.steps);
   const meditated = new Set((med ?? []).map((m) => m.day));
-  const { links, pending } = moodLinks({ mood, sleep, trainedDays: trained, steps, stepTarget: data.settings.step_target || 15000, meditated });
+  const { links, pending } = moodLinks({ mood, sleep, trainedDays: trained, steps, stepTarget: data.settings.step_target || 15000, meditated, fullStack: new Map((evenings ?? []).filter((e) => e.stack.length).map((e) => [e.day, fullStack(e)])) });
   const latest = gadList[gadList.length - 1];
   const f1 = (v: number) => v.toFixed(1);
 
