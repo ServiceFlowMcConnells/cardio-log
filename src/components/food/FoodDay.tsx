@@ -27,7 +27,6 @@ function dayTitle(d: string) {
 }
 
 /** Display names for a meal by its time (labels only; nothing is stored). */
-const mealName = (h: number) => (h < 11 ? "Breakfast" : h < 15 ? "Lunch" : h < 18 ? "Snack" : h < 22 ? "Dinner" : "Late snack");
 
 const amountText = (e: LogEntry, foods: Food[]) => (e.kind === "quick" ? (e.amount !== 1 ? `${fmtG(e.amount)} portion${e.amount === 1 ? "" : "s"} · quick add` : "quick add") : e.kind === "import" ? "imported day total" : e.kind === "food" ? amountLabel(foods.find((f) => f.id === e.food_id) ?? null, e.amount, e.unit) : e.unit !== "serving" ? `${fmtG(e.amount)} ${UNIT_LABEL[e.unit]}` : `${fmtG(e.amount)} serving${e.amount === 1 ? "" : "s"}`);
 
@@ -325,16 +324,14 @@ export default function FoodDay({ nutri, day, setDay, setNutri, onAdd, onTargets
     const t = hourTime(h);
     const list = byHour.get(h) ?? [];
     const allOn = list.every((e) => sel.has(e.id));
-    const name = mealName(h);
     return (
       <section key={t} className={`meal-card${isToday && h === nowH ? " now-hour" : ""}`} ref={isToday && h === nowH ? (el) => { nowRow.current = el; } : undefined}>
         <div className="meal-head">
           <button className={`time-pill num${allOn ? " on" : ""}`} onClick={() => toggle(list.map((e) => e.id))} aria-label={`Select everything at ${t}`}>{t}</button>
-          <span className="kicker">{name}</span>
           <span className="meal-tot"><MacroSub m={sumMacros(list)} /></span>
         </div>
         <div className="meal-items">{list.map(renderEntry)}</div>
-        <button className="link small meal-add" onClick={() => onAdd(t)}>+ Add to {name.toLowerCase()}</button>
+        <button className="link small meal-add" onClick={() => onAdd(t)}>+ Add at {t}</button>
       </section>
     );
   };
