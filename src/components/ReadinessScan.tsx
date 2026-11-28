@@ -132,7 +132,6 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
     setSi((i) => i - 1);
   };
   useBackHandler(si > 0 && step !== "result", back);
-  const later = (fn: () => void) => window.setTimeout(fn, 220); // let the tap show before moving on
 
   async function save(stay = false) {
     if (unwell && !symptoms.length) return setError("Tick at least one symptom, or switch back to I'm well.");
@@ -173,7 +172,6 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
     const total = steps.length - 1;
     const gadAnswer = (v: number) => {
       setGad((g) => g.map((x, j) => (j === gq ? v : x)));
-      later(() => { if (gq < 6) setGq(gq + 1); else next(); });
     };
     const avg28 = (() => {
       const cut = Date.now() - 28 * 86400000;
@@ -261,15 +259,15 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
         {step === "body" && (
           <div className="scan-step">
             <span className="kicker">This morning</span>
-            <Rating label="Energy" hint="" labels={ENERGY_LABELS} value={energy} onChange={(v) => { setEnergy(v); if (soreness != null) later(next); }} />
-            <Rating label="Soreness" hint="5 means not sore at all" labels={SORENESS_LABELS} value={soreness} onChange={(v) => { setSoreness(v); if (energy != null) later(next); }} />
+            <Rating label="Energy" hint="" labels={ENERGY_LABELS} value={energy} onChange={setEnergy} />
+            <Rating label="Soreness" hint="5 means not sore at all" labels={SORENESS_LABELS} value={soreness} onChange={setSoreness} />
           </div>
         )}
 
         {step === "mood" && (
           <div className="scan-step">
             <span className="kicker">Optional</span>
-            <Rating label="Mood" hint="" labels={MOOD_LABELS} value={mood} onChange={(v) => { setMood(v); later(next); }} />
+            <Rating label="Mood" hint="" labels={MOOD_LABELS} value={mood} onChange={setMood} />
           </div>
         )}
 
@@ -349,6 +347,7 @@ export default function ReadinessScan({ existing, checkins, saveLabel, onSaved, 
           {step === "feel" && <button className="btn primary block" disabled={!feelOk} onClick={next}>Next</button>}
           {step === "sleep" && <button className="btn primary block" disabled={sleepQ == null || !hoursOk} onClick={next}>Next</button>}
           {step === "body" && <button className="btn primary block" disabled={energy == null || soreness == null} onClick={next}>Next</button>}
+          {step === "head" && <button className="btn primary block" disabled={gad[gq] == null} onClick={() => (gq < 6 ? setGq(gq + 1) : next())}>Next</button>}
           {step === "mood" && <button className={`btn block ${mood == null ? "ghost" : "primary"}`} onClick={next}>{mood == null ? "Skip" : "Next"}</button>}
           {step === "details" && <button className="btn primary block" disabled={busy || !complete} onClick={() => save(true)}>{busy ? "Saving…" : existing ? "Save changes" : "See today's readiness"}</button>}
           {step === "result" && saved && <button className="btn primary block" onClick={() => onSaved(saved)}>{existing ? "Done" : saveLabel === "Save scan" ? "Back to dashboard" : saveLabel.replace(/^Save and /, "").replace(/^./, (c) => c.toUpperCase())}</button>}

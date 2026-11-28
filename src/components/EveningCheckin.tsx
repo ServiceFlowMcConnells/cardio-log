@@ -59,7 +59,6 @@ function Form({ day, onClose, existing, snapshot, medMin }: { day: string; onClo
   useEffect(() => { window.scrollTo({ top: 0 }); }, [si]);
   const back = () => (si === 0 ? onClose() : setSi(si - 1));
   useBackHandler(si > 0, back);
-  const later = (fn: () => void) => window.setTimeout(fn, 220);
 
   return (
     <div className="scan-steps evening">
@@ -125,8 +124,8 @@ function Form({ day, onClose, existing, snapshot, medMin }: { day: string; onClo
           <div className="rating">
             <div className="rating-head"><h3 style={{ fontSize: "1.3rem" }}>Screens in the last hour before bed?</h3></div>
             <div className="scan-big2 two" role="radiogroup" aria-label="Screens in the last hour before bed">
-              <button role="radio" aria-checked={screens === false} className={screens === false ? "on" : ""} onClick={() => { setScreens(screens === false ? null : false); if (screens !== false) later(() => setSi(si + 1)); }}><b>No</b><span>Screens off</span></button>
-              <button role="radio" aria-checked={screens === true} className={screens === true ? "on" : ""} onClick={() => { setScreens(screens === true ? null : true); if (screens !== true) later(() => setSi(si + 1)); }}><b>Yes</b><span>Phone, TV or laptop</span></button>
+              <button role="radio" aria-checked={screens === false} className={screens === false ? "on" : ""} onClick={() => { setScreens(screens === false ? null : false); }}><b>No</b><span>Screens off</span></button>
+              <button role="radio" aria-checked={screens === true} className={screens === true ? "on" : ""} onClick={() => { setScreens(screens === true ? null : true); }}><b>Yes</b><span>Phone, TV or laptop</span></button>
             </div>
           </div>
         </div>
