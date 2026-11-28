@@ -916,7 +916,7 @@ select.input { appearance: auto; }
 .kcal-fire { display: inline-flex; align-items: center; gap: 1px; }
 .kcal-fire .fire { transform: translateY(-1px); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.now-hour .time-pill { box-shadow: 0 0 0 2px var(--signal) inset; }
+.now-hour .time-pill { }
 /* Food search bar: docked above the tab bar on phones, at the top of the log on desktop */
 .food-searchbar { display: flex; align-items: center; gap: 0; background: var(--ground); border-radius: 999px; margin-bottom: 12px; border: 1px solid var(--line); }
 .food-searchbar.docked { position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 70px); z-index: 19; max-width: 536px; margin: 0 auto; background: var(--panel); box-shadow: 0 6px 22px rgb(0 0 0 / 0.18); }
@@ -1691,7 +1691,6 @@ select.input { appearance: auto; }
 .meal-items .food-row.on { background: color-mix(in srgb, var(--ink) 8%, transparent); }
 .meal-items > .list-panel { margin: 6px 0; }
 .meal-add { justify-self: start; margin: 4px 0 2px; }
-.meal-card.now-hour { box-shadow: inset 0 0 0 2px var(--signal); }
 .gap-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 14px; border: 1px dashed var(--line); border-radius: 14px; background: none; color: var(--muted); font: inherit; cursor: pointer; }
 .gap-time { font-weight: 700; color: var(--ink); opacity: 0.75; }
 .now-line { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 2px; border: 0; background: none; color: var(--signal); font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
